@@ -1,0 +1,1007 @@
+plugins {
+    id 'java-library'
+}
+
+allprojects {
+    group = 'dev.echo.nativeplatform'
+    version = '0.1.0-native-beta'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
+    }
+
+    if (project.name == 'echo-native-bootstrap-api') {
+        sourceSets.named('main') {
+            java.exclude '**/*Smoke*.java'
+            java.exclude '**/*Harness*.java'
+            java.exclude '**/*Acceptance.java'
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.incremental = false
+    }
+}
+
+project(':echo-native-diagnostics') {
+    dependencies {
+        api project(':echo-native-contracts')
+    }
+}
+
+project(':echo-native-packos') {
+    dependencies {
+        api project(':echo-native-contracts')
+        implementation project(':echo-native-diagnostics')
+    }
+}
+
+project(':echo-native-loader') {
+    sourceSets {
+        qa {
+            java.srcDir 'src/qa/java'
+            compileClasspath += sourceSets.main.output +
+                    sourceSets.main.compileClasspath +
+                    sourceSets.main.runtimeClasspath +
+                    project(':echo-native-contracts').sourceSets.main.output +
+                    project(':echo-native-loader').sourceSets.main.output
+            runtimeClasspath += output +
+                    compileClasspath +
+                    sourceSets.main.runtimeClasspath +
+                    project(':echo-native-contracts').sourceSets.main.runtimeClasspath +
+                    project(':echo-native-loader').sourceSets.main.runtimeClasspath
+        }
+    }
+
+    dependencies {
+        api project(':echo-native-contracts')
+        implementation project(':echo-native-diagnostics')
+        implementation project(':echo-native-packos')
+    }
+}
+
+def nativeLoaderQaClassesTask = ':echo-native-loader:qaClasses'
+def nativeLoaderQaRuntimeClasspath = {
+    project(':echo-native-loader').sourceSets.qa.runtimeClasspath
+}
+
+project(':echo-native-ai') {
+    dependencies {
+        api project(':echo-native-contracts')
+        implementation project(':echo-native-diagnostics')
+    }
+}
+
+project(':echo-native-product-launcher') {
+    apply plugin: 'application'
+
+    sourceSets {
+        qa {
+            java.srcDir 'src/qa/java'
+            compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+            runtimeClasspath += output + compileClasspath + sourceSets.main.runtimeClasspath
+        }
+    }
+
+    dependencies {
+        implementation project(':echo-native-contracts')
+        implementation project(':echo-native-diagnostics')
+        implementation project(':echo-native-loader')
+        implementation project(':echo-native-packos')
+    }
+
+    application {
+        mainClass = 'dev.echo.nativeplatform.product.EchoNativeProductLauncherMain'
+    }
+
+    tasks.named('run').configure {
+        workingDir = rootProject.projectDir
+    }
+
+    tasks.named('compileQaJava') {
+        dependsOn ':echo-native-contracts:classes'
+        dependsOn ':echo-native-loader:classes'
+    }
+}
+
+def nativeProductLauncherQaClassesTask = ':echo-native-product-launcher:qaClasses'
+def nativeProductLauncherQaRuntimeClasspath = {
+    project(':echo-native-product-launcher').sourceSets.qa.output +
+            project(':echo-native-loader').sourceSets.main.output +
+            project(':echo-native-product-launcher').sourceSets.main.output +
+            project(':echo-native-product-launcher').sourceSets.main.runtimeClasspath +
+            project(':echo-native-loader').sourceSets.main.runtimeClasspath
+}
+def nativeProductLauncherRuntimeJarTasks = [
+        project(':echo-native-contracts').tasks.named('jar'),
+        project(':echo-native-diagnostics').tasks.named('jar'),
+        project(':echo-native-packos').tasks.named('jar'),
+        project(':echo-native-loader').tasks.named('jar'),
+        project(':echo-native-product-launcher').tasks.named('jar'),
+]
+def nativeProductLauncherRuntimeJarClasspath = {
+    files(nativeProductLauncherRuntimeJarTasks.collect { jarTask ->
+        jarTask.flatMap { it.archiveFile }
+    })
+}
+def nativeProductLauncherRuntimeClasspath = {
+    nativeProductLauncherRuntimeJarClasspath() +
+            project(':echo-native-contracts').sourceSets.main.output +
+            project(':echo-native-diagnostics').sourceSets.main.output +
+            project(':echo-native-packos').sourceSets.main.output +
+            project(':echo-native-loader').sourceSets.main.output +
+            project(':echo-native-product-launcher').sourceSets.main.output +
+            project(':echo-native-product-launcher').sourceSets.main.runtimeClasspath +
+            project(':echo-native-contracts').sourceSets.main.runtimeClasspath +
+            project(':echo-native-loader').sourceSets.main.runtimeClasspath
+}
+
+project(':echo-native-bootstrap-api') {
+    sourceSets {
+        main {
+            compileClasspath += project(':echo-native-loader').sourceSets.main.output +
+                    project(':echo-native-loader').sourceSets.main.compileClasspath
+            runtimeClasspath += project(':echo-native-loader').sourceSets.main.output +
+                    project(':echo-native-loader').sourceSets.main.runtimeClasspath
+        }
+        qa {
+            java.srcDir 'src/qa/java'
+            compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+            runtimeClasspath += output + compileClasspath + sourceSets.main.runtimeClasspath
+        }
+    }
+
+    dependencies {
+        api project(':echo-native-contracts')
+        implementation project(':echo-native-diagnostics')
+        implementation project(':echo-native-loader')
+    }
+}
+
+def nativeBootstrapQaClassesTask = ':echo-native-bootstrap-api:qaClasses'
+def nativeBootstrapQaRuntimeClasspath = {
+    project(':echo-native-bootstrap-api').sourceSets.qa.runtimeClasspath
+}
+
+project(':echo-native-testkit') {
+    sourceSets {
+        qa {
+            java.srcDir 'src/qa/java'
+            compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+            runtimeClasspath += output + compileClasspath + sourceSets.main.runtimeClasspath
+        }
+    }
+
+    dependencies {
+        api project(':echo-native-contracts')
+        implementation project(':echo-native-diagnostics')
+        implementation project(':echo-native-loader')
+        implementation project(':echo-native-cli')
+    }
+}
+
+def nativeTestkitQaClassesTask = ':echo-native-testkit:qaClasses'
+def nativeTestkitQaRuntimeClasspath = {
+    project(':echo-native-testkit').sourceSets.qa.runtimeClasspath
+}
+
+project(':echo-native-cli') {
+    apply plugin: 'application'
+
+    sourceSets {
+        qa {
+            java.srcDir 'src/qa/java'
+            compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+            runtimeClasspath += output + compileClasspath + sourceSets.main.runtimeClasspath
+        }
+    }
+
+    dependencies {
+        implementation project(':echo-native-contracts')
+        implementation project(':echo-native-bootstrap-api')
+        implementation project(':echo-native-diagnostics')
+        implementation project(':echo-native-packos')
+        implementation project(':echo-native-loader')
+        implementation project(':echo-native-ai')
+        implementation project(':echo-native-product-launcher')
+    }
+
+    application {
+        mainClass = 'dev.echo.nativeplatform.cli.EchoNativeCli'
+    }
+
+    tasks.named('run').configure {
+        workingDir = rootProject.projectDir
+    }
+}
+
+def nativeCliQaClassesTask = ':echo-native-cli:qaClasses'
+def nativeCliQaRuntimeClasspath = {
+    project(':echo-native-cli').sourceSets.qa.runtimeClasspath
+}
+
+project(':echo-native-testkit') {
+    sourceSets.named('qa') {
+        compileClasspath += project(':echo-native-cli').sourceSets.qa.output
+        runtimeClasspath += project(':echo-native-cli').sourceSets.qa.runtimeClasspath
+    }
+
+    tasks.named('compileQaJava') {
+        dependsOn nativeCliQaClassesTask
+    }
+}
+
+tasks.register('runNativeProductLauncher', JavaExec) {
+    group = 'application'
+    description = 'Runs the Native Loader product launcher against the ECHO workspace by default; use -PechoNativeRelease=true for release validation.'
+    dependsOn ':echo-native-product-launcher:classes'
+    classpath = nativeProductLauncherRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.product.EchoNativeProductLauncherMain'
+    workingDir = rootProject.projectDir
+    def productRoot = providers.gradleProperty('echoNativeProductRoot')
+            .orElse(providers.gradleProperty('echoNativeFixture'))
+            .orElse(providers.environmentVariable('ECHO_NATIVE_PRODUCT_ROOT'))
+            .orElse(providers.environmentVariable('ECHO_NATIVE_FIXTURE'))
+            .orElse(rootProject.projectDir.parentFile.absolutePath)
+    doFirst {
+        def explicitRelease = providers.gradleProperty('echoNativeRelease').map { it.toBoolean() }
+                .orElse(providers.gradleProperty('echoNativeFullRelease').map { it.toBoolean() })
+                .orElse(false)
+                .get()
+        def moduleOnly = providers.gradleProperty('echoNativeModuleOnly').map { it.toBoolean() }
+                .orElse(providers.gradleProperty('echoNativeDev').map { it.toBoolean() })
+                .orElse(!explicitRelease)
+                .get()
+        def releaseRequested = explicitRelease && !moduleOnly
+        args productRoot.get()
+        if (releaseRequested) {
+            args '--release'
+        } else {
+            args '--module-only'
+        }
+        if (!releaseRequested && providers.gradleProperty('echoNativeRequireMutation').map { it.toBoolean() }.orElse(false).get()) {
+            args '--require-mutation'
+        }
+        if (!releaseRequested && providers.gradleProperty('echoNativeRequireLiveRuntime').map { it.toBoolean() }.orElse(false).get()) {
+            args '--require-live-runtime'
+        }
+        if (providers.gradleProperty('echoNativeFullRelease').map { it.toBoolean() }.orElse(false).get()) {
+            args '--full-release'
+        }
+    }
+}
+
+def echoRepoRoot = rootProject.projectDir.parentFile
+def nativeProductSourceRoot = providers.gradleProperty('echoNativeSourceRoot')
+        .orElse(providers.gradleProperty('echoNativeFixture'))
+        .orElse(providers.environmentVariable('ECHO_NATIVE_SOURCE_ROOT'))
+        .orElse(providers.environmentVariable('ECHO_NATIVE_FIXTURE'))
+        .orElse(echoRepoRoot.absolutePath)
+def nativeProductPackageOutput = providers.gradleProperty('echoNativePackageOutput')
+        .orElse(providers.environmentVariable('ECHO_NATIVE_PACKAGE_OUTPUT'))
+        .orElse(layout.buildDirectory.dir('native-product-package').map { it.asFile.absolutePath })
+def nativeProductReadinessPackageOutput = providers.gradleProperty('echoNativeReadinessPackageOutput')
+        .orElse(providers.environmentVariable('ECHO_NATIVE_READINESS_PACKAGE_OUTPUT'))
+        .orElse(layout.buildDirectory.dir('native-product-readiness-package').map { it.asFile.absolutePath })
+def nativeProductPackProfileRoot = providers.gradleProperty('echoNativePackProfileRoot')
+        .orElse(providers.gradleProperty('echoNativePackProfile'))
+        .orElse(providers.environmentVariable('ECHO_NATIVE_PACK_PROFILE_ROOT'))
+        .orElse(providers.environmentVariable('ECHO_NATIVE_PACK_PROFILE'))
+def nativeProductAddonSet = providers.gradleProperty('echoNativeAddonSet')
+        .orElse(providers.gradleProperty('echoAddonSet'))
+        .orElse('ashfall-runtime')
+def nativeProductGradleBuildRoot = providers.environmentVariable('ECHO_GRADLE_BUILD_DIR')
+        .orElse(providers.environmentVariable('LOCALAPPDATA').map { "${it}/EchoGradleBuild" })
+        .orElse("${System.getProperty('java.io.tmpdir')}/EchoGradleBuild")
+def nativeProductPrepareMaxWorkers = providers.gradleProperty('echoNativePrepareMaxWorkers')
+        .orElse(providers.environmentVariable('ECHO_NATIVE_PREPARE_MAX_WORKERS'))
+        .orElse('1')
+
+tasks.register('prepareNativeProductModuleArtifacts', Exec) {
+    group = 'release'
+    description = 'Builds source workspace module artifacts before Native Loader product packaging.'
+    workingDir = echoRepoRoot
+    doFirst {
+        def gradleExecutable = new File(echoRepoRoot,
+                System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+                        ? 'gradlew.bat'
+                        : 'gradlew')
+        if (!gradleExecutable.isFile()) {
+            throw new GradleException("Native product artifact preparation requires a source workspace Gradle wrapper at ${gradleExecutable}.")
+        }
+        commandLine gradleExecutable.absolutePath,
+                'validateReleaseArtifacts',
+                "-PechoAddonSet=${nativeProductAddonSet.get()}",
+                '--no-configuration-cache',
+                '--no-problems-report',
+                "--max-workers=${nativeProductPrepareMaxWorkers.get()}"
+    }
+}
+
+tasks.register('packageNativeProductLayout', JavaExec) {
+    group = 'release'
+    description = 'Packages Native Loader product modules into a release layout with explicit artifact classpaths.'
+    dependsOn ':echo-native-product-launcher:classes'
+    dependsOn nativeProductLauncherRuntimeJarTasks
+    dependsOn tasks.named('prepareNativeProductModuleArtifacts')
+    classpath = nativeProductLauncherRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.product.EchoNativeProductLauncherMain'
+    workingDir = rootProject.projectDir
+    systemProperty 'echo.native.gradleBuildRoot', nativeProductGradleBuildRoot.get()
+    doFirst {
+        def packageArgs = ['package', nativeProductSourceRoot.get(), nativeProductPackageOutput.get()]
+        if (nativeProductPackProfileRoot.isPresent()) {
+            packageArgs.addAll(['--pack-profile', nativeProductPackProfileRoot.get()])
+        }
+        setArgs(packageArgs)
+    }
+}
+
+tasks.register('packageNativeProductReadinessLayout', JavaExec) {
+    group = 'verification'
+    description = 'Packages Native Loader modules into an isolated layout for product readiness verification.'
+    dependsOn ':echo-native-product-launcher:classes'
+    dependsOn nativeProductLauncherRuntimeJarTasks
+    dependsOn tasks.named('prepareNativeProductModuleArtifacts')
+    classpath = nativeProductLauncherRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.product.EchoNativeProductLauncherMain'
+    workingDir = rootProject.projectDir
+    systemProperty 'echo.native.gradleBuildRoot', nativeProductGradleBuildRoot.get()
+    doFirst {
+        def packageArgs = ['package', nativeProductSourceRoot.get(), nativeProductReadinessPackageOutput.get()]
+        if (nativeProductPackProfileRoot.isPresent()) {
+            packageArgs.addAll(['--pack-profile', nativeProductPackProfileRoot.get()])
+        }
+        setArgs(packageArgs)
+    }
+}
+
+tasks.register('runPackagedNativeProductLauncher', JavaExec) {
+    group = 'application'
+    description = 'Packages Native Loader modules and launches the packaged product layout through the release gate by default.'
+    dependsOn tasks.named('packageNativeProductLayout')
+    dependsOn nativeProductLauncherRuntimeJarTasks
+    classpath = nativeProductLauncherRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.product.EchoNativeProductLauncherMain'
+    workingDir = rootProject.projectDir
+    systemProperty 'echo.native.gradleBuildRoot', nativeProductGradleBuildRoot.get()
+    doFirst {
+        def launchArgs = [nativeProductPackageOutput.get()]
+        def moduleOnly = providers.gradleProperty('echoNativeModuleOnly').map { it.toBoolean() }
+                .orElse(providers.gradleProperty('echoNativeDev').map { it.toBoolean() })
+                .orElse(false)
+                .get()
+        def releaseRequested = providers.gradleProperty('echoNativeRelease').map { it.toBoolean() }
+                .orElse(providers.gradleProperty('echoNativeFullRelease').map { it.toBoolean() })
+                .orElse(!moduleOnly)
+                .get()
+        def requireMutation = providers.gradleProperty('echoNativeRequireMutation').map { it.toBoolean() }
+                .orElse(true)
+                .get()
+        def requireLiveRuntime = providers.gradleProperty('echoNativeRequireLiveRuntime').map { it.toBoolean() }
+                .orElse(false)
+                .get()
+
+        if (releaseRequested) {
+            launchArgs.add('--release')
+        } else {
+            launchArgs.add('--module-only')
+        }
+        if (!releaseRequested && requireMutation) {
+            launchArgs.add('--require-mutation')
+        }
+        if (!releaseRequested && requireLiveRuntime) {
+            launchArgs.add('--require-live-runtime')
+        }
+        setArgs(launchArgs)
+    }
+}
+
+tasks.register('verifyNativeProductLauncherReadiness', JavaExec) {
+    group = 'verification'
+    description = 'Verifies packaged Native Loader product launch gates and live-runtime fail-closed behavior.'
+    dependsOn tasks.named('packageNativeProductReadinessLayout')
+    dependsOn nativeProductLauncherQaClassesTask
+    classpath = nativeProductLauncherQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.product.EchoNativeProductLauncherReadinessVerifier'
+    workingDir = rootProject.projectDir
+    systemProperty 'echo.native.gradleBuildRoot', nativeProductGradleBuildRoot.get()
+    doFirst {
+        def readinessArgs = [nativeProductReadinessPackageOutput.get(), nativeProductSourceRoot.get()]
+        def readinessPhase = providers.gradleProperty('echoNativeReadinessPhase').orElse('').get().trim()
+        if (!readinessPhase.isEmpty()) {
+            readinessArgs.add("--phase=${readinessPhase}")
+        }
+        setArgs(readinessArgs)
+    }
+}
+
+tasks.register('runNativeAgent3ProductLauncherRegistryGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies product launcher release diagnostics reject status-only registry mutation evidence.'
+    dependsOn nativeProductLauncherQaClassesTask
+    classpath = nativeProductLauncherQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.product.EchoNativeAgent3ProductLauncherRegistryGateMain'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('startNativeClient') {
+    group = 'application'
+    description = 'Alias for the packaged Native Loader product launcher release gate. Use -PechoNativeModuleOnly=true for dev/preflight loading.'
+    dependsOn tasks.named('runPackagedNativeProductLauncher')
+}
+
+tasks.register('runNativeTransformPolicy', JavaExec) {
+    group = 'verification'
+    description = 'Prints Native Loader transform compatibility policy decisions without report/planner inputs.'
+    dependsOn ':echo-native-cli:classes'
+    classpath = project(':echo-native-cli').sourceSets.main.runtimeClasspath
+    mainClass = 'dev.echo.nativeplatform.cli.EchoNativeCli'
+    workingDir = rootProject.projectDir
+    def fixture = providers.gradleProperty('echoNativeFixture')
+            .orElse(providers.environmentVariable('ECHO_NATIVE_FIXTURE'))
+    args 'native', 'transform-policy'
+    doFirst {
+        if (!fixture.isPresent()) {
+            throw new GradleException('Set -PechoNativeFixture=<fixture-or-product-profile-root> or ECHO_NATIVE_FIXTURE before running runNativeTransformPolicy.')
+        }
+        args fixture.get()
+    }
+}
+
+def echoPythonExecutable = providers.environmentVariable('PYTHON').orElse('python').get()
+def echoRootGradleBuildDirectory = new File(System.getProperty('user.home'), 'AppData/Local/EchoGradleBuild/Echo')
+def echoNativeCoreModuleAuditReport = new File(echoRepoRoot, 'reports/echo-native/core-module-integration-audit.json')
+def nativeCoreModuleLoadStateProjectPaths = [
+        ':echocore',
+        ':echoplatformcore',
+        ':echoadaptercore',
+        ':echopackcore',
+        ':echoschemacore',
+        ':echovalidationcore',
+        ':echometadatacore',
+        ':echomodulegraph',
+        ':echohealthcore',
+        ':echoagentcore',
+        ':echobridgecore',
+        ':echocontentcore',
+        ':echoassetcore',
+        ':echoreportcore',
+        ':echonetcore',
+        ':echodatacore',
+        ':echoruntimeguard',
+        ':echoinputcore',
+        ':echoscreencore',
+        ':echorendercore',
+        ':echothemecore',
+        ':echosoundcore',
+        ':echohudcore',
+        ':echonotificationcore',
+        ':echoguidecore',
+        ':echocodexcore',
+        ':echolorecore',
+        ':echowiki',
+        ':echoindex',
+        ':echolens',
+        ':echoholomap',
+        ':echoterminal',
+        ':echomissioncore',
+        ':echoworldcore',
+        ':echorecovery'
+]
+def nativeAllBridgeableAuditModules = []
+def nativeAllBridgeableModuleProjectPaths = []
+if (echoNativeCoreModuleAuditReport.isFile()) {
+    def audit = new groovy.json.JsonSlurper().parse(echoNativeCoreModuleAuditReport)
+    nativeAllBridgeableAuditModules = audit.modules
+            .findAll { it.nativeIntegrationStatus == 'LEGACY_ADAPTER_BRIDGEABLE' }
+    nativeAllBridgeableModuleProjectPaths = nativeAllBridgeableAuditModules
+            .findAll { it.hasBuildGradle }
+            .collect { ':' + new File(String.valueOf(it.directory).replace('\\', '/')).name }
+            .unique()
+            .sort()
+}
+
+tasks.register('verifyNativeReportSnapshots', JavaExec) {
+    group = 'verification'
+    description = 'Regenerates native planning reports twice and verifies deterministic key report snapshots.'
+    dependsOn nativeTestkitQaClassesTask
+    classpath = nativeTestkitQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.testkit.EchoNativeReportSnapshotVerifier'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeSdkTestkitSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs SDK testkit fake-host typed service smoke coverage.'
+    dependsOn nativeTestkitQaClassesTask
+    classpath = nativeTestkitQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.testkit.EchoNativeSdkTestkitSmoke'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeContractApiBoundaryCheck', JavaExec) {
+    group = 'verification'
+    description = 'Verifies public Native contract types declare API stability and planning DTOs stay internal.'
+    dependsOn nativeTestkitQaClassesTask
+    classpath = nativeTestkitQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.testkit.EchoNativeContractApiBoundaryVerifier'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeSdkDependencyBoundaryCheck', JavaExec) {
+    group = 'verification'
+    description = 'Verifies Native SDK/API artifacts do not take production dependencies on echo-native-loader internals.'
+    dependsOn nativeTestkitQaClassesTask
+    classpath = nativeTestkitQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.testkit.EchoNativeSdkDependencyBoundaryVerifier'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('prepareNativeAgent4RegistryAudit', Exec) {
+    group = 'verification'
+    description = 'Generates fresh Agent 4 registry/data/assets audit reports for the native registry smoke.'
+    workingDir = echoRepoRoot
+    commandLine echoPythonExecutable,
+            'tools/echo_agent4_registry_parity.py',
+            '--root',
+            echoRepoRoot.absolutePath,
+            '--audit-only'
+    mustRunAfter 'verifyNativeReportSnapshots'
+}
+
+tasks.register('runNativeAgent8EntityCombatSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs Agent 8 Native Loader entity/combat/NPC AdapterCore parity smoke.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeEntityCombatSmokeMain'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeAgent4RegistryContentSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs Agent 4 Native Loader registry/data/assets backend smoke.'
+    dependsOn 'prepareNativeAgent4RegistryAudit'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeAgent4RegistrySmokeMain'
+    workingDir = rootProject.projectDir
+    jvmArgs "-Decho.native.registry.resourcePackRoot=${layout.buildDirectory.dir("agent4/native-materialized-resource-pack-${System.currentTimeMillis()}").get().asFile.absolutePath}"
+}
+
+tasks.register('runNativeAgent4WorldStartupSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs Agent 4 Native Loader Ashfall datapack/world startup ownership smoke.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeAgent4WorldStartupSmokeMain'
+    workingDir = rootProject.projectDir
+    doFirst {
+        def packagedAshfallDatapack = providers.gradleProperty('echoNativeAgent4WorldStartupDatapack')
+                .orElse('')
+                .get()
+                .trim()
+        if (!packagedAshfallDatapack.isBlank()) {
+            args packagedAshfallDatapack
+        }
+    }
+}
+
+tasks.register('runNativeAgent4BootstrapWorldStartupSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs Agent 4 bootstrap pre-handoff Ashfall world startup bridge smoke.'
+    dependsOn nativeBootstrapQaClassesTask
+    classpath = nativeBootstrapQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.bootstrap.EchoNativeAgent4BootstrapWorldStartupSmokeMain'
+    workingDir = rootProject.projectDir
+    doFirst {
+        def moduleClasspath = providers.gradleProperty('echoNativeAgent4BootstrapModuleClasspath').orElse('').get()
+        def moduleClasspathFile = providers.gradleProperty('echoNativeAgent4BootstrapModuleClasspathFile').orElse('').get().trim()
+        if (moduleClasspath.isBlank() && !moduleClasspathFile.isBlank()) {
+            def path = file(moduleClasspathFile).toPath()
+            if (java.nio.file.Files.isRegularFile(path)) {
+                moduleClasspath = java.nio.file.Files.readAllLines(path).findAll { !String.valueOf(it).isBlank() }.join(File.pathSeparator)
+            }
+        }
+        systemProperty 'echo.native.moduleClasspath', moduleClasspath
+    }
+}
+
+tasks.register('runNativeAgent3RegistryParityGate', JavaExec) {
+    group = 'verification'
+    description = 'Fails if any declared first-class Native Loader registry kind remains REGISTERED-only.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeAgent3RegistryParityGateMain'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeAgent3CreativeTabPlanGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies native creative tab plans expose registry-backed groups, icons, ordering, population, and search visibility.'
+    dependsOn nativeBootstrapQaClassesTask
+    classpath = nativeBootstrapQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.bootstrap.EchoNativeAgent3CreativeTabPlanGateMain'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeAgent3AshfallCreativeTabWiringGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies Ashfall native modules creative-tab product hook wiring is registry-backed and not descriptor-only.'
+    dependsOn nativeBootstrapQaClassesTask
+    classpath = nativeBootstrapQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.bootstrap.EchoNativeAgent3AshfallCreativeTabWiringGateMain'
+    workingDir = rootProject.projectDir
+}
+
+def nativeAgent5AdapterCoreSmokeClasses = layout.buildDirectory.dir('agent5/adaptercore-smoke-api/classes')
+def nativeAgent5AdapterCoreSmokeClasspath = files(nativeAgent5AdapterCoreSmokeClasses.map { it.asFile })
+
+tasks.register('compileNativeAgent5AdapterCoreSmokeApi', JavaCompile) {
+    group = 'verification'
+    description = 'Compiles the minimal AdapterCore host API used by the native Agent 5 UI contract smoke.'
+    source = files(
+            rootProject.projectDir.parentFile.toPath()
+                    .resolve('addons/echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/AdapterContractGuards.java'),
+            rootProject.projectDir.parentFile.toPath()
+                    .resolve('addons/echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/EchoNativeRuntimeHost.java'),
+            rootProject.projectDir.parentFile.toPath()
+                    .resolve('addons/echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/EchoRuntimeHostCapabilities.java'),
+            rootProject.projectDir.parentFile.toPath()
+                    .resolve('addons/echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/EchoRuntimeHostRegistry.java')
+    )
+    classpath = files()
+    destinationDirectory = nativeAgent5AdapterCoreSmokeClasses
+    options.encoding = 'UTF-8'
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+tasks.register('runNativeAgent5UiBridgeContractSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs the Agent 5 native live UI bridge contract smoke.'
+    dependsOn nativeBootstrapQaClassesTask
+    dependsOn 'compileNativeAgent5AdapterCoreSmokeApi'
+    classpath = nativeBootstrapQaRuntimeClasspath() + nativeAgent5AdapterCoreSmokeClasspath
+    mainClass = 'dev.echo.nativeplatform.bootstrap.EchoNativeAgent5UiBridgeContractVerifier'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeAgent5RuntimeTruthGate', JavaExec) {
+    group = 'verification'
+    description = 'Fails closed when Agent 5 runtime parity is satisfied only by Native Loader mirror state or report projection.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeAgent5RuntimeTruthGateMain'
+    workingDir = rootProject.projectDir
+    args layout.buildDirectory.file('agent5/runtime-truth-gate/agent5-runtime-truth-gate.json').get().asFile.absolutePath
+}
+
+tasks.register('runNativeAgent74UiFallbackRealUxParitySmoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs Agent 74 native UI fallback real UX parity smoke for Terminal, Index, Lens, and HUD.'
+    dependsOn nativeBootstrapQaClassesTask
+    classpath = nativeBootstrapQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.bootstrap.EchoNativeAgent74UiFallbackRealUxParityVerifier'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeAgent80GameplayHookTruthGateSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Verifies controlled AdapterCore gameplay replay is not mislabeled as live Minecraft hook attachment.'
+    dependsOn nativeBootstrapQaClassesTask
+    classpath = nativeBootstrapQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.bootstrap.EchoNativeAgent80GameplayHookTruthGateVerifier'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeAgent9MachineRuntimeHostSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Verifies native machine actions delegate to canonical AdapterCore machine host tick/output paths.'
+    dependsOn nativeBootstrapQaClassesTask
+    classpath = nativeBootstrapQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.bootstrap.EchoNativeAgent9MachineRuntimeHostVerifier'
+    workingDir = rootProject.projectDir
+    args echoRepoRoot.absolutePath
+}
+
+tasks.register('runNativeAgent3RuntimeCoreSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs Agent 3 Native Loader runtime core AdapterCore parity smoke for boot modes, tick layers, module statuses, and playable-loop checklist.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeAgent3RuntimeCoreSmokeMain'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeAgent2ClientRouteOwnershipSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs Agent 2 Native Loader client route/UI ownership smoke for route dispatch, input bindings, HUD, menu, and loading surfaces.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeAgent2ClientRouteOwnershipSmokeMain'
+    workingDir = rootProject.projectDir
+    args layout.buildDirectory.file('native-agent2-client-routes/native-client-route-ownership.json').get().asFile.absolutePath
+}
+
+tasks.register('runNativeAgent10StorySmoke', JavaExec) {
+    group = 'verification'
+    description = 'Runs Agent 10 Native Loader story/SignalOS/Arcane AdapterCore parity smoke.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeAgent10StorySmokeMain'
+    workingDir = rootProject.projectDir
+    args layout.buildDirectory.file('agent10/native-loader/agent-10-native-loader.json').get().asFile.absolutePath
+}
+
+def nativeLoaderProofModuleSource = file('fixtures/native-loader-sample/modules/echoashfallnativeproof/src/main/java')
+def nativeLoaderProofModuleClasses = layout.buildDirectory.dir('native-loader-proof-module/classes')
+
+tasks.register('compileNativeLoaderProofModule', JavaCompile) {
+    group = 'verification'
+    description = 'Compiles the sample Native Loader proof module into an isolated module classpath.'
+    dependsOn ':echo-native-loader:classes'
+    source = fileTree(nativeLoaderProofModuleSource)
+    classpath = project(':echo-native-contracts').sourceSets.main.output + project(':echo-native-loader').sourceSets.main.output
+    destinationDirectory = nativeLoaderProofModuleClasses
+    options.encoding = 'UTF-8'
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+tasks.register('jarNativeLoaderProofModule', Jar) {
+    group = 'verification'
+    description = 'Packages the sample Native Loader proof module jar consumed by echo.mod.json nativeClasspath.'
+    dependsOn 'compileNativeLoaderProofModule'
+    archiveFileName = 'echoashfallnativeproof-module.jar'
+    destinationDirectory = layout.buildDirectory.dir('native-loader-proof-module')
+    from(nativeLoaderProofModuleClasses)
+}
+
+tasks.register('runNativeLoaderProofSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Loads a sample Native Loader module class, registers AdapterCore services, and proves a host mutation.'
+    dependsOn nativeLoaderQaClassesTask
+    dependsOn 'jarNativeLoaderProofModule'
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeLoaderProofSmokeMain'
+    workingDir = rootProject.projectDir
+    args 'fixtures/native-loader-sample',
+            layout.buildDirectory.file('native-loader-proof/native-loader-proof.json').get().asFile.absolutePath
+}
+
+tasks.register('runNativeLegacyAdapterBridgeSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Verifies legacy activateNative(Map) adapters are rejected unless they implement EchoNativeModuleEntrypoint.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeLegacyAdapterBridgeSmokeMain'
+    workingDir = rootProject.projectDir
+    args layout.buildDirectory.file('native-loader-legacy-adapter-bridge/native-loader-legacy-adapter-bridge.json').get().asFile.absolutePath
+}
+
+tasks.register('runNativeDependencyResolutionGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies Native Loader dependency resolution is deterministic and rejects missing/cyclic required dependencies.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeDependencyResolutionGateMain'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeServiceCollisionGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies Native Loader service IDs cannot collide across modules or duplicate inside a module.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeServiceCollisionGateMain'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('prepareNativeCoreModuleLoadStateClasses', Exec) {
+    group = 'verification'
+    description = 'Compiles the real repo core module classes consumed as Native Loader nativeClasspath entries.'
+    workingDir = echoRepoRoot
+    commandLine(([new File(echoRepoRoot, 'gradlew.bat').absolutePath]
+            + nativeCoreModuleLoadStateProjectPaths.collect { "${it}:classes" }
+            + ['-PechoAddonSet=beta']) as List)
+}
+
+tasks.register('runNativeCoreModuleLoadStateSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Loads real core repo descriptors/classes through Native Loader and persists loaded-module state.'
+    dependsOn nativeLoaderQaClassesTask
+    dependsOn 'prepareNativeCoreModuleLoadStateClasses'
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeCoreModuleLoadStateSmokeMain'
+    workingDir = rootProject.projectDir
+    args echoRepoRoot.absolutePath,
+            echoRootGradleBuildDirectory.absolutePath,
+            layout.buildDirectory.file('native-core-module-load-state/native-core-module-load-state.json').get().asFile.absolutePath
+}
+
+tasks.register('prepareNativeAllBridgeableModuleLoadStateClasses', Exec) {
+    group = 'verification'
+    description = 'Compiles every bridgeable repo module class output consumed as Native Loader nativeClasspath entries.'
+    workingDir = echoRepoRoot
+    commandLine(([new File(echoRepoRoot, 'gradlew.bat').absolutePath]
+            + nativeAllBridgeableModuleProjectPaths.collect { "${it}:classes" }
+            + [':compileEchoNativeM17LooseEntrypoints', '-PechoAddonSet=all']) as List)
+}
+
+tasks.register('runNativeAllBridgeableModuleLoadStateSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Loads every bridgeable repo descriptor/class through Native Loader and persists loaded-module state.'
+    dependsOn nativeLoaderQaClassesTask
+    dependsOn 'prepareNativeAllBridgeableModuleLoadStateClasses'
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeCoreModuleLoadStateSmokeMain'
+    workingDir = rootProject.projectDir
+    args echoRepoRoot.absolutePath,
+            echoRootGradleBuildDirectory.absolutePath,
+            layout.buildDirectory.file('native-all-bridgeable-module-load-state/native-all-bridgeable-module-load-state.json').get().asFile.absolutePath,
+            'all-bridgeable'
+}
+
+tasks.register('packageNativeAllBridgeableModuleArtifacts') {
+    group = 'verification'
+    description = 'Packages every bridgeable native module class/resource output into deterministic Native Loader artifacts.'
+    dependsOn 'prepareNativeAllBridgeableModuleLoadStateClasses'
+
+    def artifactDirectoryProvider = layout.buildDirectory.dir('native-all-bridgeable-module-artifacts/modules')
+    outputs.dir artifactDirectoryProvider
+    outputs.upToDateWhen { false }
+
+    doLast {
+        def artifactDirectory = artifactDirectoryProvider.get().asFile
+        delete artifactDirectory
+        artifactDirectory.mkdirs()
+
+        nativeAllBridgeableAuditModules.each { module ->
+            def moduleId = String.valueOf(module.moduleId)
+            def directory = String.valueOf(module.directory).replace('\\', '/')
+            def sourceRoot = new File(echoRepoRoot, directory)
+            def buildDirectoryName = new File(directory).name
+            def classesDir
+            def resourcesDir
+            if (moduleId == 'echomodpackcommandcenter') {
+                classesDir = new File(echoRootGradleBuildDirectory, 'root/echoNativeM17/looseEntrypoints/classes')
+                resourcesDir = new File(sourceRoot, 'src/main/resources')
+            } else {
+                classesDir = new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/classes/java/main")
+                resourcesDir = new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/resources/main")
+            }
+            if (!classesDir.exists()) {
+                throw new GradleException("Missing native module classes for ${moduleId}: ${classesDir}")
+            }
+            def artifact = new File(artifactDirectory, "${moduleId}.jar")
+            ant.jar(destfile: artifact) {
+                fileset(dir: classesDir)
+                if (resourcesDir.isDirectory()) {
+                    fileset(dir: resourcesDir)
+                }
+            }
+        }
+    }
+}
+
+tasks.register('runNativeAllBridgeableModuleArtifactLoadStateSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Loads every bridgeable repo descriptor/class from packaged Native Loader artifacts and persists loaded-module state.'
+    dependsOn nativeLoaderQaClassesTask
+    dependsOn 'packageNativeAllBridgeableModuleArtifacts'
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeCoreModuleLoadStateSmokeMain'
+    workingDir = rootProject.projectDir
+    args echoRepoRoot.absolutePath,
+            layout.buildDirectory.dir('native-all-bridgeable-module-artifacts/modules').get().asFile.absolutePath,
+            layout.buildDirectory.file('native-all-bridgeable-module-artifact-load-state/native-all-bridgeable-module-artifact-load-state.json').get().asFile.absolutePath,
+            'all-bridgeable',
+            'artifacts'
+}
+
+tasks.register('runAdapterCoreNativeLoaderRuntimeHostSmoke') {
+    group = 'verification'
+    description = 'Relocated to the root Echo build: :echoadaptercore:runAdapterCoreNativeLoaderRuntimeHostSmoke.'
+    enabled = false
+}
+
+tasks.register('runNativeLoaderProofTruthGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies the Native Loader proof report proves host mutation without claiming live-client gameplay readiness.'
+    dependsOn 'runNativeLoaderProofSmoke'
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeLoaderProofTruthGateMain'
+    workingDir = rootProject.projectDir
+    args layout.buildDirectory.file('native-loader-proof/native-loader-proof.json').get().asFile.absolutePath
+}
+
+tasks.register('runNativeLoaderLiveProofTruthGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies Native Loader live-client proof cannot claim gameplay readiness until all required live targets pass.'
+    dependsOn nativeBootstrapQaClassesTask
+    classpath = nativeBootstrapQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.bootstrap.EchoNativeLoaderLiveProofTruthGateVerifier'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeActivationTruthGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies Ashfall activation reports require loaded native module classes instead of broad hook flags.'
+    dependsOn nativeCliQaClassesTask
+    classpath = nativeCliQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.cli.EchoNativeActivationTruthGateVerifier'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeRealProcessMainClassTruthGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies real-process command previews resolve the Minecraft client main class from fixture-local manifests.'
+    dependsOn nativeCliQaClassesTask
+    classpath = nativeCliQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.cli.EchoNativeRealProcessMainClassTruthGateVerifier'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('echoPackageNativeAddon', Zip) {
+    group = 'build'
+    description = 'Packages the sample Native Loader proof add-on as a .echo-addon artifact.'
+    dependsOn 'jarNativeLoaderProofModule'
+    archiveFileName = 'echoashfallnativeproof.echo-addon'
+    destinationDirectory = layout.buildDirectory.dir('echo-native/addons')
+    from('fixtures/native-loader-sample/modules/echoashfallnativeproof/META-INF/echo.mod.json')
+    from('fixtures/native-loader-sample/modules/echoashfallnativeproof/echo-addon-package.json')
+    from(tasks.named('jarNativeLoaderProofModule').flatMap { it.archiveFile }) {
+        rename { 'addon.jar' }
+    }
+    into('assets') {
+        from('fixtures/native-loader-sample/modules/echoashfallnativeproof/assets')
+    }
+    into('data') {
+        from('fixtures/native-loader-sample/modules/echoashfallnativeproof/data')
+    }
+}
+
+tasks.named('check') {
+    dependsOn 'verifyNativeProductLauncherReadiness'
+    dependsOn 'verifyNativeReportSnapshots'
+    dependsOn 'runNativeAgent2ClientRouteOwnershipSmoke'
+    dependsOn 'runNativeAgent3RuntimeCoreSmoke'
+    dependsOn 'runNativeAgent4RegistryContentSmoke'
+    dependsOn 'runNativeAgent4WorldStartupSmoke'
+    dependsOn 'runNativeAgent4BootstrapWorldStartupSmoke'
+    dependsOn 'runNativeAgent3RegistryParityGate'
+    dependsOn 'runNativeAgent3CreativeTabPlanGate'
+    dependsOn 'runNativeAgent3AshfallCreativeTabWiringGate'
+    dependsOn 'runNativeAgent3ProductLauncherRegistryGate'
+    dependsOn 'runNativeAgent8EntityCombatSmoke'
+    dependsOn 'runNativeAgent5UiBridgeContractSmoke'
+    dependsOn 'runNativeAgent5RuntimeTruthGate'
+    dependsOn 'runNativeAgent9MachineRuntimeHostSmoke'
+    dependsOn 'runNativeAgent80GameplayHookTruthGateSmoke'
+    dependsOn 'runNativeAgent10StorySmoke'
+    dependsOn 'runNativeLoaderProofSmoke'
+    dependsOn 'runNativeLegacyAdapterBridgeSmoke'
+    dependsOn 'runNativeCoreModuleLoadStateSmoke'
+    dependsOn 'runNativeAllBridgeableModuleLoadStateSmoke'
+    dependsOn 'runNativeAllBridgeableModuleArtifactLoadStateSmoke'
+    dependsOn 'runAdapterCoreNativeLoaderRuntimeHostSmoke'
+    dependsOn 'runNativeLoaderProofTruthGate'
+    dependsOn 'runNativeLoaderLiveProofTruthGate'
+    dependsOn 'runNativeActivationTruthGate'
+    dependsOn 'runNativeRealProcessMainClassTruthGate'
+}

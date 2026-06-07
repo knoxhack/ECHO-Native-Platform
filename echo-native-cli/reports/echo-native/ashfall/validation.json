@@ -1,0 +1,32 @@
+{
+  "data": {
+    "phase13Blocked": true,
+    "requiredFeatures": [],
+    "requiredModules": []
+  },
+  "generatedAt": "2026-05-29T22:55:40.528099900Z",
+  "generator": "echo-native-cli",
+  "issues": [
+    {
+      "code": "ECHO-NATIVE-PACK-PROFILE-INVALID",
+      "likelyFiles": [
+        "echo.pack.json"
+      ],
+      "moduleId": null,
+      "packId": "",
+      "severity": "FATAL",
+      "suggestedFix": "Add a valid echo.pack.json fixture profile.",
+      "summary": "fixtures\\ashfall\\echo.pack.json",
+      "title": "Invalid pack profile"
+    }
+  ],
+  "packId": "",
+  "schema": "echo.native.validation.v1",
+  "status": "BLOCKED",
+  "summary": {
+    "blockingDiagnostics": 1,
+    "descriptorCount": 0,
+    "diagnosticCount": 1,
+    "dryRunOnly": true
+  }
+}

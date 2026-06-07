@@ -1,0 +1,11 @@
+rootProject.name = 'echo-native-platform'
+
+include 'echo-native-contracts'
+include 'echo-native-bootstrap-api'
+include 'echo-native-diagnostics'
+include 'echo-native-packos'
+include 'echo-native-loader'
+include 'echo-native-ai'
+include 'echo-native-product-launcher'
+include 'echo-native-testkit'
+include 'echo-native-cli'
