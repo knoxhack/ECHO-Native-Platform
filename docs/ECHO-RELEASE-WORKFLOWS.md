@@ -48,7 +48,7 @@ jobs:
 
 ## ECHO Launcher
 
-**File:** `ECHOLauncher/.github/workflows/launcher-release.yml`
+**File:** `ECHO-Launcher/.github/workflows/launcher-release.yml`
 
 | Field | Value |
 |---|---|
@@ -59,11 +59,11 @@ jobs:
 | Post-publish checks | Installer artifact presence, updater manifest presence, SHA-256 evidence |
 
 **Additional launcher publishing entrypoint:**  
-`ECHOLauncher/.github/workflows/publish-launcher.yml` mirrors the same hardening and is used by manual lane control.
+`ECHO-Launcher/.github/workflows/publish-launcher.yml` mirrors the same hardening and is used by manual lane control.
 
 ## ECHO Addon Studio
 
-**File:** `ECHOADDONSTUDIO/.github/workflows/release.yml`
+**File:** `ECHO-Addons-Studio/.github/workflows/release.yml`
 
 | Field | Value |
 |---|---|
@@ -74,7 +74,7 @@ jobs:
 
 ### Required Alignment
 
-Add `build.publish` block to `ECHOADDONSTUDIO/package.json`:
+Add `build.publish` block to `ECHO-Addons-Studio/package.json`:
 
 ```json
 {
@@ -87,7 +87,7 @@ Add `build.publish` block to `ECHOADDONSTUDIO/package.json`:
     "publish": [
       {
         "provider": "github",
-        "owner": "echoplatform",
+        "owner": "knoxhack",
         "repo": "ECHO-Addons-Studio",
         "releaseType": "release"
       }

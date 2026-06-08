@@ -14,10 +14,10 @@
 | ECHO Developer Studio (public) | `knoxhack/ECHO-Developer-Studio` | `electron-builder.public.yml` `publish` | PASS |
 
 **Evidence:**
-- `ECHOLauncher/package.json` lines 130-137: `build.publish.provider = github`, `owner = echoplatform`, `repo = ECHO-Launcher`.
-- `ECHOLauncher/electron/main.cjs` lines 64-65: `LAUNCHER_UPDATE_OWNER = 'echoplatform'`, `LAUNCHER_UPDATE_REPO = 'ECHO-Launcher'`.
-- `ECHOADDONSTUDIO/electron-builder.yml` lines 42-46: `publish.provider = github`, `owner = echoplatform`, `repo = ECHO-Addons-Studio`.
-- `ECHODEVELOPERSTUDIO/electron-builder.public.yml` lines 12-15: `publish.provider = github`, `owner = echolabs`, `repo = ECHO-Developer-Studio`.
+- `ECHO-Launcher/package.json` lines 130-137: `build.publish.provider = github`, `owner = knoxhack`, `repo = ECHO-Launcher`.
+- `ECHO-Launcher/electron/main.cjs` lines 64-65: `LAUNCHER_UPDATE_OWNER = 'knoxhack'`, `LAUNCHER_UPDATE_REPO = 'ECHO-Launcher'`.
+- `ECHO-Addons-Studio/electron-builder.yml` lines 42-46: `publish.provider = github`, `owner = knoxhack`, `repo = ECHO-Addons-Studio`.
+- `ECHO-Developer-Studio/electron-builder.public.yml` lines 12-15: `publish.provider = github`, `owner = knoxhack`, `repo = ECHO-Developer-Studio`.
 
 ### Criterion 2: Every internal app update from internal feed
 
@@ -44,16 +44,16 @@
 
 | Check | Status |
 |---|---|
-| `echo-core-internal` files in `ECHOLauncher` release | Not present |
-| `echo-core-internal` files in `ECHOADDONSTUDIO` release | Not present |
-| `echo-core-internal` files in `ECHODEVELOPERSTUDIO` release | Not present |
+| `echo-core-internal` files in `ECHO-Launcher` release | Not present |
+| `echo-core-internal` files in `ECHO-Addons-Studio` release | Not present |
+| `echo-core-internal` files in `ECHO-Developer-Studio` release | Not present |
 
 **Status:** PASS
 
 **Evidence:**
-- `ECHOLauncher/package.json` `build.files` only includes `dist/**`, `electron/**`, `scripts/**`, `build/**`, `package.json`.
-- `ECHOADDONSTUDIO/electron-builder.yml` `files` only includes `out/**` and `package.json`.
-- `ECHODEVELOPERSTUDIO/electron-builder.yml` `files` only includes `dist/**`, `assets/**`, `build/**`.
+- `ECHO-Launcher/package.json` `build.files` only includes `dist/**`, `electron/**`, `scripts/**`, `build/**`, `package.json`.
+- `ECHO-Addons-Studio/electron-builder.yml` `files` only includes `out/**` and `package.json`.
+- `ECHO-Developer-Studio/electron-builder.yml` `files` only includes `dist/**`, `assets/**`, `build/**`.
 
 ### Criterion 5: Two release cycles, no cross-feed leaks
 
@@ -75,9 +75,9 @@
 | All apps use `electron-updater` with same event pattern | PASS |
 
 **Evidence:**
-- `ECHOLauncher/.github/workflows/launcher-release.yml`: tag pattern `launcher-v*`, tests, build, publish.
-- `ECHOADDONSTUDIO/.github/workflows/release.yml`: tag pattern `v*.*.*`, version validation, build, publish.
-- `ECHODEVELOPERSTUDIO/.github/workflows/release.yml`: tag pattern `v*.*.*`, version validation, build, publish.
+- `ECHO-Launcher/.github/workflows/launcher-release.yml`: tag pattern `launcher-v*`, tests, build, publish.
+- `ECHO-Addons-Studio/.github/workflows/release.yml`: tag pattern `v*.*.*`, version validation, build, publish.
+- `ECHO-Developer-Studio/.github/workflows/release.yml`: tag pattern `v*.*.*`, version validation, build, publish.
 
 ## Implementation Checklist
 
@@ -90,9 +90,9 @@
 | Security and governance | DONE | `docs/ECHO-RELEASE-SECURITY.md` |
 | Test plan | DONE | `docs/ECHO-PLATFORM-RELEASE-TEST-PLAN.md` |
 | Integration plan master doc | DONE | `docs/ECHO-PLATFORM-RELEASE-INTEGRATION-PLAN.md` |
-| ECHO Launcher publish config verified | DONE | `ECHOLauncher/package.json` |
-| ECHO Addon Studio publish config verified | DONE | `ECHOADDONSTUDIO/electron-builder.yml` |
-| ECHO Developer Studio dual publish config verified | DONE | `ECHODEVELOPERSTUDIO/electron-builder.yml` + `electron-builder.public.yml` |
+| ECHO Launcher publish config verified | DONE | `ECHO-Launcher/package.json` |
+| ECHO Addon Studio publish config verified | DONE | `ECHO-Addons-Studio/electron-builder.yml` |
+| ECHO Developer Studio dual publish config verified | DONE | `ECHO-Developer-Studio/electron-builder.yml` + `electron-builder.public.yml` |
 | Kill-switch (`UPDATE_DISABLED`) in all apps | DONE | All three main processes |
 | Fallback feed mechanism | DONE | `ECHODEVELOPERSTUDIO/src/main.ts` |
 | Cross-repo migration compatibility docs | DONE | `docs/ECHO-PLATFORM-RELEASE-INTEGRATION-PLAN.md` section 4 |

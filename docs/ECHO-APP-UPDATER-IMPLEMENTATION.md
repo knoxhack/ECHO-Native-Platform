@@ -64,7 +64,7 @@ ipcMain.on('update:install', () => {
 **File:** `electron/main.cjs`
 
 Already implemented with:
-- `LAUNCHER_UPDATE_OWNER = 'echoplatform'`
+- `LAUNCHER_UPDATE_OWNER = 'knoxhack'`
 - `LAUNCHER_UPDATE_REPO = 'ECHO-Launcher'`
 - Platform-gated updates (Windows NSIS, Linux AppImage only)
 - `autoUpdater.autoDownload = false` (user must confirm)
