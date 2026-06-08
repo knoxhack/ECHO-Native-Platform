@@ -98,7 +98,7 @@ Add `build.publish` block to `ECHO-Addons-Studio/package.json`:
 
 ## ECHO Developer Studio
 
-**File:** `ECHODEVELOPERSTUDIO/.github/workflows/release.yml`
+**File:** `ECHO-Developer-Studio/.github/workflows/release.yml`
 
 | Field | Value |
 |---|---|

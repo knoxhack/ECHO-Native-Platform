@@ -123,7 +123,7 @@ App launches
 Internal builds can test public updates by setting:
 
 ```bash
-ECHO_UPDATE_FEED_OWNER=echolabs
+ECHO_UPDATE_FEED_OWNER=knoxhack
 ECHO_UPDATE_FEED_REPO=ECHO-Developer-Studio
 ```
 

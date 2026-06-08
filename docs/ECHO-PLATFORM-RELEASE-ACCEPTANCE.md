@@ -26,8 +26,8 @@
 | ECHO Developer Studio (internal) | `knoxhack/ECHO-Developer-Studio` | `electron-builder.yml` `publish` | PASS |
 
 **Evidence:**
-- `ECHODEVELOPERSTUDIO/electron-builder.yml` lines 11-15: `publish.provider = github`, `owner = echolabs`, `repo = ECHO-Developer-Studio`.
-- `ECHODEVELOPERSTUDIO/src/main.ts` lines 21-22: `DEV_UPDATE_FEED_OWNER = 'echolabs'`, `DEV_UPDATE_FEED_REPO = 'ECHO-Developer-Studio'`.
+- `ECHO-Developer-Studio/electron-builder.yml` lines 11-15: `publish.provider = github`, `owner = knoxhack`, `repo = ECHO-Developer-Studio`.
+- `ECHO-Developer-Studio/src/main.ts` lines 21-22: `DEV_UPDATE_FEED_OWNER = 'knoxhack'`, `DEV_UPDATE_FEED_REPO = 'ECHO-Developer-Studio'`.
 
 ### Criterion 3: `echo-sdk` has no updater
 
@@ -94,7 +94,7 @@
 | ECHO Addon Studio publish config verified | DONE | `ECHO-Addons-Studio/electron-builder.yml` |
 | ECHO Developer Studio dual publish config verified | DONE | `ECHO-Developer-Studio/electron-builder.yml` + `electron-builder.public.yml` |
 | Kill-switch (`UPDATE_DISABLED`) in all apps | DONE | All three main processes |
-| Fallback feed mechanism | DONE | `ECHODEVELOPERSTUDIO/src/main.ts` |
+| Fallback feed mechanism | DONE | `ECHO-Developer-Studio/src/main.ts` |
 | Cross-repo migration compatibility docs | DONE | `docs/ECHO-PLATFORM-RELEASE-INTEGRATION-PLAN.md` section 4 |
 
 ## Final Status
