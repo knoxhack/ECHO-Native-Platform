@@ -11,6 +11,10 @@ const channelUrl =
   'https://raw.githubusercontent.com/knoxhack/ECHO-Release-Index/main/channels/alpha/launcher-channel.json'
 const localIndexRoot = process.env.ECHO_RELEASE_INDEX_ROOT
 const strict = process.argv.includes('--strict')
+const requiredArtifactRoles = (process.env.ECHO_RELEASE_INDEX_REQUIRED_ARTIFACT_ROLES || 'archive')
+  .split(',')
+  .map((role) => role.trim())
+  .filter(Boolean)
 
 function readHttpsJson(url) {
   return new Promise((resolve, reject) => {
@@ -36,11 +40,42 @@ function readHttpsJson(url) {
   })
 }
 
-function hasArtifact(node) {
-  if (Array.isArray(node)) return node.some(hasArtifact)
-  if (!node || typeof node !== 'object') return false
-  if ((node.url || node.downloadUrl) && (node.sha256 || node.sha512) && (node.file || node.name || node.filename)) return true
-  return Object.values(node).some(hasArtifact)
+function artifactRecords(node, role = 'asset') {
+  const records = []
+  const visit = (value, valueRole) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => visit(item, valueRole))
+      return
+    }
+    if (!value || typeof value !== 'object') return
+    const name = value.file ?? value.name ?? value.filename
+    const url = value.url ?? value.downloadUrl
+    const sha256 = value.sha256
+    if (name && url && sha256) {
+      records.push({
+        role: valueRole,
+        name: String(name),
+        url: String(url),
+        sha256: String(sha256),
+      })
+    }
+    Object.entries(value).forEach(([key, child]) => visit(child, key))
+  }
+  visit(node, role)
+  return records
+}
+
+function isTrustedArtifact(artifact) {
+  return Boolean(
+    artifact &&
+      /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/releases\/download\//.test(artifact.url) &&
+      /^[a-f0-9]{64}$/i.test(artifact.sha256)
+  )
+}
+
+function missingArtifactRoles(entry) {
+  const records = artifactRecords(entry.artifacts)
+  return requiredArtifactRoles.filter((role) => !records.some((artifact) => artifact.role === role && isTrustedArtifact(artifact)))
 }
 
 async function findProductEntry() {
@@ -73,7 +108,10 @@ if (!entry) {
     errors.push(`Expected compatibility ${expectedCompatibility}`)
   }
   if (entry.validation !== 'approved') warnings.push(`Product entry validation is ${entry.validation ?? 'missing'}, not approved.`)
-  if (!hasArtifact(entry.artifacts)) warnings.push('Product entry has no indexed updater artifact.')
+  const missingRoles = missingArtifactRoles(entry)
+  if (missingRoles.length) {
+    warnings.push(`Product entry has no exact indexed artifact for role(s): ${missingRoles.join(', ')}.`)
+  }
   if (strict && warnings.length) errors.push(...warnings)
 }
 
@@ -85,6 +123,7 @@ console.log(JSON.stringify({
   validation: entry?.validation ?? null,
   version: entry?.version ?? null,
   sourceRepo: entry?.sourceRepo ?? null,
+  requiredArtifactRoles,
   warnings,
   errors,
 }, null, 2))
