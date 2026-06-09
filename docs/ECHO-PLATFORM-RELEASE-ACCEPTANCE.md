@@ -75,7 +75,7 @@
 | All apps use `electron-updater` with same event pattern | PASS |
 
 **Evidence:**
-- `ECHO-Launcher/.github/workflows/launcher-release.yml`: tag pattern `launcher-v*`, tests, build, publish.
+- `ECHO-Launcher/.github/workflows/release.yml`: tag pattern `v*.*.*`, tests, build, publish.
 - `ECHO-Addons-Studio/.github/workflows/release.yml`: tag pattern `v*.*.*`, version validation, build, publish.
 - `ECHO-Developer-Studio/.github/workflows/release.yml`: tag pattern `v*.*.*`, version validation, build, publish.
 

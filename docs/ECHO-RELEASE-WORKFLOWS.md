@@ -48,11 +48,11 @@ jobs:
 
 ## ECHO Launcher
 
-**File:** `ECHO-Launcher/.github/workflows/launcher-release.yml`
+**File:** `ECHO-Launcher/.github/workflows/release.yml`
 
 | Field | Value |
 |---|---|
-| Tag pattern | `launcher-v*` |
+| Tag pattern | `v*.*.*` |
 | Platforms | Windows (NSIS), Linux (AppImage) |
 | Publish target | `knoxhack/ECHO-Launcher` |
 | Pre-publish checks | Tag format/version validation, tests, perf budget, placeholder audit |

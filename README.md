@@ -28,6 +28,10 @@ Run commands from the repository root.
 
 Native platform runtime binaries and platform metadata belong here. Native pack releases belong to `ECHO-Ashfall-Native-Edition`.
 
+## Release Index Product Routing
+
+Runtime update metadata is routed through the canonical Release Index product entry `echo-native-platform`. Run `node scripts/verify-release-index-product.mjs` to audit the indexed product record, or add `--strict` in release gates once the entry has approved artifacts.
+
 ## Docs Index
 
 - [docs/ECHO-PLATFORM-RELEASE-ACCEPTANCE.md](docs/ECHO-PLATFORM-RELEASE-ACCEPTANCE.md)

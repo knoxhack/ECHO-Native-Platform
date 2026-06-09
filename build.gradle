@@ -283,6 +283,13 @@ tasks.register('runNativeProductLauncher', JavaExec) {
 }
 
 def echoRepoRoot = rootProject.projectDir.parentFile
+def defaultEchoModulesRoot = providers.provider {
+    def workspaceModules = new File(echoRepoRoot, 'ECHO-Modules/addons')
+    workspaceModules.isDirectory() ? workspaceModules.absolutePath : new File(echoRepoRoot, 'addons').absolutePath
+}
+def echoModulesRoot = providers.gradleProperty('echoModulesRoot')
+        .orElse(providers.environmentVariable('ECHO_MODULES_ROOT'))
+        .orElse(defaultEchoModulesRoot)
 def nativeProductSourceRoot = providers.gradleProperty('echoNativeSourceRoot')
         .orElse(providers.gradleProperty('echoNativeFixture'))
         .orElse(providers.environmentVariable('ECHO_NATIVE_SOURCE_ROOT'))
@@ -307,6 +314,37 @@ def nativeProductGradleBuildRoot = providers.environmentVariable('ECHO_GRADLE_BU
 def nativeProductPrepareMaxWorkers = providers.gradleProperty('echoNativePrepareMaxWorkers')
         .orElse(providers.environmentVariable('ECHO_NATIVE_PREPARE_MAX_WORKERS'))
         .orElse('1')
+def localReleaseIndexRoot = providers.provider {
+    def releaseIndexRoot = new File(echoRepoRoot, 'ECHO-Release-Index')
+    releaseIndexRoot.isDirectory() ? releaseIndexRoot.absolutePath : ''
+}
+def echoReleaseIndexRoot = providers.gradleProperty('echoReleaseIndexRoot')
+        .orElse(providers.environmentVariable('ECHO_RELEASE_INDEX_ROOT'))
+        .orElse(localReleaseIndexRoot)
+def echoReleaseIndexStrict = providers.gradleProperty('echoReleaseIndexStrict')
+        .orElse(providers.environmentVariable('ECHO_RELEASE_INDEX_STRICT'))
+        .orElse('false')
+
+tasks.withType(JavaExec).configureEach {
+    systemProperty 'echo.modules.root', echoModulesRoot.get()
+}
+
+tasks.register('verifyReleaseIndexProductRouting', Exec) {
+    group = 'verification'
+    description = 'Verifies the Native Platform runtime update route resolves through the canonical Release Index product entry.'
+    workingDir = rootProject.projectDir
+    executable = 'node'
+    args 'scripts/verify-release-index-product.mjs'
+    doFirst {
+        def releaseIndexRoot = echoReleaseIndexRoot.get().trim()
+        if (!releaseIndexRoot.isEmpty()) {
+            environment 'ECHO_RELEASE_INDEX_ROOT', releaseIndexRoot
+        }
+        if (echoReleaseIndexStrict.get().toBoolean()) {
+            args '--strict'
+        }
+    }
+}
 
 tasks.register('prepareNativeProductModuleArtifacts', Exec) {
     group = 'release'
@@ -372,6 +410,7 @@ tasks.register('runPackagedNativeProductLauncher', JavaExec) {
     description = 'Packages Native Loader modules and launches the packaged product layout through the release gate by default.'
     dependsOn tasks.named('packageNativeProductLayout')
     dependsOn nativeProductLauncherRuntimeJarTasks
+    dependsOn tasks.named('verifyReleaseIndexProductRouting')
     classpath = nativeProductLauncherRuntimeClasspath()
     mainClass = 'dev.echo.nativeplatform.product.EchoNativeProductLauncherMain'
     workingDir = rootProject.projectDir
@@ -653,14 +692,10 @@ tasks.register('compileNativeAgent5AdapterCoreSmokeApi', JavaCompile) {
     group = 'verification'
     description = 'Compiles the minimal AdapterCore host API used by the native Agent 5 UI contract smoke.'
     source = files(
-            rootProject.projectDir.parentFile.toPath()
-                    .resolve('addons/echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/AdapterContractGuards.java'),
-            rootProject.projectDir.parentFile.toPath()
-                    .resolve('addons/echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/EchoNativeRuntimeHost.java'),
-            rootProject.projectDir.parentFile.toPath()
-                    .resolve('addons/echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/EchoRuntimeHostCapabilities.java'),
-            rootProject.projectDir.parentFile.toPath()
-                    .resolve('addons/echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/EchoRuntimeHostRegistry.java')
+            new File(echoModulesRoot.get(), 'echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/AdapterContractGuards.java'),
+            new File(echoModulesRoot.get(), 'echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/EchoNativeRuntimeHost.java'),
+            new File(echoModulesRoot.get(), 'echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/EchoRuntimeHostCapabilities.java'),
+            new File(echoModulesRoot.get(), 'echoadaptercore/src/main/java/com/knoxhack/echo/adaptercore/EchoRuntimeHostRegistry.java')
     )
     classpath = files()
     destinationDirectory = nativeAgent5AdapterCoreSmokeClasses
@@ -876,15 +911,8 @@ tasks.register('packageNativeAllBridgeableModuleArtifacts') {
             def directory = String.valueOf(module.directory).replace('\\', '/')
             def sourceRoot = new File(echoRepoRoot, directory)
             def buildDirectoryName = new File(directory).name
-            def classesDir
-            def resourcesDir
-            if (moduleId == 'echomodpackcommandcenter') {
-                classesDir = new File(echoRootGradleBuildDirectory, 'root/echoNativeM17/looseEntrypoints/classes')
-                resourcesDir = new File(sourceRoot, 'src/main/resources')
-            } else {
-                classesDir = new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/classes/java/main")
-                resourcesDir = new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/resources/main")
-            }
+            def classesDir = new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/classes/java/main")
+            def resourcesDir = new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/resources/main")
             if (!classesDir.exists()) {
                 throw new GradleException("Missing native module classes for ${moduleId}: ${classesDir}")
             }
@@ -977,6 +1005,7 @@ tasks.register('echoPackageNativeAddon', Zip) {
 }
 
 tasks.named('check') {
+    dependsOn 'verifyReleaseIndexProductRouting'
     dependsOn 'verifyNativeProductLauncherReadiness'
     dependsOn 'verifyNativeReportSnapshots'
     dependsOn 'runNativeAgent2ClientRouteOwnershipSmoke'

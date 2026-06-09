@@ -70,8 +70,8 @@ This plan formalizes the updater contract for all ECHO platform apps while keepi
 **Current state:** Already implemented.
 
 - `package.json` `build.publish` points to `knoxhack/ECHO-Launcher`.
-- Tag format: `launcher-v*`.
-- Workflow: `.github/workflows/launcher-release.yml`.
+- Tag format: `v*.*.*`.
+- Workflow: `.github/workflows/release.yml`.
 - Kill-switch: `UPDATE_DISABLED` env var.
 - Platform support: Windows (NSIS), Linux (AppImage).
 
