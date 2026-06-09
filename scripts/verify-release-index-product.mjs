@@ -11,6 +11,7 @@ const channelUrl =
   'https://raw.githubusercontent.com/knoxhack/ECHO-Release-Index/main/channels/alpha/launcher-channel.json'
 const localIndexRoot = process.env.ECHO_RELEASE_INDEX_ROOT
 const strict = process.argv.includes('--strict')
+const checkUrls = process.argv.includes('--check-urls') || process.env.ECHO_RELEASE_INDEX_CHECK_URLS === 'true'
 const requiredArtifactRoles = (process.env.ECHO_RELEASE_INDEX_REQUIRED_ARTIFACT_ROLES || 'archive')
   .split(',')
   .map((role) => role.trim())
@@ -37,6 +38,26 @@ function readHttpsJson(url) {
         })
       })
       .on('error', reject)
+  })
+}
+
+function checkArtifactUrl(url) {
+  return new Promise((resolve) => {
+    const request = https.request(url, { method: 'HEAD', headers: { 'user-agent': 'echo-native-platform' } }, (response) => {
+      const statusCode = response.statusCode ?? 0
+      response.resume()
+      resolve({
+        url,
+        statusCode,
+        ok: statusCode >= 200 && statusCode < 400,
+      })
+    })
+    request.setTimeout(15000, () => {
+      request.destroy()
+      resolve({ url, statusCode: 0, ok: false, error: 'timeout' })
+    })
+    request.on('error', (error) => resolve({ url, statusCode: 0, ok: false, error: error.message }))
+    request.end()
   })
 }
 
@@ -78,6 +99,19 @@ function missingArtifactRoles(entry) {
   return requiredArtifactRoles.filter((role) => !records.some((artifact) => artifact.role === role && isTrustedArtifact(artifact)))
 }
 
+async function validateArtifactUrls(entry) {
+  if (!checkUrls || !entry) return []
+  const records = artifactRecords(entry.artifacts)
+  const failures = []
+  for (const artifact of records) {
+    const result = await checkArtifactUrl(artifact.url)
+    if (!result.ok) {
+      failures.push(`${artifact.role} artifact ${artifact.name} URL returned ${result.statusCode || result.error}: ${artifact.url}`)
+    }
+  }
+  return failures
+}
+
 async function findProductEntry() {
   if (localIndexRoot) {
     const entryPath = path.join(localIndexRoot, 'products', `${productId.replace(/^echo-/, '')}.json`)
@@ -98,6 +132,8 @@ async function findProductEntry() {
 const entry = await findProductEntry()
 const errors = []
 const warnings = []
+const urlErrors = await validateArtifactUrls(entry)
+errors.push(...urlErrors)
 
 if (!entry) {
   errors.push(`Release Index product entry not found: ${productId}`)
@@ -120,6 +156,7 @@ console.log(JSON.stringify({
   strict,
   productId,
   channelUrl,
+  checkUrls,
   validation: entry?.validation ?? null,
   version: entry?.version ?? null,
   sourceRepo: entry?.sourceRepo ?? null,

@@ -30,7 +30,7 @@ Native platform runtime binaries and platform metadata belong here. Native pack 
 
 ## Release Index Product Routing
 
-Runtime update metadata is routed through the canonical Release Index product entry `echo-native-platform`. Run `node scripts/verify-release-index-product.mjs` to audit the indexed product record, or add `--strict` in release gates once the entry has approved artifacts.
+Runtime update metadata is routed through the canonical Release Index product entry `echo-native-platform`. Run `node scripts/verify-release-index-product.mjs` to audit the indexed product record, add `--check-urls` to prove indexed GitHub artifact URLs are reachable, or add `--strict` in release gates once the entry has approved artifacts. The Gradle gate accepts `-PechoReleaseIndexCheckUrls=true` or `ECHO_RELEASE_INDEX_CHECK_URLS=true` for the same live URL check.
 
 ## Docs Index
 

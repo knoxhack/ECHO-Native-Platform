@@ -337,6 +337,9 @@ def echoReleaseIndexRoot = providers.gradleProperty('echoReleaseIndexRoot')
 def echoReleaseIndexStrict = providers.gradleProperty('echoReleaseIndexStrict')
         .orElse(providers.environmentVariable('ECHO_RELEASE_INDEX_STRICT'))
         .orElse('false')
+def echoReleaseIndexCheckUrls = providers.gradleProperty('echoReleaseIndexCheckUrls')
+        .orElse(providers.environmentVariable('ECHO_RELEASE_INDEX_CHECK_URLS'))
+        .orElse('false')
 
 tasks.withType(JavaExec).configureEach {
     systemProperty 'echo.modules.root', echoModulesRoot.get()
@@ -355,6 +358,9 @@ tasks.register('verifyReleaseIndexProductRouting', Exec) {
         }
         if (echoReleaseIndexStrict.get().toBoolean()) {
             args '--strict'
+        }
+        if (echoReleaseIndexCheckUrls.get().toBoolean()) {
+            args '--check-urls'
         }
     }
 }
