@@ -367,9 +367,14 @@ final class EchoNativeAddonRuntimeDiscoveryPlanner {
             if (normalized.startsWith(root)) {
                 return root.relativize(normalized).toString().replace('\\', '/');
             }
+            Path workspaceRoot = root.getParent();
+            if (workspaceRoot != null && normalized.startsWith(workspaceRoot)) {
+                return workspaceRoot.relativize(normalized).toString().replace('\\', '/');
+            }
             return fixture.relativize(descriptorPath).toString().replace('\\', '/');
         } catch (IllegalArgumentException ex) {
-            return descriptorPath.toString().replace('\\', '/');
+            Path fileName = descriptorPath.getFileName();
+            return fileName == null ? "" : fileName.toString().replace('\\', '/');
         }
     }
 

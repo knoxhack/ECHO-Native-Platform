@@ -23,7 +23,8 @@ public final class EchoNativeAgent5WikiEndToEndAcceptance {
         Map<String, Object> render = liveSurfaceRenderAcceptance == null ? Map.of() : liveSurfaceRenderAcceptance;
         Map<String, Object> interaction = interactionSmoke == null ? Map.of() : interactionSmoke;
         Map<String, Object> surfaceOpenMutation = object(interaction.get("surfaceOpenMutation"));
-        String key = text(hotkey.get("key")).isBlank() ? "MODULE_ROUTE" : text(hotkey.get("key"));
+        String observedKey = firstNonBlank(hotkey.get("key"), hotkey.get("hotkey"));
+        String key = observedKey.isBlank() ? "MODULE_ROUTE" : observedKey;
         String surface = normalize(hotkey.get("surface"));
         Map<String, Object> step = step(interaction, "wiki_open");
         Map<String, Object> snapshot = object(step.get("snapshot"));
@@ -127,5 +128,10 @@ public final class EchoNativeAgent5WikiEndToEndAcceptance {
 
     private static String text(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private static String firstNonBlank(Object first, Object second) {
+        String firstText = text(first);
+        return firstText.isBlank() ? text(second) : firstText;
     }
 }

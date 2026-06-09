@@ -25,12 +25,6 @@ final class EchoNativeBootstrapEntrypointRunner {
         NativeLoaderProductClientRouteBootstrap.ClientRouteBootstrapReport clientRouteBootstrap =
                 NativeLoaderProductClientRouteBootstrap.bootstrapFirstPartyClientRoutes(
                         EchoNativeBootstrapMain.nativeClientModuleClassLoader());
-        if (clientRouteBootstrap.status() != EchoNativeLoadStatus.MUTATED
-                || clientRouteBootstrap.mutatedCount() != clientRouteBootstrap.attemptedCount()) {
-            throw new IllegalStateException(
-                    "Native Loader production client route bootstrap failed before product runtime handoff: "
-                            + clientRouteBootstrap.toEvidence());
-        }
         Map<String, Object> runtimeBridge = context.runtimeBridge().apply(
                 parsed.packId(),
                 parsed.remainingArgs(),
@@ -40,6 +34,13 @@ final class EchoNativeBootstrapEntrypointRunner {
         runtimeBridge = new LinkedHashMap<>(runtimeBridge);
         runtimeBridge.put("nativeProductClientRouteBootstrap", clientRouteBootstrap.toEvidence());
         Path markerPath = Path.of(parsed.markerPath());
+        boolean minecraftHandoffRequested = !parsed.realMainClass().isBlank() && parsed.handoff();
+        if (minecraftHandoffRequested && (clientRouteBootstrap.status() != EchoNativeLoadStatus.MUTATED
+                || clientRouteBootstrap.mutatedCount() != clientRouteBootstrap.attemptedCount())) {
+            throw new IllegalStateException(
+                    "Native Loader production client route bootstrap failed before product runtime handoff: "
+                            + clientRouteBootstrap.toEvidence());
+        }
         context.activationMarker().write(
                 markerPath,
                 parsed.packId(),
@@ -51,7 +52,7 @@ final class EchoNativeBootstrapEntrypointRunner {
         if (NativeLoaderWorldStartupFlow.blocksHandoff(runtimeBridge)) {
             throw new IllegalStateException(NativeLoaderWorldStartupFlow.blockMessage(runtimeBridge));
         }
-        if (!parsed.realMainClass().isBlank() && parsed.handoff()) {
+        if (minecraftHandoffRequested) {
             NativeLoaderEntityRegistryBridge.markDeferred(runtimeBridge, context.entityRegistryBridgeConfig().get());
             context.resourcePackMount().install(
                     parsed.packId(),

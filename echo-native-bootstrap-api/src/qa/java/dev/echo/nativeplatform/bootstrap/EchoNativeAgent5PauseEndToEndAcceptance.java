@@ -21,7 +21,7 @@ public final class EchoNativeAgent5PauseEndToEndAcceptance {
         Map<String, Object> render = liveSurfaceRenderAcceptance == null ? Map.of() : liveSurfaceRenderAcceptance;
         Map<String, Object> interaction = interactionSmoke == null ? Map.of() : interactionSmoke;
         Map<String, Object> option = optionSmoke == null ? Map.of() : optionSmoke;
-        String key = text(hotkey.get("key"));
+        String key = firstNonBlank(hotkey.get("key"), hotkey.get("hotkey"));
         String surface = normalize(hotkey.get("surface"));
         String routeType = normalize(hotkey.get("routeType"));
         Map<String, Object> step = step(interaction, "pause_resume");
@@ -131,5 +131,10 @@ public final class EchoNativeAgent5PauseEndToEndAcceptance {
 
     private static String text(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private static String firstNonBlank(Object first, Object second) {
+        String firstText = text(first);
+        return firstText.isBlank() ? text(second) : firstText;
     }
 }

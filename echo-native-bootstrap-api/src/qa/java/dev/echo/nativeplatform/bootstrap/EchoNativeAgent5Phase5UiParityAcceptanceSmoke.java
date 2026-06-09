@@ -24,7 +24,7 @@ public final class EchoNativeAgent5Phase5UiParityAcceptanceSmoke {
                 "index_end_to_end:G->INDEX:" + EchoNativeAgent5UiExpectedValues.indexQuery());
         boolean lensEffect = effectEquals(lens,
                 "lens_end_to_end:LEFT_ALT->LENS:" + EchoNativeAgent5UiExpectedValues.lensTarget());
-        boolean hudEffect = effectEquals(hud, "hud_overlay_end_to_end:data_backed:85");
+        boolean hudEffect = effectEquals(hud, EchoNativeAgent5UiExpectedValues.hudOverlayEffect());
         boolean holomapEffect = effectEquals(holomap,
                 "holomap_end_to_end:J->HOLOMAP:" + EchoNativeAgent5UiExpectedValues.holomapMarker());
         boolean wikiEffect = effectEquals(wiki, "wiki_end_to_end:MODULE_ROUTE->WIKI:ashfall");

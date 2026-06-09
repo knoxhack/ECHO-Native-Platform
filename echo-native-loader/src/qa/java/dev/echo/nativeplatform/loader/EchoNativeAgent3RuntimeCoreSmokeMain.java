@@ -189,20 +189,19 @@ public final class EchoNativeAgent3RuntimeCoreSmokeMain {
                         "systemModuleCount"
                 ))),
                 "Agent 3 native full-catalog evidence keys drifted.");
-        require(Integer.valueOf(95).equals(result.fullCatalogEvidence().get("descriptorCount")),
+        require(Integer.valueOf(94).equals(result.fullCatalogEvidence().get("descriptorCount")),
                 "Agent 3 native descriptor count must match standalone.");
         require(Integer.valueOf(85).equals(result.fullCatalogEvidence().get("runtimeActive")),
                 "Agent 3 native runtime-active count must match standalone.");
-        require(Integer.valueOf(6).equals(result.fullCatalogEvidence().get("runtimeToolingOnly")),
+        require(Integer.valueOf(5).equals(result.fullCatalogEvidence().get("runtimeToolingOnly")),
                 "Agent 3 native runtime-tooling-only count must match standalone.");
         require(Integer.valueOf(4).equals(result.fullCatalogEvidence().get("runtimeDevOnly")),
                 "Agent 3 native runtime-dev-only count must match standalone.");
         require(Integer.valueOf(0).equals(result.fullCatalogEvidence().get("runtimeDisabledWithReason")),
                 "Agent 3 native disabled-with-reason count must match standalone.");
-        require(Integer.valueOf(8).equals(result.fullCatalogEvidence().get("systemModuleCount")),
+        require(Integer.valueOf(7).equals(result.fullCatalogEvidence().get("systemModuleCount")),
                 "Agent 3 native required system-module count must match standalone.");
         require(result.requiredSystemModuleStatuses().equals(new java.util.LinkedHashMap<>() {{
-                    put("echomodpackcommandcenter", "runtime-tooling-only");
                     put("signalos", "runtime-active");
                     put("signalosexample", "runtime-dev-only");
                     put("echobridgecore", "runtime-dev-only");

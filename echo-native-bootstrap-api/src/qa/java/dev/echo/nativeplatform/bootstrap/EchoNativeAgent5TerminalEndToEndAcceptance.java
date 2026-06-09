@@ -23,7 +23,7 @@ public final class EchoNativeAgent5TerminalEndToEndAcceptance {
         Map<String, Object> focus = focusSmoke == null ? Map.of() : focusSmoke;
         Map<String, Object> editing = textEditingSmoke == null ? Map.of() : textEditingSmoke;
         Map<String, Object> transcript = hostEventTranscriptSmoke == null ? Map.of() : hostEventTranscriptSmoke;
-        String key = text(hotkey.get("key"));
+        String key = firstNonBlank(hotkey.get("key"), hotkey.get("hotkey"));
         String surface = normalize(hotkey.get("surface"));
         String command = text(editing.get("terminalBuffer"));
         List<String> focusLines = strings(focus, "renderedFocusLines");
@@ -119,5 +119,10 @@ public final class EchoNativeAgent5TerminalEndToEndAcceptance {
 
     private static String text(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private static String firstNonBlank(Object first, Object second) {
+        String firstText = text(first);
+        return firstText.isBlank() ? text(second) : firstText;
     }
 }

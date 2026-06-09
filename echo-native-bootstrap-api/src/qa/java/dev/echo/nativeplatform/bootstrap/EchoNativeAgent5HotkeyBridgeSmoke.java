@@ -20,23 +20,9 @@ public final class EchoNativeAgent5HotkeyBridgeSmoke {
             int regionCount
     ) {
         List<Map<String, Object>> steps = new ArrayList<>();
-        steps.add(routeStep("M", "TERMINAL"));
-        steps.add(routeStep("G", "INDEX"));
-        steps.add(routeStep("R", "INDEX"));
-        steps.add(routeStep("U", "INDEX"));
-        steps.add(routeStep("B", "INDEX", "INDEX"));
-        steps.add(routeStep("LEFT_ALT", "LENS"));
-        steps.add(routeStep("J", "HOLOMAP"));
-        steps.add(routeStep("K", "HOLOMAP"));
-        steps.add(routeStep("RIGHT_BRACKET", "HOLOMAP"));
-        steps.add(routeStep("LEFT_BRACKET", "HOLOMAP"));
-        steps.add(routeStep("BACKSLASH", "HOLOMAP"));
-        steps.add(routeStep("N", "SIGNALOS"));
         for (EchoNativeAgent5PhysicalRouteRequirements.RouteSpec route
                 : EchoNativeAgent5PhysicalRouteRequirements.phase5Routes()) {
-            if ("action".equals(route.routeType())) {
-                steps.add(routeStep(route.hotkey(), startingMode(route), route.surface()));
-            }
+            steps.add(routeStep(route.hotkey(), startingMode(route), route.surface()));
         }
         steps.add(routeStep("ESCAPE", "PAUSE"));
 
@@ -54,7 +40,7 @@ public final class EchoNativeAgent5HotkeyBridgeSmoke {
     }
 
     private static String startingMode(EchoNativeAgent5PhysicalRouteRequirements.RouteSpec route) {
-        return route.contextual() ? "TERMINAL" : "TERMINAL";
+        return "B".equals(route.hotkey()) && "INDEX".equals(route.surface()) ? "INDEX" : "TERMINAL";
     }
 
     private static Map<String, Object> routeStep(String key, String expectedMode) {

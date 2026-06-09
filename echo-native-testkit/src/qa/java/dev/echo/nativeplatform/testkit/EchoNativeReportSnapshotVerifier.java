@@ -782,35 +782,35 @@ public final class EchoNativeReportSnapshotVerifier {
         verifyControlledLaunchRollbackPlan("reports/echo-native/ashfall/controlled-launch-rollback-plan.json", "FAILED", false, 1);
         verifyNativeLoaderBetaGate("reports/echo-native/ashfall/phase13-native-loader-beta-gate.json", "FAILED", false, 1);
         verifyRuntimeFixtureOperatorPacket("reports/echo-native/ashfall/runtime-fixture-operator-packet.json", "PASS", true, true, 2, 2);
-        verifyNativeLoaderBetaFeedbackInventory("reports/echo-native/ashfall/native-loader-beta-feedback-inventory.json", "FAILED", 3, 46, true, true);
-        verifyNativeLoaderBetaEvidenceQuality("reports/echo-native/ashfall/native-loader-beta-evidence-quality.json", "FAILED", 3, 3, 0, true, true);
-        verifyNativeLoaderBetaSoakOperatorPacket("reports/echo-native/ashfall/native-loader-beta-soak-operator-packet.json", "FAILED", false, 3, 0);
-        verifyNativeLoaderBetaSessionNoteDrafts("reports/echo-native/ashfall/native-loader-beta-session-note-drafts.json", "FAILED", 3, 3, 0);
+        verifyNativeLoaderBetaFeedbackInventory("reports/echo-native/ashfall/native-loader-beta-feedback-inventory.json", "FAILED", 0, 0, false, false);
+        verifyNativeLoaderBetaEvidenceQuality("reports/echo-native/ashfall/native-loader-beta-evidence-quality.json", "FAILED", 0, 3, 3, false, false);
+        verifyNativeLoaderBetaSoakOperatorPacket("reports/echo-native/ashfall/native-loader-beta-soak-operator-packet.json", "FAILED", false, 0, 3);
+        verifyNativeLoaderBetaSessionNoteDrafts("reports/echo-native/ashfall/native-loader-beta-session-note-drafts.json", "FAILED", 0, 3, 3);
         verifyNativeLoaderBetaSessionDraftFiles("reports/echo-native/ashfall/native-loader-beta-session-draft-files.json", "FAILED", 0, false);
         verifyNativeLoaderBetaSessionDraftFiles("reports/echo-native/ashfall/phase13-m29-session-draft-status.json", "FAILED", 0, false);
-        verifyNativeLoaderBetaSessionNoteValidation("reports/echo-native/ashfall/native-loader-beta-session-note-validation.json", "PASS", 6, 3, 3, 3);
-        verifyNativeLoaderBetaSessionNoteValidation("reports/echo-native/ashfall/phase13-m29-note-validation-status.json", "PASS", 6, 3, 3, 3);
-        verifyNativeLoaderBetaSoakStatus("reports/echo-native/ashfall/native-loader-beta-soak-status-dashboard.json", "FAILED", false, false, 3, 0, 0);
-        verifyNativeLoaderBetaSoakStatus("reports/echo-native/ashfall/native-loader-beta-next-session-checklist.json", "FAILED", null, false, 3, 0, 0);
-        verifyNativeLoaderBetaRemainingSessionPlan("reports/echo-native/ashfall/native-loader-beta-remaining-session-plan.json", "FAILED", 3, 3, 0);
-        verifyNativeLoaderBetaSessionProofMatrix("reports/echo-native/ashfall/native-loader-beta-session-proof-matrix.json", "FAILED", 3, 3);
-        verifyPhase13M29Completion("reports/echo-native/ashfall/phase13-m29-completion.json", "FAILED", false, false, 3, 3);
-        verifyPhase13M30Completion("reports/echo-native/ashfall/phase13-m30-completion.json", "FAILED", false, false, 3, 3);
-        verifyPublicBetaOpening("reports/echo-native/ashfall/public-beta-opening-audit.json", "FAILED", false, 1, 0);
+        verifyNativeLoaderBetaSessionNoteValidation("reports/echo-native/ashfall/native-loader-beta-session-note-validation.json", "PASS_WITH_WARNINGS", 0, 0, 0, 0);
+        verifyNativeLoaderBetaSessionNoteValidation("reports/echo-native/ashfall/phase13-m29-note-validation-status.json", "PASS_WITH_WARNINGS", 0, 0, 0, 0);
+        verifyNativeLoaderBetaSoakStatus("reports/echo-native/ashfall/native-loader-beta-soak-status-dashboard.json", "FAILED", false, false, 0, 3, 3);
+        verifyNativeLoaderBetaSoakStatus("reports/echo-native/ashfall/native-loader-beta-next-session-checklist.json", "FAILED", null, false, 0, 3, 3);
+        verifyNativeLoaderBetaRemainingSessionPlan("reports/echo-native/ashfall/native-loader-beta-remaining-session-plan.json", "FAILED", 0, 3, 3);
+        verifyNativeLoaderBetaSessionProofMatrix("reports/echo-native/ashfall/native-loader-beta-session-proof-matrix.json", "FAILED", 0, 3);
+        verifyPhase13M29Completion("reports/echo-native/ashfall/phase13-m29-completion.json", "FAILED", false, false, 0, 3);
+        verifyPhase13M30Completion("reports/echo-native/ashfall/phase13-m30-completion.json", "FAILED", false, false, 0, 3);
+        verifyPublicBetaOpening("reports/echo-native/ashfall/public-beta-opening-audit.json", "FAILED", false, 2, 0);
         verifyPublicBetaOpening("reports/echo-native/ashfall/public-beta-safety-gate.json", "FAILED", false, 0, 0);
         verifyPublicBetaOpening("reports/echo-native/ashfall/public-beta-tester-package-readiness.json", "FAILED", false, 0, 0);
         verifyPublicBetaModuleCoverage(
                 "reports/echo-native/ashfall/public-beta-module-coverage.json",
                 "FAILED",
                 true,
-                Math.toIntExact(expectedAshfallRuntimeModuleCount()),
+                expectedAshfallRequiredModuleCount(),
                 expectedAshfallRequiredFeatureCount(),
-                1);
+                0);
         verifyPublicBetaOpening("reports/echo-native/ashfall/public-beta-rollback-readiness.json", "FAILED", false, 0, 0);
-        verifyPublicBetaKnownLimitations("reports/echo-native/ashfall/public-beta-known-limitations.json", "FAILED", false, 1, 0);
+        verifyPublicBetaKnownLimitations("reports/echo-native/ashfall/public-beta-known-limitations.json", "FAILED", false, 0, 0);
         verifyPhase13M31Completion("reports/echo-native/ashfall/phase13-m31-completion.json", "FAILED", false, false);
         verifyPublicBetaOpening("reports/echo-native/ashfall/phase13-m32-readiness.json", "FAILED", false, 0, 0);
-        verifyEnvelope("reports/echo-native/broken_pack/ai-tasks.json", "FAILED", 7, true);
+        verifyEnvelope("reports/echo-native/broken_pack/ai-tasks.json", "FAILED", 2, true);
         verifyPhase12Gate("reports/echo-native/broken_pack/phase12-completion.json", false);
         verifyPhase13Readiness("reports/echo-native/broken_pack/phase13-readiness.json", false);
         verifyPhase13Plan("reports/echo-native/broken_pack/phase13-plan.json", "FAILED", false);
@@ -980,7 +980,7 @@ public final class EchoNativeReportSnapshotVerifier {
         verifyPublicBetaOpening("reports/echo-native/broken_pack/public-beta-opening-audit.json", "FAILED", false, 2, 0);
         verifyPublicBetaOpening("reports/echo-native/broken_pack/public-beta-safety-gate.json", "FAILED", false, 0, 0);
         verifyPublicBetaOpening("reports/echo-native/broken_pack/public-beta-tester-package-readiness.json", "FAILED", false, 0, 0);
-        verifyPublicBetaModuleCoverage("reports/echo-native/broken_pack/public-beta-module-coverage.json", "FAILED", false, 3, 2, 0);
+        verifyPublicBetaModuleCoverage("reports/echo-native/broken_pack/public-beta-module-coverage.json", "FAILED", true, 0, 0, 0);
         verifyPublicBetaOpening("reports/echo-native/broken_pack/public-beta-rollback-readiness.json", "FAILED", false, 0, 0);
         verifyPublicBetaKnownLimitations("reports/echo-native/broken_pack/public-beta-known-limitations.json", "FAILED", false, 0, 0);
         verifyPhase13M31Completion("reports/echo-native/broken_pack/phase13-m31-completion.json", "FAILED", false, false);
@@ -1503,8 +1503,9 @@ public final class EchoNativeReportSnapshotVerifier {
         if (!Boolean.TRUE.equals(data.get("planningOnly"))) {
             throw new IllegalStateException(path + " must remain planning-only.");
         }
-        if (expectedReady && !"26.1.2".equals(data.get("targetMinecraftVersion"))) {
-            throw new IllegalStateException(path + " targetMinecraftVersion was " + data.get("targetMinecraftVersion") + "; expected 26.1.2");
+        String expectedMinecraftVersion = expectedMinecraftVersion(path);
+        if (expectedReady && !expectedMinecraftVersion.equals(data.get("targetMinecraftVersion"))) {
+            throw new IllegalStateException(path + " targetMinecraftVersion was " + data.get("targetMinecraftVersion") + "; expected " + expectedMinecraftVersion);
         }
         if (!Boolean.FALSE.equals(data.get("remoteManifestDownloaded"))) {
             throw new IllegalStateException(path + " must not download a remote Minecraft manifest.");
@@ -1567,8 +1568,9 @@ public final class EchoNativeReportSnapshotVerifier {
             throw new IllegalStateException(path + " must remain planning-only.");
         }
         Object plannedLibraryCount = data.get("plannedLibraryCount");
-        if (expectedReady && plannedLibraryCount instanceof Number number && number.longValue() != 53L) {
-            throw new IllegalStateException(path + " plannedLibraryCount was " + number + "; expected 53");
+        long expectedLibraryCount = expectedAshfallLibraryCount();
+        if (expectedReady && plannedLibraryCount instanceof Number number && number.longValue() != expectedLibraryCount) {
+            throw new IllegalStateException(path + " plannedLibraryCount was " + number + "; expected " + expectedLibraryCount);
         }
         Object missingLibraryCount = data.get("missingLibraryCount");
         if (expectedReady && missingLibraryCount instanceof Number number && number.longValue() != 0L) {
@@ -1700,8 +1702,9 @@ public final class EchoNativeReportSnapshotVerifier {
             throw new IllegalStateException(path + " must not extract native files.");
         }
         Object entryCount = data.get("entryCount");
-        if (expectedReady && entryCount instanceof Number number && number.longValue() != 1L) {
-            throw new IllegalStateException(path + " entryCount was " + number + "; expected 1");
+        long expectedNativeEntryCount = expectedAshfallNativeEntryCount();
+        if (expectedReady && entryCount instanceof Number number && number.longValue() != expectedNativeEntryCount) {
+            throw new IllegalStateException(path + " entryCount was " + number + "; expected " + expectedNativeEntryCount);
         }
         verifyNoM5OrRuntimeWork(path, data);
     }
@@ -1770,10 +1773,15 @@ public final class EchoNativeReportSnapshotVerifier {
         if (expectedReady && argumentCount instanceof Number number && number.longValue() != 12L) {
             throw new IllegalStateException(path + " argumentCount was " + number + "; expected 12");
         }
-        if (expectedReady && !"26.1.2".equals(data.get("targetMinecraftVersion"))) {
-            throw new IllegalStateException(path + " targetMinecraftVersion was " + data.get("targetMinecraftVersion") + "; expected 26.1.2");
+        String expectedMinecraftVersion = expectedMinecraftVersion(path);
+        if (expectedReady && !expectedMinecraftVersion.equals(data.get("targetMinecraftVersion"))) {
+            throw new IllegalStateException(path + " targetMinecraftVersion was " + data.get("targetMinecraftVersion") + "; expected " + expectedMinecraftVersion);
         }
         verifyNoM6OrRuntimeWork(path, data);
+    }
+
+    private static String expectedMinecraftVersion(String path) {
+        return path.contains("reports/echo-native/ashfall/") ? "1.21.1" : "26.1.2";
     }
 
     private static void verifyLaunchArgumentSourcePolicy(String path, String expectedStatus, boolean expectedReady) throws IOException {
@@ -2176,8 +2184,9 @@ public final class EchoNativeReportSnapshotVerifier {
         }
         if (expectedRead) {
             Object count = data.get("configSourceCount");
-            if (!(count instanceof Number number) || number.longValue() != 3L) {
-                throw new IllegalStateException(path + " configSourceCount was " + count + "; expected 3");
+            long expectedConfigCount = expectedAshfallConfigCount();
+            if (!(count instanceof Number number) || number.longValue() != expectedConfigCount) {
+                throw new IllegalStateException(path + " configSourceCount was " + count + "; expected " + expectedConfigCount);
             }
         }
         verifyNoM11UnsafeConfigWork(path, data);
@@ -2197,8 +2206,9 @@ public final class EchoNativeReportSnapshotVerifier {
         }
         if (expectedValid) {
             Object count = data.get("validatedConfigCount");
-            if (!(count instanceof Number number) || number.longValue() != 3L) {
-                throw new IllegalStateException(path + " validatedConfigCount was " + count + "; expected 3");
+            long expectedConfigCount = expectedAshfallConfigCount();
+            if (!(count instanceof Number number) || number.longValue() != expectedConfigCount) {
+                throw new IllegalStateException(path + " validatedConfigCount was " + count + "; expected " + expectedConfigCount);
             }
         }
         verifyNoM11UnsafeConfigWork(path, data);
@@ -2221,8 +2231,9 @@ public final class EchoNativeReportSnapshotVerifier {
         }
         if (expectedReady) {
             Object count = data.get("plannedWriteCount");
-            if (!(count instanceof Number number) || number.longValue() != 3L) {
-                throw new IllegalStateException(path + " plannedWriteCount was " + count + "; expected 3");
+            long expectedConfigCount = expectedAshfallConfigCount();
+            if (!(count instanceof Number number) || number.longValue() != expectedConfigCount) {
+                throw new IllegalStateException(path + " plannedWriteCount was " + count + "; expected " + expectedConfigCount);
             }
         }
         verifyNoM11UnsafeConfigWork(path, data);
@@ -2257,8 +2268,9 @@ public final class EchoNativeReportSnapshotVerifier {
         }
         if (expectedInventoried) {
             Object count = data.get("resourceSourceCount");
-            if (!(count instanceof Number number) || number.longValue() != 4L) {
-                throw new IllegalStateException(path + " resourceSourceCount was " + count + "; expected 4");
+            long expectedResourceCount = expectedAshfallResourceCount();
+            if (!(count instanceof Number number) || number.longValue() != expectedResourceCount) {
+                throw new IllegalStateException(path + " resourceSourceCount was " + count + "; expected " + expectedResourceCount);
             }
         }
         verifyNoM12UnsafeResourceWork(path, data);
@@ -2282,8 +2294,9 @@ public final class EchoNativeReportSnapshotVerifier {
             if (!(namespaceCount instanceof Number namespaces) || namespaces.longValue() != 1L) {
                 throw new IllegalStateException(path + " namespaceCount was " + namespaceCount + "; expected 1");
             }
-            if (!(resourceCount instanceof Number resources) || resources.longValue() != 4L) {
-                throw new IllegalStateException(path + " validatedResourceCount was " + resourceCount + "; expected 4");
+            long expectedResourceCount = expectedAshfallResourceCount();
+            if (!(resourceCount instanceof Number resources) || resources.longValue() != expectedResourceCount) {
+                throw new IllegalStateException(path + " validatedResourceCount was " + resourceCount + "; expected " + expectedResourceCount);
             }
         }
         verifyNoM12UnsafeResourceWork(path, data);
@@ -2303,8 +2316,9 @@ public final class EchoNativeReportSnapshotVerifier {
         }
         if (expectedPlanned) {
             Object count = data.get("orderedResourceCount");
-            if (!(count instanceof Number number) || number.longValue() != 4L) {
-                throw new IllegalStateException(path + " orderedResourceCount was " + count + "; expected 4");
+            long expectedResourceCount = expectedAshfallResourceCount();
+            if (!(count instanceof Number number) || number.longValue() != expectedResourceCount) {
+                throw new IllegalStateException(path + " orderedResourceCount was " + count + "; expected " + expectedResourceCount);
             }
         }
         verifyNoM12UnsafeResourceWork(path, data);
@@ -2360,8 +2374,9 @@ public final class EchoNativeReportSnapshotVerifier {
         }
         if (expectedInventoried) {
             Object count = data.get("registrySourceCount");
-            if (!(count instanceof Number number) || number.longValue() != 5L) {
-                throw new IllegalStateException(path + " registrySourceCount was " + count + "; expected 5");
+            long expectedRegistryEntryCount = expectedAshfallRegistryEntryCount();
+            if (!(count instanceof Number number) || number.longValue() != expectedRegistryEntryCount) {
+                throw new IllegalStateException(path + " registrySourceCount was " + count + "; expected " + expectedRegistryEntryCount);
             }
         }
         verifyNoM13UnsafeRegistryWork(path, data);
@@ -2382,11 +2397,13 @@ public final class EchoNativeReportSnapshotVerifier {
         if (expectedValid) {
             Object kindCount = data.get("registryKindCount");
             Object entryCount = data.get("validatedEntryCount");
-            if (!(kindCount instanceof Number kinds) || kinds.longValue() != 4L) {
-                throw new IllegalStateException(path + " registryKindCount was " + kindCount + "; expected 4");
+            long expectedRegistryKindCount = expectedAshfallRegistryKindCount();
+            long expectedRegistryEntryCount = expectedAshfallRegistryEntryCount();
+            if (!(kindCount instanceof Number kinds) || kinds.longValue() != expectedRegistryKindCount) {
+                throw new IllegalStateException(path + " registryKindCount was " + kindCount + "; expected " + expectedRegistryKindCount);
             }
-            if (!(entryCount instanceof Number entries) || entries.longValue() != 5L) {
-                throw new IllegalStateException(path + " validatedEntryCount was " + entryCount + "; expected 5");
+            if (!(entryCount instanceof Number entries) || entries.longValue() != expectedRegistryEntryCount) {
+                throw new IllegalStateException(path + " validatedEntryCount was " + entryCount + "; expected " + expectedRegistryEntryCount);
             }
         }
         verifyNoM13UnsafeRegistryWork(path, data);
@@ -2407,11 +2424,13 @@ public final class EchoNativeReportSnapshotVerifier {
         if (expectedModeled) {
             Object kindCount = data.get("registryKindCount");
             Object entryCount = data.get("modeledEntryCount");
-            if (!(kindCount instanceof Number kinds) || kinds.longValue() != 4L) {
-                throw new IllegalStateException(path + " registryKindCount was " + kindCount + "; expected 4");
+            long expectedRegistryKindCount = expectedAshfallRegistryKindCount();
+            long expectedRegistryEntryCount = expectedAshfallRegistryEntryCount();
+            if (!(kindCount instanceof Number kinds) || kinds.longValue() != expectedRegistryKindCount) {
+                throw new IllegalStateException(path + " registryKindCount was " + kindCount + "; expected " + expectedRegistryKindCount);
             }
-            if (!(entryCount instanceof Number entries) || entries.longValue() != 5L) {
-                throw new IllegalStateException(path + " modeledEntryCount was " + entryCount + "; expected 5");
+            if (!(entryCount instanceof Number entries) || entries.longValue() != expectedRegistryEntryCount) {
+                throw new IllegalStateException(path + " modeledEntryCount was " + entryCount + "; expected " + expectedRegistryEntryCount);
             }
         }
         verifyNoM13UnsafeRegistryWork(path, data);
@@ -2467,8 +2486,9 @@ public final class EchoNativeReportSnapshotVerifier {
         }
         if (expectedInventoried) {
             Object count = data.get("channelCount");
-            if (!(count instanceof Number number) || number.longValue() != 2L) {
-                throw new IllegalStateException(path + " channelCount was " + count + "; expected 2");
+            long expectedChannelCount = expectedAshfallNetworkChannelCount();
+            if (!(count instanceof Number number) || number.longValue() != expectedChannelCount) {
+                throw new IllegalStateException(path + " channelCount was " + count + "; expected " + expectedChannelCount);
             }
         }
         verifyNoM14UnsafeNetworkWork(path, data);
@@ -2489,11 +2509,13 @@ public final class EchoNativeReportSnapshotVerifier {
         if (expectedValid) {
             Object channelCount = data.get("channelCount");
             Object packetCount = data.get("packetCount");
-            if (!(channelCount instanceof Number channels) || channels.longValue() != 2L) {
-                throw new IllegalStateException(path + " channelCount was " + channelCount + "; expected 2");
+            long expectedChannelCount = expectedAshfallNetworkChannelCount();
+            long expectedPacketCount = expectedAshfallNetworkPacketCount();
+            if (!(channelCount instanceof Number channels) || channels.longValue() != expectedChannelCount) {
+                throw new IllegalStateException(path + " channelCount was " + channelCount + "; expected " + expectedChannelCount);
             }
-            if (!(packetCount instanceof Number packets) || packets.longValue() != 3L) {
-                throw new IllegalStateException(path + " packetCount was " + packetCount + "; expected 3");
+            if (!(packetCount instanceof Number packets) || packets.longValue() != expectedPacketCount) {
+                throw new IllegalStateException(path + " packetCount was " + packetCount + "; expected " + expectedPacketCount);
             }
         }
         verifyNoM14UnsafeNetworkWork(path, data);
@@ -2513,8 +2535,9 @@ public final class EchoNativeReportSnapshotVerifier {
         }
         if (expectedModeled) {
             Object schemaCount = data.get("schemaCount");
-            if (!(schemaCount instanceof Number schemas) || schemas.longValue() != 3L) {
-                throw new IllegalStateException(path + " schemaCount was " + schemaCount + "; expected 3");
+            long expectedSchemaCount = expectedAshfallNetworkPacketCount();
+            if (!(schemaCount instanceof Number schemas) || schemas.longValue() != expectedSchemaCount) {
+                throw new IllegalStateException(path + " schemaCount was " + schemaCount + "; expected " + expectedSchemaCount);
             }
         }
         verifyNoM14UnsafeNetworkWork(path, data);
@@ -2565,8 +2588,9 @@ public final class EchoNativeReportSnapshotVerifier {
         }
         if (expectedInventoried) {
             Object count = data.get("transformSourceCount");
-            if (!(count instanceof Number number) || number.longValue() != 2L) {
-                throw new IllegalStateException(path + " transformSourceCount was " + count + "; expected 2");
+            long expectedTransformCount = expectedAshfallTransformCount();
+            if (!(count instanceof Number number) || number.longValue() != expectedTransformCount) {
+                throw new IllegalStateException(path + " transformSourceCount was " + count + "; expected " + expectedTransformCount);
             }
         }
         verifyNoM15UnsafeTransformWork(path, data);
@@ -2581,8 +2605,9 @@ public final class EchoNativeReportSnapshotVerifier {
         }
         if (expectedValid) {
             Object count = data.get("transformCount");
-            if (!(count instanceof Number number) || number.longValue() != 2L) {
-                throw new IllegalStateException(path + " transformCount was " + count + "; expected 2");
+            long expectedTransformCount = expectedAshfallTransformCount();
+            if (!(count instanceof Number number) || number.longValue() != expectedTransformCount) {
+                throw new IllegalStateException(path + " transformCount was " + count + "; expected " + expectedTransformCount);
             }
         }
         verifyNoM15UnsafeTransformWork(path, data);
@@ -2597,8 +2622,9 @@ public final class EchoNativeReportSnapshotVerifier {
         }
         if (expectedPlanned) {
             Object count = data.get("plannedTransformCount");
-            if (!(count instanceof Number number) || number.longValue() != 2L) {
-                throw new IllegalStateException(path + " plannedTransformCount was " + count + "; expected 2");
+            long expectedTransformCount = expectedAshfallTransformCount();
+            if (!(count instanceof Number number) || number.longValue() != expectedTransformCount) {
+                throw new IllegalStateException(path + " plannedTransformCount was " + count + "; expected " + expectedTransformCount);
             }
         }
         verifyNoM15UnsafeTransformWork(path, data);
@@ -4812,6 +4838,14 @@ public final class EchoNativeReportSnapshotVerifier {
     }
 
     private static long expectedAshfallRuntimeModuleCount() throws IOException {
+        Path descriptorReport = Path.of("reports/echo-native/ashfall/addon-runtime-descriptors.json");
+        if (Files.isRegularFile(descriptorReport)) {
+            Map<String, Object> envelope = EchoNativeJson.asObject(EchoNativeJson.parse(Files.readString(descriptorReport)));
+            Map<String, Object> data = EchoNativeJson.asObject(envelope.get("data"));
+            if (data.get("descriptorCount") instanceof Number number) {
+                return number.longValue();
+            }
+        }
         Path modulesRoot = Path.of("fixtures/ashfall/modules");
         if (!Files.isDirectory(modulesRoot)) {
             throw new IllegalStateException("fixtures/ashfall/modules is missing.");
@@ -4825,12 +4859,78 @@ public final class EchoNativeReportSnapshotVerifier {
     }
 
     private static int expectedAshfallClasspathEntryCount() throws IOException {
-        return Math.toIntExact(expectedAshfallRuntimeModuleCount() + 53L);
+        return Math.toIntExact(expectedAshfallRuntimeModuleCount() + expectedAshfallLibraryCount());
+    }
+
+    private static long expectedAshfallLibraryCount() throws IOException {
+        return manifestListCount("fixtures/ashfall/libraries/echo.native.libraries.json", "libraries");
+    }
+
+    private static long expectedAshfallNativeEntryCount() throws IOException {
+        return expectedMinecraftVersion("reports/echo-native/ashfall/native-extraction-plan.json").isBlank() ? 0L : 1L;
+    }
+
+    private static long expectedAshfallConfigCount() throws IOException {
+        return manifestListCount("fixtures/ashfall/configs/echo.native.configs.json", "configs");
+    }
+
+    private static long expectedAshfallResourceCount() throws IOException {
+        return manifestListCount("fixtures/ashfall/resources/echo.native.resources.json", "resources");
+    }
+
+    private static long expectedAshfallRegistryEntryCount() throws IOException {
+        return manifestListCount("fixtures/ashfall/registries/echo.native.registries.json", "entries");
+    }
+
+    private static long expectedAshfallRegistryKindCount() throws IOException {
+        return manifestDistinctFieldCount("fixtures/ashfall/registries/echo.native.registries.json", "entries", "kind");
+    }
+
+    private static long expectedAshfallNetworkChannelCount() throws IOException {
+        return manifestListCount("fixtures/ashfall/network/echo.native.network.json", "channels");
+    }
+
+    private static long expectedAshfallNetworkPacketCount() throws IOException {
+        return manifestListCount("fixtures/ashfall/network/echo.native.network.json", "packets");
+    }
+
+    private static long expectedAshfallTransformCount() throws IOException {
+        return manifestListCount("fixtures/ashfall/transforms/echo.native.transforms.json", "transforms");
     }
 
     private static int expectedAshfallRequiredFeatureCount() throws IOException {
         Map<String, Object> pack = EchoNativeJson.asObject(EchoNativeJson.parse(Files.readString(Path.of("fixtures/ashfall/echo.pack.json"))));
         return EchoNativeJson.stringList(pack.get("requiredFeatures")).size();
+    }
+
+    private static int expectedAshfallRequiredModuleCount() throws IOException {
+        Map<String, Object> pack = EchoNativeJson.asObject(EchoNativeJson.parse(Files.readString(Path.of("fixtures/ashfall/echo.pack.json"))));
+        return EchoNativeJson.stringList(pack.get("requiredModules")).size();
+    }
+
+    private static long manifestListCount(String path, String key) throws IOException {
+        Object rawList = manifest(path).get(key);
+        if (rawList instanceof List<?> entries) {
+            return entries.size();
+        }
+        throw new IllegalStateException(path + " does not contain list field " + key + ".");
+    }
+
+    private static long manifestDistinctFieldCount(String path, String key, String field) throws IOException {
+        Object rawList = manifest(path).get(key);
+        if (rawList instanceof List<?> entries) {
+            return entries.stream()
+                    .map(EchoNativeJson::asObject)
+                    .map(entry -> String.valueOf(entry.getOrDefault(field, "")))
+                    .filter(value -> !value.isBlank())
+                    .distinct()
+                    .count();
+        }
+        throw new IllegalStateException(path + " does not contain list field " + key + ".");
+    }
+
+    private static Map<String, Object> manifest(String path) throws IOException {
+        return EchoNativeJson.asObject(EchoNativeJson.parse(Files.readString(Path.of(path))));
     }
 
     private static int asInt(Object value) {

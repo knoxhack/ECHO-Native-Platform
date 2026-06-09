@@ -6,24 +6,10 @@ import java.util.Map;
 
 public final class EchoNativeAgent5PhysicalInputAcceptanceSmoke {
     private static final String SCREEN_CLASS = "dev.echo.nativeplatform.generated.EchoNativeDashboardScreen";
-    private static final List<Route> ROUTES = List.of(
-            new Route("M", "TERMINAL"),
-            new Route("G", "INDEX"),
-            new Route("R", "INDEX"),
-            new Route("U", "INDEX"),
-            new Route("B", "INDEX"),
-            new Route("LEFT_ALT", "LENS"),
-            new Route("J", "HOLOMAP"),
-            new Route("K", "HOLOMAP"),
-            new Route("RIGHT_BRACKET", "HOLOMAP"),
-            new Route("LEFT_BRACKET", "HOLOMAP"),
-            new Route("BACKSLASH", "HOLOMAP"),
-            new Route("N", "SIGNALOS"),
-            new Route("X", "ASHFALL_DRONE"),
-            new Route("C", "ASHFALL_DRONE"),
-            new Route("Y", "ASHFALL_DRONE"),
-            new Route("Z", "ASHFALL_DRONE")
-    );
+    private static final List<Route> ROUTES = EchoNativeAgent5PhysicalRouteRequirements.physicalCoverageRoutes()
+            .stream()
+            .map(route -> new Route(route.hotkey(), route.surface()))
+            .toList();
 
     private EchoNativeAgent5PhysicalInputAcceptanceSmoke() {
     }

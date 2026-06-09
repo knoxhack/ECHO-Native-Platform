@@ -50,7 +50,8 @@ public final class EchoNativeAgent5LiveHudOverlayRouteAcceptanceSmoke {
                 Map.of("accepted", false, "effect", "hud_overlay_end_to_end:rejected")
         );
         boolean passed = Boolean.TRUE.equals(accepted.get("accepted"))
-                && "live_hud_overlay_route:accepted:data_backed_hud:85".equals(accepted.get("effect"))
+                && ("live_hud_overlay_route:accepted:data_backed_hud:"
+                + EchoNativeAgent5UiExpectedValues.hudUpdatedHealth()).equals(accepted.get("effect"))
                 && Boolean.FALSE.equals(rejectedNoRoute.get("accepted"))
                 && Boolean.FALSE.equals(rejectedNoOverlay.get("accepted"))
                 && Boolean.FALSE.equals(rejectedNoEndToEnd.get("accepted"));

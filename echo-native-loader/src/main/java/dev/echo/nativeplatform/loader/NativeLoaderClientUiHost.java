@@ -105,6 +105,7 @@ public final class NativeLoaderClientUiHost {
                         "dashboard.list_navigation", Map.of("kind", "native_loader_dashboard", "command", "list_navigation"),
                         "dashboard.settings", Map.of("kind", "native_loader_dashboard", "command", "settings"),
                         "dashboard.submit", Map.of("kind", "native_loader_dashboard", "command", "submit"),
+                        "dashboard.navigate", Map.of("kind", "native_loader_dashboard", "command", "navigate"),
                         "dashboard.close", Map.of("kind", "native_loader_dashboard", "command", "close")
                 ),
                 Map.of(

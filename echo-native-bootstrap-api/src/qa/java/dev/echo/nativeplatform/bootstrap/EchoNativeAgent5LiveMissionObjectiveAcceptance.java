@@ -28,7 +28,7 @@ public final class EchoNativeAgent5LiveMissionObjectiveAcceptance {
                 && Boolean.TRUE.equals(mission.get("runtimeMutationAccepted"));
         boolean hudAccepted = Boolean.TRUE.equals(hud.get("passed"))
                 && "EchoNativeAgent5HudUpdateSmoke".equals(hud.get("hudUpdateSmokeClass"))
-                && Integer.valueOf(85).equals(hud.get("hudHealth"))
+                && Integer.valueOf(EchoNativeAgent5UiExpectedValues.hudUpdatedHealth()).equals(hud.get("hudHealth"))
                 && EchoNativeAgent5UiExpectedValues.hud().get("hazard").equals(hud.get("hudHazard"))
                 && EchoNativeAgent5UiExpectedValues.hud().get("mission").equals(hud.get("hudMission"))
                 && "hud:update:health_hazard_mission".equals(hud.get("effect"))

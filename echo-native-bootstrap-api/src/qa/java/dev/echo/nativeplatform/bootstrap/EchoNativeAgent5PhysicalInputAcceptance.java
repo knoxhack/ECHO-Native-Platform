@@ -14,7 +14,7 @@ public final class EchoNativeAgent5PhysicalInputAcceptance {
     ) {
         Map<String, Object> hotkey = physicalHotkey == null ? Map.of() : physicalHotkey;
         Map<String, Object> acceptance = liveSurfaceAcceptance == null ? Map.of() : liveSurfaceAcceptance;
-        String key = text(hotkey.get("key"));
+        String key = firstNonBlank(hotkey.get("key"), hotkey.get("hotkey"));
         String surface = normalizeSurface(hotkey.get("surface"));
         String expectedSurface = normalizeSurface(acceptance.get("expectedMode"));
         String acceptedSurface = normalizeSurface(acceptance.get("currentMode"));
@@ -48,5 +48,10 @@ public final class EchoNativeAgent5PhysicalInputAcceptance {
 
     private static String text(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private static String firstNonBlank(Object first, Object second) {
+        String firstText = text(first);
+        return firstText.isBlank() ? text(second) : firstText;
     }
 }

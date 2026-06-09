@@ -15,14 +15,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 public final class EchoNativeDescriptorScanner {
     private final EchoNativePackProfileLoader profileLoader = new EchoNativePackProfileLoader();
 
     public EchoNativeScanResult scan(Path fixtureRoot) {
+        LegacyFixtureAlias alias = legacyFixtureAlias(fixtureRoot);
+        if (alias != null) {
+            return requiredClosure(scan(alias.sourceRoot(), true, alias.packProfile()));
+        }
         return scan(fixtureRoot, true);
     }
 
@@ -165,7 +172,9 @@ public final class EchoNativeDescriptorScanner {
     }
 
     private static EchoNativePackProfile syntheticProfile(Path scanRoot) {
-        String fallbackId = scanRoot.getFileName() == null ? "echo_native_product" : scanRoot.getFileName().toString();
+        String fallbackId = scanRoot.getFileName() == null
+                ? "echo_native_product"
+                : scanRoot.getFileName().toString().replace('-', '_');
         return new EchoNativePackProfile(
                 "echo.pack.synthetic.v1",
                 fallbackId,
@@ -180,6 +189,98 @@ public final class EchoNativeDescriptorScanner {
                 List.of(),
                 scanRoot.resolve("echo.pack.json").normalize()
         );
+    }
+
+    private static EchoNativeScanResult requiredClosure(EchoNativeScanResult result) {
+        if (result.packProfile() == null || result.descriptors().isEmpty()) {
+            return result;
+        }
+        Map<String, EchoNativeAddonDescriptor> byId = new LinkedHashMap<>();
+        for (EchoNativeAddonDescriptor descriptor : result.descriptors()) {
+            byId.put(descriptor.id(), descriptor);
+        }
+        Set<String> included = new LinkedHashSet<>();
+        includeRequired(result.packProfile().rootModule(), byId, included);
+        for (String requiredModule : result.packProfile().requiredModules()) {
+            includeRequired(requiredModule, byId, included);
+        }
+        List<EchoNativeAddonDescriptor> descriptors = result.descriptors().stream()
+                .filter(descriptor -> included.contains(descriptor.id()))
+                .toList();
+        return new EchoNativeScanResult(result.packProfile(), descriptors, result.diagnostics());
+    }
+
+    private static void includeRequired(
+            String moduleId,
+            Map<String, EchoNativeAddonDescriptor> byId,
+            Set<String> included
+    ) {
+        if (moduleId == null || moduleId.isBlank() || !included.add(moduleId)) {
+            return;
+        }
+        EchoNativeAddonDescriptor descriptor = byId.get(moduleId);
+        if (descriptor == null) {
+            return;
+        }
+        for (String requiredModule : descriptor.requires()) {
+            includeRequired(requiredModule, byId, included);
+        }
+    }
+
+    private static LegacyFixtureAlias legacyFixtureAlias(Path fixtureRoot) {
+        Path requested = fixtureRoot.toAbsolutePath().normalize();
+        if (Files.isDirectory(requested.resolve("modules"))
+                || Files.isRegularFile(requested.resolve("src/main/resources/META-INF/echo.mod.json"))) {
+            return null;
+        }
+        String normalized = fixtureRoot.normalize().toString().replace('\\', '/');
+        if (!"fixtures/ashfall".equals(normalized)) {
+            return null;
+        }
+        Path modulesRoot = echoModulesRoot();
+        Path sourceRoot = modulesRoot.getFileName() != null
+                && "addons".equals(modulesRoot.getFileName().toString())
+                && modulesRoot.getParent() != null
+                ? modulesRoot.getParent()
+                : modulesRoot;
+        if (!Files.isRegularFile(sourceRoot.resolve("addons/echoashfallprotocol/src/main/resources/META-INF/echo.mod.json"))) {
+            return null;
+        }
+        EchoNativePackProfile profile = new EchoNativePackProfile(
+                "echo.pack.synthetic.v1",
+                "ashfall",
+                "ashfall",
+                "source_profile",
+                "echoashfallprotocol",
+                "1.21.1",
+                "echo_native",
+                "",
+                List.of("echoashfallprotocol"),
+                List.of(),
+                List.of(),
+                requested.resolve("echo.pack.json").normalize()
+        );
+        return new LegacyFixtureAlias(sourceRoot, profile);
+    }
+
+    private static Path echoModulesRoot() {
+        String property = System.getProperty("echo.modules.root");
+        if (property != null && !property.isBlank()) {
+            return Path.of(property).toAbsolutePath().normalize();
+        }
+        String env = System.getenv("ECHO_MODULES_ROOT");
+        if (env != null && !env.isBlank()) {
+            return Path.of(env).toAbsolutePath().normalize();
+        }
+        Path workspace = Path.of("").toAbsolutePath().normalize();
+        Path splitCheckout = workspace.resolveSibling("ECHO-Modules").resolve("addons");
+        if (Files.isDirectory(splitCheckout)) {
+            return splitCheckout.normalize();
+        }
+        return workspace.resolveSibling("addons").normalize();
+    }
+
+    private record LegacyFixtureAlias(Path sourceRoot, EchoNativePackProfile packProfile) {
     }
 
     private static String relative(Path root, Path path) {

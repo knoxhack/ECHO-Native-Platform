@@ -524,6 +524,36 @@ final class EchoNativeBootstrapOrchestrator {
         return PRODUCT_ACTION_FLOW.gameplaySurfaceContextForMode(mode);
     }
 
+    static List<Map<String, Object>> ashfallGameplayHandlers() {
+        return BOOTSTRAP_PROFILE.requiredGameplayHandlerEvents().stream()
+                .map(event -> Map.<String, Object>of(
+                        "event", event,
+                        "adapterCoreContract", "adaptercore.gameplay_handler." + event,
+                        "standaloneRuntimeBackend", BOOTSTRAP_PROFILE.nativeGameplayStandaloneRuntimeBackend()
+                                + "." + event,
+                        "attached", true,
+                        "adapterCoreReplayVerified", true,
+                        "liveGameplayHookVerified", false,
+                        "minecraftRuntimeAccessed", false
+                ))
+                .toList();
+    }
+
+    static Map<String, Object> applyAshfallGameplayBridge(String packId) {
+        String safePackId = packId == null || packId.isBlank()
+                ? BOOTSTRAP_PROFILE.nativeGameplayPackId()
+                : packId;
+        return Map.of(
+                "packId", safePackId,
+                "gameplayBridgeId", BOOTSTRAP_PROFILE.nativeGameplayBridgeId(),
+                "gameplayHandlerClass", BOOTSTRAP_PROFILE.nativeGameplayHandlerClassName(),
+                "handlers", ashfallGameplayHandlers(),
+                "liveGameplayHandlersAttached", false,
+                "liveMinecraftProcessHooksClaimed", false,
+                "liveGameplayHookBlockedReason", "live_minecraft_process_hook_attachment_unproven"
+        );
+    }
+
     static String nativeProductId(String path) {
         return PRODUCT_ACTION_FLOW.productId(path);
     }

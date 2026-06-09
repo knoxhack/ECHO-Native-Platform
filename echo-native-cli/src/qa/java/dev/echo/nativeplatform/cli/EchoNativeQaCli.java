@@ -53,6 +53,7 @@ public final class EchoNativeQaCli {
     private final EchoNativeClasspathPlanner classpathPlanner = new EchoNativeClasspathPlanner();
     private final EchoNativeNativeExtractionPlanner nativeExtractionPlanner = new EchoNativeNativeExtractionPlanner();
     private final EchoNativeLaunchArgumentPlanner launchArgumentPlanner = new EchoNativeLaunchArgumentPlanner();
+    private final EchoNativeControlledDummyProcessRunner controlledDummyProcessRunner = new EchoNativeControlledDummyProcessRunner();
     private final EchoNativeAddonRuntimeDiscoveryPlanner addonRuntimeDiscoveryPlanner = new EchoNativeAddonRuntimeDiscoveryPlanner();
     private final EchoNativeLifecycleStubExecutor lifecycleStubExecutor = new EchoNativeLifecycleStubExecutor();
     private final EchoNativeServiceBusPrototype serviceBusPrototype = new EchoNativeServiceBusPrototype();
@@ -425,8 +426,7 @@ public final class EchoNativeQaCli {
             return phase13PlanLaunchArguments(Path.of(args[3]));
         }
         if (args.length == 4 && "run".equals(args[1]) && "dummy-process".equals(args[2])) {
-            System.out.println("Retired internal QA path: phase13 run dummy-process. Use the product launcher path instead.");
-            return 2;
+            return phase13RunDummyProcess(Path.of(args[3]));
         }
         if (args.length == 4 && "discover".equals(args[1]) && "addons".equals(args[2])) {
             return phase13DiscoverAddons(Path.of(args[3]));
@@ -1741,6 +1741,20 @@ public final class EchoNativeQaCli {
         return hasBlocking(outcome.diagnostics()) ? 1 : 0;
     }
 
+    private int phase13RunDummyProcess(Path fixture) throws IOException {
+        EchoNativeScanResult result = scanner.scan(fixture);
+        EchoNativeDummyProcessOutcome outcome = controlledDummyProcessRunner.run(
+                packId(result),
+                fixture,
+                reportPath(fixture, result, "launch-argument-builder-plan.json"),
+                reportPath(fixture, result, "launch-argument-source-policy.json"),
+                reportPath(fixture, result, "launch-argument-safety-status.json")
+        );
+        writeDummyProcessReports(fixture, result, outcome);
+        System.out.println("Ran Phase 13 controlled dummy process boundary for " + packId(result) + ".");
+        return hasBlocking(outcome.diagnostics()) ? 1 : 0;
+    }
+
     private int phase13DiscoverAddons(Path fixture) throws IOException {
         EchoNativeScanResult result = scanner.scan(fixture);
         EchoNativeAddonRuntimeDiscoveryOutcome outcome = addonRuntimeDiscoveryPlanner.discover(
@@ -2036,6 +2050,13 @@ public final class EchoNativeQaCli {
         writeSimple(fixture, result, "launch-argument-builder-plan.json", "echo.native.launch_argument_builder_plan.v1", outcome.diagnostics(), outcome.launchArgumentPlan());
         writeSimple(fixture, result, "launch-argument-source-policy.json", "echo.native.launch_argument_source_policy.v1", outcome.diagnostics(), outcome.launchArgumentSourcePolicy());
         writeSimple(fixture, result, "launch-argument-safety-status.json", "echo.native.launch_argument_safety_status.v1", outcome.diagnostics(), outcome.launchArgumentSafetyStatus());
+    }
+
+    private void writeDummyProcessReports(Path fixture, EchoNativeScanResult result, EchoNativeDummyProcessOutcome outcome) throws IOException {
+        writeSimple(fixture, result, "controlled-dummy-process-plan.json", "echo.native.controlled_dummy_process_plan.v1", outcome.diagnostics(), outcome.controlledDummyProcessPlan());
+        writeSimple(fixture, result, "controlled-dummy-process-result.json", "echo.native.controlled_dummy_process_result.v1", outcome.diagnostics(), outcome.controlledDummyProcessResult());
+        writeSimple(fixture, result, "dummy-process-crash-boundary.json", "echo.native.dummy_process_crash_boundary.v1", outcome.diagnostics(), outcome.dummyProcessCrashBoundary());
+        writeSimple(fixture, result, "dummy-process-output-capture.json", "echo.native.dummy_process_output_capture.v1", outcome.diagnostics(), outcome.dummyProcessOutputCapture());
     }
 
     private void writeAddonRuntimeDiscoveryReports(Path fixture, EchoNativeScanResult result, EchoNativeAddonRuntimeDiscoveryOutcome outcome) throws IOException {

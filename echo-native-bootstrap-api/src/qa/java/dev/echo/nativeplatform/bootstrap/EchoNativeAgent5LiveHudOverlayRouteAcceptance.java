@@ -35,7 +35,9 @@ public final class EchoNativeAgent5LiveHudOverlayRouteAcceptance {
         result.put("hudHazard", text(endToEnd.get("hudHazard")));
         result.put("cameraMode", text(endToEnd.get("cameraMode")));
         result.put("cinematicCue", text(endToEnd.get("cinematicCue")));
-        result.put("effect", accepted ? "live_hud_overlay_route:accepted:data_backed_hud:85"
+        result.put("effect", accepted
+                ? "live_hud_overlay_route:accepted:data_backed_hud:"
+                + EchoNativeAgent5UiExpectedValues.hudUpdatedHealth()
                 : "live_hud_overlay_route:rejected");
         result.put("adapterCoreBridge", true);
         result.put("serviceCodeExecuted", accepted);

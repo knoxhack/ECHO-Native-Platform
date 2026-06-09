@@ -6,30 +6,13 @@ import java.util.Map;
 
 public final class EchoNativeAgent5LiveSurfaceRouteAcceptanceSmoke {
     private static final String SCREEN_CLASS = "dev.echo.nativeplatform.generated.EchoNativeDashboardScreen";
-    private static final List<Route> ROUTES = List.of(
-            new Route("M", "TERMINAL"),
-            new Route("G", "INDEX"),
-            new Route("R", "INDEX"),
-            new Route("U", "INDEX"),
-            new Route("B", "INDEX"),
-            new Route("LEFT_ALT", "LENS"),
-            new Route("J", "HOLOMAP"),
-            new Route("K", "HOLOMAP"),
-            new Route("RIGHT_BRACKET", "HOLOMAP"),
-            new Route("LEFT_BRACKET", "HOLOMAP"),
-            new Route("BACKSLASH", "HOLOMAP"),
-            new Route("N", "SIGNALOS"),
-            new Route("X", "ASHFALL_DRONE"),
-            new Route("C", "ASHFALL_DRONE"),
-            new Route("Y", "ASHFALL_DRONE"),
-            new Route("Z", "ASHFALL_DRONE")
-    );
 
     private EchoNativeAgent5LiveSurfaceRouteAcceptanceSmoke() {
     }
 
     public static Map<String, Object> capture() {
-        List<Map<String, Object>> acceptedRoutes = ROUTES.stream()
+        List<Route> routes = routes();
+        List<Map<String, Object>> acceptedRoutes = routes.stream()
                 .map(route -> route(route.key(), route.surface()))
                 .toList();
         Map<String, Object> rejectedNoHotkey = EchoNativeAgent5LiveSurfaceRouteAcceptance.assess(
@@ -52,8 +35,8 @@ public final class EchoNativeAgent5LiveSurfaceRouteAcceptanceSmoke {
         );
         Map<String, Object> rejectedWikiNoPhysicalKey = route("W", "WIKI");
         boolean passed = acceptedRoutes.stream().allMatch(route -> Boolean.TRUE.equals(route.get("accepted")))
-                && routeKeys(acceptedRoutes).equals(ROUTES.stream().map(Route::key).toList())
-                && routeSurfaces(acceptedRoutes).equals(ROUTES.stream().map(Route::surface).toList())
+                && routeKeys(acceptedRoutes).equals(routes.stream().map(Route::key).toList())
+                && routeSurfaces(acceptedRoutes).equals(routes.stream().map(Route::surface).toList())
                 && Boolean.FALSE.equals(rejectedNoHotkey.get("accepted"))
                 && Boolean.FALSE.equals(rejectedNoSurface.get("accepted"))
                 && Boolean.FALSE.equals(rejectedNoRender.get("accepted"))
@@ -143,5 +126,11 @@ public final class EchoNativeAgent5LiveSurfaceRouteAcceptanceSmoke {
     }
 
     private record Route(String key, String surface) {
+    }
+
+    private static List<Route> routes() {
+        return EchoNativeAgent5PhysicalRouteRequirements.phase5Routes().stream()
+                .map(route -> new Route(route.hotkey(), route.surface()))
+                .toList();
     }
 }

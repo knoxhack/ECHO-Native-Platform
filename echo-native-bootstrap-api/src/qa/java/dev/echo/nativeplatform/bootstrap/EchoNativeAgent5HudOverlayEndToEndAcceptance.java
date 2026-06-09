@@ -23,7 +23,7 @@ public final class EchoNativeAgent5HudOverlayEndToEndAcceptance {
         boolean hudDataObserved = Boolean.TRUE.equals(overlay.get("passed"))
                 && Boolean.TRUE.equals(overlay.get("overlayRendered"))
                 && Boolean.TRUE.equals(update.get("passed"))
-                && Integer.valueOf(85).equals(update.get("hudHealth"))
+                && Integer.valueOf(EchoNativeAgent5UiExpectedValues.hudUpdatedHealth()).equals(update.get("hudHealth"))
                 && "hud:update:health_hazard_mission".equals(update.get("effect"))
                 && runtimeMutationAccepted;
         boolean accepted = hudDataObserved
@@ -44,7 +44,8 @@ public final class EchoNativeAgent5HudOverlayEndToEndAcceptance {
         result.put("runtimeMutationAccepted", runtimeMutationAccepted);
         result.put("runtimeActionId", string(update.get("runtimeActionId")));
         result.put("eventName", string(update.get("eventName")));
-        result.put("effect", accepted ? "hud_overlay_end_to_end:data_backed:85" : "hud_overlay_end_to_end:rejected");
+        result.put("effect", accepted ? EchoNativeAgent5UiExpectedValues.hudOverlayEffect()
+                : "hud_overlay_end_to_end:rejected");
         result.put("adapterCoreBridge", true);
         result.put("serviceCodeExecuted", accepted);
         return Map.copyOf(result);

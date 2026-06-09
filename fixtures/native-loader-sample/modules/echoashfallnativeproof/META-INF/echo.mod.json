@@ -1,0 +1,32 @@
+{
+  "schema": "echo.mod.v1",
+  "id": "echoashfallnativeproof",
+  "name": "ECHO Ashfall Native Proof",
+  "version": "1.0.0",
+  "kind": "module",
+  "role": "runtime",
+  "entrypoint": "dev.echo.nativeplatform.samples.AshfallNativeSampleModule",
+  "side": "COMMON",
+  "trustLevel": "OFFICIAL",
+  "apiStability": "STABLE",
+  "official": true,
+  "standalone": false,
+  "requires": [],
+  "optional": [],
+  "provides": [
+    "ashfall.first_spawn",
+    "ashfall.drop_pod",
+    "content.item.echoashfallprotocol.drop_pod_beacon",
+    "content.block.echoashfallprotocol.drop_pod_marker"
+  ],
+  "consumes": [
+    "adaptercore"
+  ],
+  "transforms": [],
+  "access": {
+    "nativeEntrypoint": "dev.echo.nativeplatform.samples.AshfallNativeSampleModule",
+    "nativeClasspath": [
+      "../../../../build/native-loader-proof-module/echoashfallnativeproof-module.jar"
+    ]
+  }
+}

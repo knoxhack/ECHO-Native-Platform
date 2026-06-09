@@ -32,7 +32,7 @@ public final class EchoNativeAgent5LiveSurfaceRouteAcceptance {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("accepted", accepted);
-        result.put("key", text(hotkey.get("key")));
+        result.put("key", firstNonBlank(hotkey.get("key"), hotkey.get("hotkey")));
         result.put("surface", hotkeySurface);
         result.put("liveSurface", liveSurface);
         result.put("renderedSurface", renderedSurface);
@@ -55,5 +55,10 @@ public final class EchoNativeAgent5LiveSurfaceRouteAcceptance {
 
     private static String text(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private static String firstNonBlank(Object first, Object second) {
+        String firstText = text(first);
+        return firstText.isBlank() ? text(second) : firstText;
     }
 }

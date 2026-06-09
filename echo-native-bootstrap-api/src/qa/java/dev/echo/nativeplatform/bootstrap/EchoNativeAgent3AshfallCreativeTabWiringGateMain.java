@@ -8,10 +8,10 @@ public final class EchoNativeAgent3AshfallCreativeTabWiringGateMain {
     }
 
     public static void main(String[] args) throws Exception {
-        Path workspace = Path.of("").toAbsolutePath().normalize().getParent();
-        Path providerPath = workspace.resolve("addons/echoashfallprotocol/src/main/java/com/knoxhack/echoashfallprotocol/nativebridge/AshfallNativeProductBridgeProvider.java");
-        Path creativeTabsPath = workspace.resolve("addons/echoashfallprotocol/src/main/java/com/knoxhack/echoashfallprotocol/registry/ModCreativeTabs.java");
-        Path nativeModulePath = workspace.resolve("addons/echoashfallprotocol/src/main/java/com/knoxhack/echoashfallprotocol/EchoAshfallNativeModule.java");
+        Path ashfallRoot = echoModulesRoot().resolve("echoashfallprotocol").resolve("src/main/java/com/knoxhack/echoashfallprotocol");
+        Path providerPath = ashfallRoot.resolve("nativebridge/AshfallNativeProductBridgeProvider.java");
+        Path creativeTabsPath = ashfallRoot.resolve("registry/ModCreativeTabs.java");
+        Path nativeModulePath = ashfallRoot.resolve("EchoAshfallNativeModule.java");
         String provider = Files.readString(providerPath);
         String creativeTabs = Files.readString(creativeTabsPath);
         String nativeModule = Files.readString(nativeModulePath);
@@ -121,8 +121,10 @@ public final class EchoNativeAgent3AshfallCreativeTabWiringGateMain {
         require(creativeTabs.contains("BuiltInRegistries.ITEM.stream()")
                         && creativeTabs.contains(".filter(ModCreativeTabs::isNativeModuleRegistryItem)"),
                 "Ashfall native modules tab must populate from the live BuiltInRegistries item table");
-        require(creativeTabs.contains("ModItems.ITEMS.getEntries()")
-                        && creativeTabs.contains("ModBlocks.BLOCK_ITEMS.getEntries()"),
+        require((creativeTabs.contains("ModItems.ITEMS.getEntries()")
+                        || creativeTabs.contains("EchoBackendRegistryBridge.entries(ModItems.ITEMS)"))
+                        && (creativeTabs.contains("ModBlocks.BLOCK_ITEMS.getEntries()")
+                        || creativeTabs.contains("EchoBackendRegistryBridge.entries(ModBlocks.BLOCK_ITEMS)")),
                 "Ashfall native modules tab must include module item and block-item registry data");
         require(creativeTabs.contains(".filter(itemId -> !itemId.isBlank())")
                         && !creativeTabs.contains("getDescriptionId()"),
@@ -147,6 +149,27 @@ public final class EchoNativeAgent3AshfallCreativeTabWiringGateMain {
         if (!condition) {
             throw new IllegalStateException(message);
         }
+    }
+
+    private static Path echoModulesRoot() {
+        String configured = System.getProperty("echo.modules.root");
+        if (configured == null || configured.isBlank()) {
+            configured = System.getenv("ECHO_MODULES_ROOT");
+        }
+        if (configured != null && !configured.isBlank()) {
+            return Path.of(configured).toAbsolutePath().normalize();
+        }
+        Path workspaceRoot = Path.of("").toAbsolutePath().normalize().getParent();
+        Path workspaceModules = workspaceRoot == null
+                ? Path.of("..", "ECHO-Modules", "addons")
+                : workspaceRoot.resolve("ECHO-Modules").resolve("addons");
+        if (Files.isDirectory(workspaceModules)) {
+            return workspaceModules.toAbsolutePath().normalize();
+        }
+        Path legacyAddons = workspaceRoot == null
+                ? Path.of("..", "addons")
+                : workspaceRoot.resolve("addons");
+        return legacyAddons.toAbsolutePath().normalize();
     }
 
     private static String between(String value, String start, String end) {

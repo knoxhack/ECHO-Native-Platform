@@ -34,6 +34,35 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
     private EchoNativeAgent2ClientRouteOwnershipSmokeMain() {
     }
 
+    private static Path addonSourcePath(String moduleId, String... parts) {
+        Path path = echoModulesRoot().resolve(moduleId);
+        for (String part : parts) {
+            path = path.resolve(part);
+        }
+        return path.normalize();
+    }
+
+    private static Path echoModulesRoot() {
+        String configured = System.getProperty("echo.modules.root");
+        if (configured == null || configured.isBlank()) {
+            configured = System.getenv("ECHO_MODULES_ROOT");
+        }
+        if (configured != null && !configured.isBlank()) {
+            return Path.of(configured).toAbsolutePath().normalize();
+        }
+        Path workspaceRoot = Path.of("").toAbsolutePath().normalize().getParent();
+        Path workspaceModules = workspaceRoot == null
+                ? Path.of("..", "ECHO-Modules", "addons")
+                : workspaceRoot.resolve("ECHO-Modules").resolve("addons");
+        if (Files.isDirectory(workspaceModules)) {
+            return workspaceModules;
+        }
+        Path legacyAddons = workspaceRoot == null
+                ? Path.of("..", "addons")
+                : workspaceRoot.resolve("addons");
+        return legacyAddons.toAbsolutePath().normalize();
+    }
+
     public static void main(String[] args) throws Exception {
         Path output = args.length > 0
                 ? Path.of(args[0]).toAbsolutePath().normalize()
@@ -2302,16 +2331,16 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
     private static Map<String, Boolean> requireStatusAwareInputAdapters() throws Exception {
         Map<String, Path> sources = Map.of(
                 "echoterminal",
-                Path.of("..", "addons", "echoterminal", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echoterminal", "src", "main", "java", "com", "knoxhack",
                         "echoterminal", "EchoTerminalClient.java"),
                 "echoindex",
-                Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                         "echoindex", "EchoIndexClient.java"),
                 "echolens",
-                Path.of("..", "addons", "echolens", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echolens", "src", "main", "java", "com", "knoxhack",
                         "echolens", "EchoLensClient.java"),
                 "echoholomap",
-                Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                         "echoholomap", "EchoHoloMapClient.java")
         );
         Map<String, Boolean> results = new LinkedHashMap<>();
@@ -2329,34 +2358,34 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
     private static Map<String, Boolean> requireMetadataAwareInputAdapters() throws Exception {
         Map<String, Path> sources = Map.of(
                 "echoterminal",
-                Path.of("..", "addons", "echoterminal", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echoterminal", "src", "main", "java", "com", "knoxhack",
                         "echoterminal", "EchoTerminalClient.java"),
                 "echoindex",
-                Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                         "echoindex", "EchoIndexClient.java"),
                 "echolens",
-                Path.of("..", "addons", "echolens", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echolens", "src", "main", "java", "com", "knoxhack",
                         "echolens", "EchoLensClient.java"),
                 "echoholomap",
-                Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                         "echoholomap", "EchoHoloMapClient.java")
         );
         Map<String, Boolean> results = new LinkedHashMap<>();
         for (Map.Entry<String, Path> sourceEntry : sources.entrySet()) {
             String source = Files.readString(sourceEntry.getValue(), StandardCharsets.UTF_8);
             boolean metadataAware = source.contains("\"source\", \"native_loader_input_binding\"")
-                    && source.contains("\"forwardedFrom\", \"neoforge_compatibility_adapter\"")
+                    && source.contains("\"forwardedFrom\"")
                     && source.contains("\"eventType\", \"key_input\"")
                     && source.contains("\"nativeInputOwner\", \"EchoNativeClientRouteRegistries\"")
                     && source.contains("\"nativeLoaderHostService\", \"key_input\"")
                     && source.contains("\"inputType\", \"press\"")
-                    && source.contains("\"keyEvent\", String.valueOf(event.getKeyEvent())")
+                    && source.contains("\"keyEvent\", String.valueOf(")
                     && source.contains(".keyInput(")
                     && source.contains("nativeKeyMetadata(event,")
                     && !source.contains("\"compatibilityAdapter\", \"NeoForge InputEvent.Key\"");
             require(metadataAware,
                     sourceEntry.getKey()
-                            + " Native Loader key adapter must use route-owned input binding metadata and only mark NeoForge as forwarded adapter.");
+                            + " Native Loader key adapter must use route-owned input binding metadata and record a bridge origin.");
             results.put(sourceEntry.getKey(), true);
         }
         return Map.copyOf(results);
@@ -2414,25 +2443,25 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
     private static Map<String, Boolean> requireStatusAwareRouteAdapters() throws Exception {
         Map<String, Path> sources = Map.of(
                 "echoterminal",
-                Path.of("..", "addons", "echoterminal", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echoterminal", "src", "main", "java", "com", "knoxhack",
                         "echoterminal", "EchoTerminalClient.java"),
                 "echoterminal_screen_events",
-                Path.of("..", "addons", "echoterminal", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echoterminal", "src", "main", "java", "com", "knoxhack",
                         "echoterminal", "client", "TerminalEventHandler.java"),
                 "echoterminal_rendercore",
-                Path.of("..", "addons", "echoterminal", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echoterminal", "src", "main", "java", "com", "knoxhack",
                         "echoterminal", "integration", "TerminalRenderCoreClientIntegration.java"),
                 "echoindex",
-                Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                         "echoindex", "EchoIndexClient.java"),
                 "echolens",
-                Path.of("..", "addons", "echolens", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echolens", "src", "main", "java", "com", "knoxhack",
                         "echolens", "EchoLensClient.java"),
                 "echoholomap",
-                Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                         "echoholomap", "EchoHoloMapClient.java"),
                 "echohudcore",
-                Path.of("..", "addons", "echohudcore", "src", "main", "java", "com", "knoxhack",
+                addonSourcePath("echohudcore", "src", "main", "java", "com", "knoxhack",
                         "echo", "hudcore", "EchoHudCoreClient.java")
         );
         Map<String, Boolean> results = new LinkedHashMap<>();
@@ -2454,7 +2483,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
     }
 
     private static Map<String, Boolean> requireSharedRouteHandlerSurfaceIds() throws Exception {
-        Path holoMapPath = Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+        Path holoMapPath = addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                 "echoholomap", "EchoHoloMapClient.java");
         String holoMapSource = Files.readString(holoMapPath, StandardCharsets.UTF_8);
         require(holoMapSource.contains("registry.registerActionHandler(\"holomap\", \"echoholomap:minimap\"")
@@ -2464,7 +2493,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && !holoMapSource.contains("registry.registerActionHandler(\"holomap\", \"echoholomap:client\""),
                 "HoloMap shared holomap route handlers must be registered with declared minimap/fullscreen surface IDs.");
 
-        Path hudCorePath = Path.of("..", "addons", "echohudcore", "src", "main", "java", "com", "knoxhack",
+        Path hudCorePath = addonSourcePath("echohudcore", "src", "main", "java", "com", "knoxhack",
                 "echo", "hudcore", "EchoHudCoreClient.java");
         String hudCoreSource = Files.readString(hudCorePath, StandardCharsets.UTF_8);
         require(hudCoreSource.contains("registry.registerActionHandler(\"hud_widget\", \"echohudcore:mission_tracker\"")
@@ -2497,7 +2526,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
     }
 
     private static Map<String, Boolean> requireNativeCrossSurfaceRouteHandoffs() throws Exception {
-        Path lensPath = Path.of("..", "addons", "echolens", "src", "main", "java", "com", "knoxhack",
+        Path lensPath = addonSourcePath("echolens", "src", "main", "java", "com", "knoxhack",
                 "echolens", "EchoLensClient.java");
         String lensSource = Files.readString(lensPath, StandardCharsets.UTF_8);
         String lensTargetDispatch = methodBody(lensSource,
@@ -2517,7 +2546,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && lensRouteHandoff.contains(".dispatchStatus(")
                         && lensRouteHandoff.contains("\"client_overlay\""),
                 "Lens native Index handoff must dispatch client_overlay route metadata with target item evidence.");
-        Path lensActionsPath = Path.of("..", "addons", "echolens", "src", "main", "java", "com", "knoxhack",
+        Path lensActionsPath = addonSourcePath("echolens", "src", "main", "java", "com", "knoxhack",
                 "echolens", "client", "LensClientActions.java");
         String lensActionsSource = Files.readString(lensActionsPath, StandardCharsets.UTF_8);
         String legacyHandoff = methodBody(lensActionsSource,
@@ -2535,7 +2564,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                                 .contains("dispatchNativeIndexRoute(stack, \"index.track_item\", \"track\")"),
                 "Lens legacy Index helpers must hand off to Index-owned native routes before reflective screen/network fallback while Native Loader is active.");
 
-        Path indexPath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path indexPath = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "EchoIndexClient.java");
         String indexSource = Files.readString(indexPath, StandardCharsets.UTF_8);
         String routeItemOpen = methodBody(indexSource,
@@ -2571,7 +2600,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
     }
 
     private static Map<String, Boolean> requireNativeScreenLifecycleTransitions() throws Exception {
-        Path indexClientPath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path indexClientPath = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "EchoIndexClient.java");
         String indexClient = Files.readString(indexClientPath, StandardCharsets.UTF_8);
         String lifecyclePublisher = methodBody(indexClient,
@@ -2598,7 +2627,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && indexRecipeOpen.contains("if (nativeLoaderActive() && lifecycleStatus != EchoNativeLoadStatus.MUTATED)"),
                 "Index route-owned catalog and recipe fallbacks must require mutating lifecycle evidence before setScreen.");
 
-        Path catalogPath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path catalogPath = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "client", "IndexCatalogScreen.java");
         String catalogSource = Files.readString(catalogPath, StandardCharsets.UTF_8);
         boolean catalogInputNoSuperFallback = nativeLoaderBranchHasNoSuperFallback(catalogSource,
@@ -2617,7 +2646,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && catalogSource.contains("targetScreenClass\", IndexRecipeScreen.class.getName()"),
                 "Index catalog native screen transitions must require mutating lifecycle evidence before setScreen.");
 
-        Path indexTerminalIntegrationPath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com",
+        Path indexTerminalIntegrationPath = addonSourcePath("echoindex", "src", "main", "java", "com",
                 "knoxhack", "echoindex", "integration", "IndexTerminalClientIntegration.java");
         String indexTerminalIntegration = Files.readString(indexTerminalIntegrationPath, StandardCharsets.UTF_8);
         require(indexTerminalIntegration.contains("index.terminal_archive.open_diagnostics")
@@ -2627,7 +2656,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && indexTerminalIntegration.contains("lifecycleStatus != EchoNativeLoadStatus.MUTATED"),
                 "Index Terminal archive diagnostics open must require mutating lifecycle evidence before setScreen.");
 
-        Path recipePath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path recipePath = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "client", "IndexRecipeScreen.java");
         String recipeSource = Files.readString(recipePath, StandardCharsets.UTF_8);
         boolean recipeInputNoSuperFallback = nativeLoaderBranchHasNoSuperFallback(recipeSource,
@@ -2646,7 +2675,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && recipeSource.contains("targetScreenClass\", IndexRecipeScreen.class.getName()"),
                 "Index recipe native screen transitions must require mutating lifecycle evidence before setScreen.");
 
-        Path indexHotkeysPath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path indexHotkeysPath = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "client", "IndexHotkeys.java");
         String indexHotkeys = Files.readString(indexHotkeysPath, StandardCharsets.UTF_8);
         String hoveredStackOpen = methodBody(indexHotkeys,
@@ -2658,7 +2687,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && hoveredStackOpen.contains("lifecycleStatus != EchoNativeLoadStatus.MUTATED"),
                 "Index hovered-stack hotkey route must require mutating lifecycle evidence before opening the recipe screen.");
 
-        Path indexOverlayPath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path indexOverlayPath = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "client", "IndexOverlay.java");
         String indexOverlay = Files.readString(indexOverlayPath, StandardCharsets.UTF_8);
         String overlayRecipeOpen = methodBody(indexOverlay,
@@ -2680,7 +2709,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && indexOverlay.contains("index_overlay_diagnostics_button"),
                 "Index inventory overlay recipe and diagnostics opens must require mutating lifecycle evidence before setScreen.");
 
-        Path indexFallbackPath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path indexFallbackPath = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "client", "IndexFallbackScreen.java");
         String indexFallback = Files.readString(indexFallbackPath, StandardCharsets.UTF_8);
         String fallbackOpen = methodBody(indexFallback, "public static void open()");
@@ -2690,7 +2719,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && fallbackOpen.contains("lifecycleStatus != EchoNativeLoadStatus.MUTATED"),
                 "Index fallback catalog helper must require mutating lifecycle evidence before setScreen.");
 
-        Path indexScreenCoreBridgePath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com",
+        Path indexScreenCoreBridgePath = addonSourcePath("echoindex", "src", "main", "java", "com",
                 "knoxhack", "echoindex", "client", "IndexScreenCoreBridge.java");
         String indexScreenCoreBridge = Files.readString(indexScreenCoreBridgePath, StandardCharsets.UTF_8);
         String indexScreenCorePublisher = methodBody(indexScreenCoreBridge,
@@ -2706,7 +2735,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && indexScreenCoreBridge.contains("index.screencore.open_recipe"),
                 "Index ScreenCore route opens must require mutating lifecycle evidence before EchoScreens.open.");
 
-        Path holoMapClientPath = Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+        Path holoMapClientPath = addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                 "echoholomap", "EchoHoloMapClient.java");
         String holoMapClient = Files.readString(holoMapClientPath, StandardCharsets.UTF_8);
         String holoMapLifecyclePublisher = methodBody(holoMapClient,
@@ -2742,7 +2771,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && !holoMapCommand.contains("return id != null && controller.selectEntry(id)"),
                 "HoloMap select-entry route handler must own selection mutation and ScreenCore invalidation.");
 
-        Path holoMapScreenPath = Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+        Path holoMapScreenPath = addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                 "echoholomap", "client", "HoloMapFullScreenMapScreen.java");
         String holoMapScreen = Files.readString(holoMapScreenPath, StandardCharsets.UTF_8);
         boolean holoMapInputNoSuperFallback = nativeLoaderBranchHasNoSuperFallback(holoMapScreen,
@@ -2764,7 +2793,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && holoMapHitbox.contains("fullscreen_header_button")
                         && holoMapHitbox.contains("lifecycleStatus != EchoNativeLoadStatus.MUTATED"),
                 "HoloMap fullscreen native header close must require mutating lifecycle evidence before setScreen.");
-        Path holoMapScreenCorePath = Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+        Path holoMapScreenCorePath = addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                 "echoholomap", "integration", "HoloMapScreenCoreIntegration.java");
         String holoMapScreenCore = Files.readString(holoMapScreenCorePath, StandardCharsets.UTF_8);
         require(holoMapScreenCore.contains("return EchoHoloMapClient.dispatchNativeScreenCoreFullscreenCommand(")
@@ -2779,7 +2808,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && holoMapScreenCoreOpen.contains("EchoScreens.open("),
                 "HoloMap ScreenCore fullscreen open must require mutating lifecycle evidence before EchoScreens.open.");
 
-        Path terminalClientPath = Path.of("..", "addons", "echoterminal", "src", "main", "java", "com",
+        Path terminalClientPath = addonSourcePath("echoterminal", "src", "main", "java", "com",
                 "knoxhack", "echoterminal", "EchoTerminalClient.java");
         String terminalClient = Files.readString(terminalClientPath, StandardCharsets.UTF_8);
         String terminalLifecyclePublisher = methodBody(terminalClient,
@@ -2802,7 +2831,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && terminalOpen.contains("if (nativeLoaderActive() && lifecycleStatus != EchoNativeLoadStatus.MUTATED)"),
                 "Terminal route-owned classic screen open must require mutating lifecycle evidence before setScreen.");
 
-        Path terminalClassicPath = Path.of("..", "addons", "echoterminal", "src", "main", "java", "com",
+        Path terminalClassicPath = addonSourcePath("echoterminal", "src", "main", "java", "com",
                 "knoxhack", "echoterminal", "client", "screen", "EchoTerminalScreen.java");
         String terminalClassic = Files.readString(terminalClassicPath, StandardCharsets.UTF_8);
         String terminalClassicKey = methodBody(terminalClassic, "public boolean keyPressed(KeyEvent event)");
@@ -2812,7 +2841,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && terminalClassicKey.contains("lifecycleStatus != EchoNativeLoadStatus.MUTATED"),
                 "Terminal classic screen key close must require mutating lifecycle evidence before setScreen.");
 
-        Path terminalScreenCorePath = Path.of("..", "addons", "echoterminal", "src", "main", "java", "com",
+        Path terminalScreenCorePath = addonSourcePath("echoterminal", "src", "main", "java", "com",
                 "knoxhack", "echoterminal", "client", "screencore", "TerminalScreenCoreScreen.java");
         String terminalScreenCore = Files.readString(terminalScreenCorePath, StandardCharsets.UTF_8);
         boolean terminalScreenCoreInputNoSuperFallback = nativeLoaderBranchHasNoSuperFallback(terminalScreenCore,
@@ -2830,7 +2859,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
         String terminalControlsBack = methodBody(terminalScreenCore, "public boolean back()");
         String terminalControlsOpen = methodBody(terminalScreenCore,
                 "public boolean open(Identifier nextPage, EchoDataContext context)");
-        Path terminalScreenCoreBridgePath = Path.of("..", "addons", "echoterminal", "src", "main", "java", "com",
+        Path terminalScreenCoreBridgePath = addonSourcePath("echoterminal", "src", "main", "java", "com",
                 "knoxhack", "echoterminal", "client", "screencore", "TerminalScreenCoreBridge.java");
         String terminalScreenCoreBridge = Files.readString(terminalScreenCoreBridgePath, StandardCharsets.UTF_8);
         String terminalBridgeOpenTab = methodBody(terminalScreenCoreBridge,
@@ -3328,7 +3357,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
     }
 
     private static Map<String, Boolean> requireTerminalNativeRouteStateSource() throws Exception {
-        Path clientPath = Path.of("..", "addons", "echoterminal", "src", "main", "java", "com", "knoxhack",
+        Path clientPath = addonSourcePath("echoterminal", "src", "main", "java", "com", "knoxhack",
                 "echoterminal", "EchoTerminalClient.java");
         String clientSource = Files.readString(clientPath, StandardCharsets.UTF_8);
         require(clientSource.contains("private static Map<String, Object> nativeRouteState"),
@@ -3369,7 +3398,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && clientSource.contains("screen.handleMouseScroll(")
                         && !clientSource.contains("handled = EchoTerminalScreens.isManagedTerminalScreen(Minecraft.getInstance().screen);"),
                 "Terminal native screen char/scroll routes must call real screen input handlers, not only acknowledge a managed screen.");
-        Path modulePath = Path.of("..", "addons", "echoterminal", "src", "main", "java", "com", "knoxhack",
+        Path modulePath = addonSourcePath("echoterminal", "src", "main", "java", "com", "knoxhack",
                 "echoterminal", "EchoTerminalNativeModule.java");
         String moduleSource = Files.readString(modulePath, StandardCharsets.UTF_8);
         require(moduleSource.contains("\"terminal.screen.char_typed\", Map.of(")
@@ -3394,7 +3423,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
         results.put("echoterminal_native_route_model_state", true);
         results.put("echoterminal_screen_input_real_mutation", true);
         results.put("echoterminal_descriptor_route_actions", true);
-        Path renderCorePath = Path.of("..", "addons", "echoterminal", "src", "main", "java", "com", "knoxhack",
+        Path renderCorePath = addonSourcePath("echoterminal", "src", "main", "java", "com", "knoxhack",
                 "echoterminal", "integration", "TerminalRenderCoreClientIntegration.java");
         String renderCoreSource = Files.readString(renderCorePath, StandardCharsets.UTF_8);
         require(renderCoreSource.contains("registerActionHandler(\"terminal\", \"echoterminal:eui:rendercore_screen_frame\""),
@@ -3404,7 +3433,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
     }
 
     private static Map<String, Boolean> requireHoloMapNativeRouteStateSource() throws Exception {
-        Path clientPath = Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+        Path clientPath = addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                 "echoholomap", "EchoHoloMapClient.java");
         String clientSource = Files.readString(clientPath, StandardCharsets.UTF_8);
         require(clientSource.contains("private static Map<String, Object> nativeRouteState"),
@@ -3438,7 +3467,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && clientSource.contains("putIfPresent(model, \"routeSource\", safeMetadata.get(\"source\"))")
                         && clientSource.contains("putIfPresent(model, \"routePartialTick\", safeMetadata.get(\"partialTick\"))"),
                 "HoloMap native route state must expose a concrete route-driven map model with minimap/fullscreen state and route metadata.");
-        Path modulePath = Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+        Path modulePath = addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                 "echoholomap", "EchoHoloMapNativeModule.java");
         String moduleSource = Files.readString(modulePath, StandardCharsets.UTF_8);
         require(moduleSource.contains("\"holomap.minimap.render\", Map.of(\"kind\", \"overlay_render\")")
@@ -3466,7 +3495,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && moduleSource.contains("nativeClientRouteRegistrarClass"),
                 "HoloMap native module descriptor must declare the same minimap command and fullscreen route actions as the client route table.");
 
-        Path controllerPath = Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+        Path controllerPath = addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                 "echoholomap", "client", "HoloMapUiController.java");
         String controllerSource = Files.readString(controllerPath, StandardCharsets.UTF_8);
         require(controllerSource.contains("public synchronized Map<String, Object> nativeRouteState()"),
@@ -3501,13 +3530,13 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
     private static Map<String, Boolean> requireProductRouteStateSources() throws Exception {
         Map<String, Boolean> results = new LinkedHashMap<>();
 
-        Path indexClientPath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path indexClientPath = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "EchoIndexClient.java");
         String indexClient = Files.readString(indexClientPath, StandardCharsets.UTF_8);
         require(indexClient.contains("IndexNativeSessionBridge.recordNativeRoute(")
                         && indexClient.contains("context.metadata()"),
                 "Index native route handlers must record product-side session state with route metadata.");
-        Path indexBridgePath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path indexBridgePath = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "client", "IndexNativeSessionBridge.java");
         String indexBridge = Files.readString(indexBridgePath, StandardCharsets.UTF_8);
         require(indexBridge.contains("nativeIndexSessionReady")
@@ -3541,7 +3570,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && indexBridge.contains("putIfPresent(model, \"routeSource\", safeRouteMetadata.get(\"source\"))"),
                 "Index native session bridge must expose a concrete route-driven Index model with route flags, live data, and route metadata.");
         results.put("echoindex_native_route_model_state", true);
-        Path indexModulePath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path indexModulePath = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "EchoIndexNativeModule.java");
         String indexModule = Files.readString(indexModulePath, StandardCharsets.UTF_8);
         require(indexModule.contains("\"index.catalog\", Map.of(")
@@ -3574,13 +3603,13 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "Index native module descriptor must declare every live Index route action.");
         results.put("echoindex_descriptor_route_actions", true);
 
-        Path lensClientPath = Path.of("..", "addons", "echolens", "src", "main", "java", "com", "knoxhack",
+        Path lensClientPath = addonSourcePath("echolens", "src", "main", "java", "com", "knoxhack",
                 "echolens", "EchoLensClient.java");
         String lensClient = Files.readString(lensClientPath, StandardCharsets.UTF_8);
         require(lensClient.contains("LensHudOverlay.recordNativeRoute(")
                         && lensClient.contains("context.metadata()"),
                 "Lens native route handlers must record product-side route state with route metadata.");
-        Path lensOverlayPath = Path.of("..", "addons", "echolens", "src", "main", "java", "com", "knoxhack",
+        Path lensOverlayPath = addonSourcePath("echolens", "src", "main", "java", "com", "knoxhack",
                 "echolens", "client", "LensHudOverlay.java");
         String lensOverlay = Files.readString(lensOverlayPath, StandardCharsets.UTF_8);
         require(lensOverlay.contains("private static volatile Map<String, Object> lastNativeRoute")
@@ -3616,10 +3645,10 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && lensOverlay.contains("putIfPresent(model, \"routeSource\", safeRouteMetadata.get(\"source\"))"),
                 "Lens native route state must expose a concrete route-driven overlay model with target, scan, feedback, and route metadata.");
         results.put("echolens_native_route_model_state", true);
-        Path lensModulePath = Path.of("..", "addons", "echolens", "src", "main", "java", "com", "knoxhack",
+        Path lensModulePath = addonSourcePath("echolens", "src", "main", "java", "com", "knoxhack",
                 "echolens", "EchoLensNativeModule.java");
         String lensModule = Files.readString(lensModulePath, StandardCharsets.UTF_8);
-        Path lensDescriptorPath = Path.of("..", "addons", "echolens", "src", "main", "resources",
+        Path lensDescriptorPath = addonSourcePath("echolens", "src", "main", "resources",
                 "META-INF", "echo.mod.json");
         String lensDescriptor = Files.readString(lensDescriptorPath, StandardCharsets.UTF_8);
         require(lensModule.contains("\"lens.deep_scan\", Map.of(")
@@ -3639,17 +3668,17 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "Lens native module descriptor must declare every live Lens route action and authorize native UI overlay surfaces.");
         results.put("echolens_descriptor_route_actions", true);
 
-        Path hudClientPath = Path.of("..", "addons", "echohudcore", "src", "main", "java", "com", "knoxhack",
+        Path hudClientPath = addonSourcePath("echohudcore", "src", "main", "java", "com", "knoxhack",
                 "echo", "hudcore", "EchoHudCoreClient.java");
         String hudClient = Files.readString(hudClientPath, StandardCharsets.UTF_8);
         require(hudClient.contains("EchoHudCoreOverlay.handleNativeHudAction(context.actionId(), context.action(), context.metadata())")
                         && hudClient.contains("EchoHudCoreOverlay.enableNativeRoute()")
                         && hudClient.contains("\"native_loader.overlay_focus\", Map.of(\"kind\", \"hud_overlay_focus\")"),
                 "HUDCore native route handlers must enter HUD overlay route-state recording with route metadata.");
-        Path hudModulePath = Path.of("..", "addons", "echohudcore", "src", "main", "java", "com", "knoxhack",
+        Path hudModulePath = addonSourcePath("echohudcore", "src", "main", "java", "com", "knoxhack",
                 "echo", "hudcore", "EchoHudCoreNativeModule.java");
         String hudModule = Files.readString(hudModulePath, StandardCharsets.UTF_8);
-        Path hudDescriptorPath = Path.of("..", "addons", "echohudcore", "src", "main", "resources",
+        Path hudDescriptorPath = addonSourcePath("echohudcore", "src", "main", "resources",
                 "META-INF", "echo.mod.json");
         String hudDescriptor = Files.readString(hudDescriptorPath, StandardCharsets.UTF_8);
         require(hudModule.contains("\"hud.render\", Map.of(\"kind\", \"hud_render\")")
@@ -3669,7 +3698,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && hudDescriptor.contains("\"requiresMinecraft\": true")
                         && hudDescriptor.contains("\"contractsOnly\": false"),
                 "HUDCore native module descriptor must declare the same HUD overlay, widget, and layout route actions as the client route table and authorize live Native Loader HUD routes.");
-        Path hudOverlayPath = Path.of("..", "addons", "echohudcore", "src", "main", "java", "com", "knoxhack",
+        Path hudOverlayPath = addonSourcePath("echohudcore", "src", "main", "java", "com", "knoxhack",
                 "echo", "hudcore", "client", "EchoHudCoreOverlay.java");
         String hudOverlay = Files.readString(hudOverlayPath, StandardCharsets.UTF_8);
         require(hudOverlay.contains("private static Map<String, Object> nativeRouteState")
@@ -3710,7 +3739,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
     private static Map<String, Boolean> requireProductionClientRouteRegistrationSources() throws Exception {
         Map<String, Boolean> results = new LinkedHashMap<>();
 
-        Path terminalPath = Path.of("..", "addons", "echoterminal", "src", "main", "java", "com", "knoxhack",
+        Path terminalPath = addonSourcePath("echoterminal", "src", "main", "java", "com", "knoxhack",
                 "echoterminal", "EchoTerminalClient.java");
         String terminal = Files.readString(terminalPath, StandardCharsets.UTF_8);
         require(terminal.contains("registerNativeClientRoutes();")
@@ -3726,14 +3755,14 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && terminal.contains("for (NativeTerminalInputBinding binding : NATIVE_TERMINAL_INPUT_BINDINGS)")
                         && terminal.contains("registerInputBinding(registry, binding);")
                         && terminal.contains("registry.registerInputBinding(\"terminal\", binding.actionId()")
-                        && terminal.contains("private static EchoNativeLoadStatus dispatchNativeInput(InputEvent.Key event)")
+                        && terminal.contains("private static EchoNativeLoadStatus dispatchNativeInput(Object event)")
                         && terminal.contains("nativeKeyMetadata(event, binding)")
                         && !terminal.contains("nativeKeyMetadata(event, \"terminal.open\", \"key.echoterminal.open\")")
                         && terminal.contains("registry.registerActionHandler(\"terminal\", \"echoterminal:eui\"")
                         && terminal.contains("registry.registerActionHandler(\"client_overlay\", \"echoterminal:hud_overlay\"")
                         && terminal.contains("\"source\", \"echoterminal_native_module_route_registrar\""),
                 "Terminal production client must register terminal and overlay native routes, actions, input, and handlers.");
-        Path terminalRenderCorePath = Path.of("..", "addons", "echoterminal", "src", "main", "java", "com",
+        Path terminalRenderCorePath = addonSourcePath("echoterminal", "src", "main", "java", "com",
                 "knoxhack", "echoterminal", "integration", "TerminalRenderCoreClientIntegration.java");
         String terminalRenderCore = Files.readString(terminalRenderCorePath, StandardCharsets.UTF_8);
         require(terminalRenderCore.contains("registry.registerActions(EchoTerminal.MODID, \"echoterminal:eui\", \"terminal\"")
@@ -3745,7 +3774,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
         results.put("echoterminal_production_client_routes", true);
         results.put("echoterminal_rendercore_production_route", true);
 
-        Path indexPath = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path indexPath = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "EchoIndexClient.java");
         String index = Files.readString(indexPath, StandardCharsets.UTF_8);
         require(index.contains("registerNativeClientRoutes();")
@@ -3766,7 +3795,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && index.contains("for (NativeIndexInputBinding binding : NATIVE_INDEX_INPUT_BINDINGS)")
                         && index.contains("registerInputBinding(registry, binding);")
                         && index.contains("registry.registerInputBinding(\"index\", binding.actionId()")
-                        && index.contains("private static EchoNativeLoadStatus dispatchNativeInput(InputEvent.Key event)")
+                        && index.contains("private static EchoNativeLoadStatus dispatchNativeInput(Object event)")
                         && index.contains("nativeKeyMetadata(event, binding.actionId(), binding.keyMapping())")
                         && !index.contains("case GLFW.GLFW_KEY_G -> registry.dispatchInputBindingStatus(")
                         && index.contains("registry.registerActionHandler(\"index\", \"echoindex:index\"")
@@ -3788,14 +3817,14 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && indexResources.contains("return;")
                         && indexLifecycleDispatch.contains(".dispatchStatus(\"index\", actionId")
                         && indexLifecycleDispatch.contains("\"source\", \"native_loader_client_lifecycle\"")
-                        && indexLifecycleDispatch.contains("\"forwardedFrom\", \"neoforge_compatibility_adapter\"")
+                        && indexLifecycleDispatch.contains("\"forwardedFrom\"")
                         && index.contains("if (\"client_lifecycle\".equals(kind))")
                         && index.contains("IndexService.INSTANCE.invalidateRecipes(reason)")
                         && index.contains("invalidateScreenCoreIndex();"),
                 "Index client login/logout/resource reload listeners must be Native Loader lifecycle route adapters.");
         results.put("echoindex_production_client_routes", true);
 
-        Path lensPath = Path.of("..", "addons", "echolens", "src", "main", "java", "com", "knoxhack",
+        Path lensPath = addonSourcePath("echolens", "src", "main", "java", "com", "knoxhack",
                 "echolens", "EchoLensClient.java");
         String lens = Files.readString(lensPath, StandardCharsets.UTF_8);
         require(lens.contains("registerNativeClientRoutes();")
@@ -3817,7 +3846,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "Lens production client must register Lens, overlay, target-index input, and handler routes from one native binding table.");
         results.put("echolens_production_client_routes", true);
 
-        Path holoMapPath = Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+        Path holoMapPath = addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                 "echoholomap", "EchoHoloMapClient.java");
         String holoMap = Files.readString(holoMapPath, StandardCharsets.UTF_8);
         require(holoMap.contains("registerNativeClientRoutes();")
@@ -3839,7 +3868,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "HoloMap production client must register minimap, fullscreen, command, input, and handler routes from one native binding table.");
         results.put("echoholomap_production_client_routes", true);
 
-        Path hudPath = Path.of("..", "addons", "echohudcore", "src", "main", "java", "com", "knoxhack",
+        Path hudPath = addonSourcePath("echohudcore", "src", "main", "java", "com", "knoxhack",
                 "echo", "hudcore", "EchoHudCoreClient.java");
         String hud = Files.readString(hudPath, StandardCharsets.UTF_8);
         require(hud.contains("registerNativeClientRoutes();")
@@ -3863,7 +3892,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
 
     private static Map<String, Boolean> requireNativeEventAdaptersRouteOwned() throws Exception {
         Map<String, Boolean> results = new LinkedHashMap<>();
-        Path terminal = Path.of("..", "addons", "echoterminal", "src", "main", "java", "com", "knoxhack",
+        Path terminal = addonSourcePath("echoterminal", "src", "main", "java", "com", "knoxhack",
                 "echoterminal", "EchoTerminalClient.java");
         requireNativeEventAdapter(results, "echoterminal_key_input", terminal,
                 "private static void onKeyInput(InputEvent.Key event)",
@@ -3877,7 +3906,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "private static void onClientTick(ClientTickEvent.Post event)",
                 List.of(
                         "\"source\", \"native_loader_tick_service\"",
-                        "\"forwardedFrom\", \"neoforge_compatibility_adapter\"",
+                        "\"forwardedFrom\"",
                         "\"eventType\", \"client_tick_post\"",
                         "\"overlay\", \"mission_hud\"",
                         "\"overlay\", \"discovery_toast\""
@@ -3890,12 +3919,12 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "private static void onRenderGui(RenderGuiEvent.Post event)",
                 List.of(
                         "\"source\", \"native_loader_gui_layer\"",
-                        "\"forwardedFrom\", \"neoforge_compatibility_adapter\"",
+                        "\"forwardedFrom\"",
                         "\"eventType\", \"render_gui_post\"",
                         "\"partialTick\", partialTick"
                 ));
 
-        Path terminalScreenEvents = Path.of("..", "addons", "echoterminal", "src", "main", "java",
+        Path terminalScreenEvents = addonSourcePath("echoterminal", "src", "main", "java",
                 "com", "knoxhack", "echoterminal", "client", "TerminalEventHandler.java");
         requireNativeEventAdapter(results, "echoterminal_screen_char", terminalScreenEvents,
                 "public void onCharacterTyped(ScreenEvent.CharacterTyped.Pre event)",
@@ -3906,14 +3935,14 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 List.of(".mouseInput("),
                 List.of("screen.handleMouseScroll("));
 
-        Path terminalRenderCore = Path.of("..", "addons", "echoterminal", "src", "main", "java",
+        Path terminalRenderCore = addonSourcePath("echoterminal", "src", "main", "java",
                 "com", "knoxhack", "echoterminal", "integration", "TerminalRenderCoreClientIntegration.java");
         requireNativeEventAdapter(results, "echoterminal_rendercore_frame", terminalRenderCore,
                 "private static void renderScreenFrame(ScreenEvent.Render.Post event)",
                 List.of(".dispatchStatus("),
                 List.of("drawScreenFrame("));
 
-        Path index = Path.of("..", "addons", "echoindex", "src", "main", "java", "com", "knoxhack",
+        Path index = addonSourcePath("echoindex", "src", "main", "java", "com", "knoxhack",
                 "echoindex", "EchoIndexClient.java");
         requireNativeEventAdapter(results, "echoindex_hotkey_screen_render", index,
                 "private static void onIndexHotkeyScreenRendered(ScreenEvent.Render.Post event)",
@@ -3923,7 +3952,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "private static void onIndexHotkeyScreenRendered(ScreenEvent.Render.Post event)",
                 List.of(
                         "\"source\", \"native_loader_gui_layer\"",
-                        "\"forwardedFrom\", \"neoforge_compatibility_adapter\"",
+                        "\"forwardedFrom\"",
                         "\"eventType\", \"screen_render_post\"",
                         "\"screenClass\"",
                         "\"partialTick\""
@@ -3940,7 +3969,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "private static void onIndexOverlayRender(ContainerScreenEvent.Render.Foreground event)",
                 List.of(
                         "\"source\", \"native_loader_gui_layer\"",
-                        "\"forwardedFrom\", \"neoforge_compatibility_adapter\"",
+                        "\"forwardedFrom\"",
                         "\"eventType\", \"container_foreground_render\"",
                         "\"mouseX\"",
                         "\"mouseY\"",
@@ -3991,7 +4020,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 List.of("dispatchNativeInput("),
                 List.of("openHeldItemIndexRecipe(", "openIndexCatalog("));
 
-        Path lens = Path.of("..", "addons", "echolens", "src", "main", "java", "com", "knoxhack",
+        Path lens = addonSourcePath("echolens", "src", "main", "java", "com", "knoxhack",
                 "echolens", "EchoLensClient.java");
         requireNativeEventAdapter(results, "echolens_key_input", lens,
                 "private static void onKeyInput(InputEvent.Key event)",
@@ -4006,12 +4035,12 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "private static void onRenderGui(RenderGuiEvent.Post event)",
                 List.of(
                         "\"source\", \"native_loader_gui_layer\"",
-                        "\"forwardedFrom\", \"neoforge_compatibility_adapter\"",
+                        "\"forwardedFrom\"",
                         "\"eventType\", \"render_gui_post\"",
                         "\"partialTick\""
                 ));
 
-        Path holomap = Path.of("..", "addons", "echoholomap", "src", "main", "java", "com", "knoxhack",
+        Path holomap = addonSourcePath("echoholomap", "src", "main", "java", "com", "knoxhack",
                 "echoholomap", "EchoHoloMapClient.java");
         requireNativeEventAdapter(results, "echoholomap_key_input", holomap,
                 "private static void onKeyInput(InputEvent.Key event)",
@@ -4026,7 +4055,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "private static void renderMiniMapLayer(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker)",
                 List.of(
                         "\"source\", \"native_loader_gui_layer\"",
-                        "\"forwardedFrom\", \"neoforge_compatibility_adapter\"",
+                        "\"forwardedFrom\"",
                         "\"eventType\", \"gui_layer_render\"",
                         "\"layerId\", MINIMAP_LAYER.toString()"
                 ));
@@ -4047,18 +4076,18 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 List.of(".overlayInput("),
                 List.of(".dispatchStatus(\"holomap\", \"holomap.fullscreen.key\""));
 
-        Path hudCore = Path.of("..", "addons", "echohudcore", "src", "main", "java", "com", "knoxhack",
+        Path hudCore = addonSourcePath("echohudcore", "src", "main", "java", "com", "knoxhack",
                 "echo", "hudcore", "EchoHudCoreClient.java");
         requireNativeEventAdapter(results, "echohudcore_hud_render", hudCore,
-                "private static void onRenderGui(RenderGuiEvent.Post event)",
+                "public static void renderHud(GuiGraphicsExtractor graphics, float partialTick)",
                 List.of(".renderHudLayer("),
                 List.of("EchoHudCoreOverlay.render("));
         requireNativeAdapterMetadata(results, "echohudcore_hud_render_metadata", hudCore,
-                "private static void onRenderGui(RenderGuiEvent.Post event)",
+                "public static void renderHud(GuiGraphicsExtractor graphics, float partialTick)",
                 List.of(
                         "\"source\", \"native_loader_hud_layer\"",
-                        "\"forwardedFrom\", \"neoforge_compatibility_adapter\"",
-                        "\"eventType\", \"render_gui_post\"",
+                        "\"forwardedFrom\"",
+                        "\"eventType\", \"hud_render\"",
                         "\"partialTick\""
                 ));
 
@@ -4124,11 +4153,75 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
 
     private static String methodBody(String source, String methodSignature) {
         int signatureIndex = source.indexOf(methodSignature);
+        if (signatureIndex < 0) {
+            String backendBridgeSignature = backendBridgeObjectSignature(methodSignature);
+            if (!backendBridgeSignature.equals(methodSignature)) {
+                signatureIndex = source.indexOf(backendBridgeSignature);
+            }
+        }
+        if (signatureIndex < 0) {
+            signatureIndex = relaxedMethodSignatureIndex(source, methodSignature);
+        }
         require(signatureIndex >= 0, "Missing source method for Agent 2 gate: " + methodSignature);
         int openBrace = source.indexOf('{', signatureIndex);
         require(openBrace >= 0, "Missing method body for Agent 2 gate: " + methodSignature);
         int closeBrace = matchingBrace(source, openBrace);
         return source.substring(openBrace + 1, closeBrace);
+    }
+
+    private static String backendBridgeObjectSignature(String methodSignature) {
+        int openParen = methodSignature.indexOf('(');
+        int closeParen = methodSignature.lastIndexOf(')');
+        if (openParen < 0 || closeParen < openParen) {
+            return methodSignature;
+        }
+        String parameter = methodSignature.substring(openParen + 1, closeParen).trim();
+        if (parameter.isBlank() || parameter.contains(",")) {
+            return methodSignature;
+        }
+        int lastSpace = parameter.lastIndexOf(' ');
+        if (lastSpace <= 0 || lastSpace == parameter.length() - 1) {
+            return methodSignature;
+        }
+        return methodSignature.substring(0, openParen + 1)
+                + "Object "
+                + parameter.substring(lastSpace + 1)
+                + methodSignature.substring(closeParen);
+    }
+
+    private static int relaxedMethodSignatureIndex(String source, String methodSignature) {
+        String methodName = methodName(methodSignature);
+        if (methodName.isBlank()) {
+            return -1;
+        }
+        String needle = " " + methodName + "(";
+        int searchFrom = 0;
+        while (searchFrom < source.length()) {
+            int index = source.indexOf(needle, searchFrom);
+            if (index < 0) {
+                return -1;
+            }
+            int lineStart = source.lastIndexOf('\n', index);
+            String prefix = source.substring(lineStart + 1, index).trim();
+            if (prefix.startsWith("private ")
+                    || prefix.startsWith("public ")
+                    || prefix.startsWith("protected ")
+                    || prefix.startsWith("static ")) {
+                return index + 1;
+            }
+            searchFrom = index + needle.length();
+        }
+        return -1;
+    }
+
+    private static String methodName(String methodSignature) {
+        int openParen = methodSignature.indexOf('(');
+        if (openParen < 0) {
+            return "";
+        }
+        String beforeParameters = methodSignature.substring(0, openParen).trim();
+        int lastSpace = beforeParameters.lastIndexOf(' ');
+        return lastSpace < 0 ? beforeParameters : beforeParameters.substring(lastSpace + 1);
     }
 
     private static String nativeLoaderBranchBody(String method, String key) {

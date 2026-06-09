@@ -63,7 +63,7 @@ public final class EchoNativeAgent5HudOverlayEndToEndAcceptanceSmoke {
                 camera
         );
         boolean passed = Boolean.TRUE.equals(accepted.get("accepted"))
-                && "hud_overlay_end_to_end:data_backed:85".equals(accepted.get("effect"))
+                && EchoNativeAgent5UiExpectedValues.hudOverlayEffect().equals(accepted.get("effect"))
                 && Boolean.FALSE.equals(rejectedNoOverlay.get("accepted"))
                 && Boolean.FALSE.equals(rejectedNoHudUpdate.get("accepted"))
                 && Boolean.FALSE.equals(rejectedNoCamera.get("accepted"))

@@ -15,8 +15,8 @@ public final class EchoNativeAgent5MainMenuOptionActivationSmoke {
         Map<String, Object> settingsRoute = EchoNativeAgent5UiActionRouter.routeMainMenuOption("Settings");
         Map<String, Object> quitRoute = EchoNativeAgent5UiActionRouter.routeMainMenuOption("Quit");
         Map<String, Object> rendered = EchoNativeAgent5SurfaceRenderer.render("MAIN_MENU", Map.of(
-                "selectedOption", settingsRoute.get("selectedOption"),
-                "mainMenuOutput", settingsRoute.get("mainMenuOutput")
+                "selectedOption", String.valueOf(settingsRoute.get("selectedOption")),
+                "mainMenuOutput", String.valueOf(settingsRoute.get("mainMenuOutput"))
         ), dataSources);
 
         List<String> selectedOptions = List.of(

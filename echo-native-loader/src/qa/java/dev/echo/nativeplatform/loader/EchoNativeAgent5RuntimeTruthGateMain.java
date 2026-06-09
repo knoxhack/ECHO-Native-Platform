@@ -2659,11 +2659,7 @@ public final class EchoNativeAgent5RuntimeTruthGateMain {
     }
 
     private static Map<String, Object> ashfallLiveRuntimeBridgeCoverage() throws IOException {
-        Path bridgeRelativePath = Path.of("addons/echoashfallprotocol/src/main/java/com/knoxhack/echoashfallprotocol/event/NativeLoaderEchoRuntimeHost.java");
-        Path bridgePath = bridgeRelativePath.toAbsolutePath().normalize();
-        if (!Files.isRegularFile(bridgePath)) {
-            bridgePath = Path.of("..").resolve(bridgeRelativePath).toAbsolutePath().normalize();
-        }
+        Path bridgePath = resolveSourcePath("addons/echoashfallprotocol/src/main/java/com/knoxhack/echoashfallprotocol/event/NativeLoaderEchoRuntimeHost.java");
         require(Files.isRegularFile(bridgePath),
                 "Ashfall live runtime bridge source must be present for Agent 5 bridge coverage: " + bridgePath);
         String source = Files.readString(bridgePath, StandardCharsets.UTF_8);
@@ -3928,12 +3924,61 @@ public final class EchoNativeAgent5RuntimeTruthGateMain {
     }
 
     private static Path resolveSourcePath(String relativePath) {
+        String normalized = relativePath.replace('\\', '/');
+        if (normalized.startsWith("addons/")) {
+            Path path = echoModulesRoot().resolve(normalized.substring("addons/".length())).normalize();
+            require(Files.isRegularFile(path), "Required source path is missing: " + path);
+            return path;
+        }
+        if (normalized.startsWith("echo-native-platform/")) {
+            Path path = nativePlatformRoot().resolve(normalized.substring("echo-native-platform/".length())).normalize();
+            require(Files.isRegularFile(path), "Required source path is missing: " + path);
+            return path;
+        }
         Path path = Path.of(relativePath).toAbsolutePath().normalize();
         if (!Files.isRegularFile(path)) {
             path = Path.of("..").resolve(relativePath).toAbsolutePath().normalize();
         }
         require(Files.isRegularFile(path), "Required source path is missing: " + path);
         return path;
+    }
+
+    private static Path echoModulesRoot() {
+        String configured = System.getProperty("echo.modules.root");
+        if (configured == null || configured.isBlank()) {
+            configured = System.getenv("ECHO_MODULES_ROOT");
+        }
+        if (configured != null && !configured.isBlank()) {
+            return Path.of(configured).toAbsolutePath().normalize();
+        }
+        Path workspaceRoot = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize().getParent();
+        Path workspaceModules = workspaceRoot == null
+                ? Path.of("..", "ECHO-Modules", "addons")
+                : workspaceRoot.resolve("ECHO-Modules").resolve("addons");
+        if (Files.isDirectory(workspaceModules)) {
+            return workspaceModules.toAbsolutePath().normalize();
+        }
+        Path legacyAddons = workspaceRoot == null
+                ? Path.of("..", "addons")
+                : workspaceRoot.resolve("addons");
+        return legacyAddons.toAbsolutePath().normalize();
+    }
+
+    private static Path nativePlatformRoot() {
+        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        if (Files.isDirectory(current.resolve("echo-native-loader"))) {
+            return current;
+        }
+        Path workspaceRoot = current.getParent();
+        if (workspaceRoot != null) {
+            for (String candidate : List.of("ECHO-Native-Platform", "echo-native-platform")) {
+                Path path = workspaceRoot.resolve(candidate).toAbsolutePath().normalize();
+                if (Files.isDirectory(path.resolve("echo-native-loader"))) {
+                    return path;
+                }
+            }
+        }
+        return current;
     }
 
     private static String toJson(Object value) {

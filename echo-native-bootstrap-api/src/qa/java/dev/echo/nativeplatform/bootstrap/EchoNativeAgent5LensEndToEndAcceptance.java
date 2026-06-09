@@ -21,7 +21,7 @@ public final class EchoNativeAgent5LensEndToEndAcceptance {
         Map<String, Object> render = liveSurfaceRenderAcceptance == null ? Map.of() : liveSurfaceRenderAcceptance;
         Map<String, Object> focus = focusSmoke == null ? Map.of() : focusSmoke;
         Map<String, Object> transcript = hostEventTranscriptSmoke == null ? Map.of() : hostEventTranscriptSmoke;
-        String key = text(hotkey.get("key"));
+        String key = firstNonBlank(hotkey.get("key"), hotkey.get("hotkey"));
         String surface = normalize(hotkey.get("surface"));
         List<String> focusLines = strings(focus, "renderedFocusLines");
         List<String> transcriptEvents = strings(transcript, "events");
@@ -109,5 +109,10 @@ public final class EchoNativeAgent5LensEndToEndAcceptance {
 
     private static String text(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private static String firstNonBlank(Object first, Object second) {
+        String firstText = text(first);
+        return firstText.isBlank() ? text(second) : firstText;
     }
 }

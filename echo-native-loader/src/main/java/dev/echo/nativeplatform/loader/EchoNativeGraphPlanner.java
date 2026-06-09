@@ -6,6 +6,7 @@ import dev.echo.nativeplatform.contracts.EchoNativeIssueSeverity;
 import dev.echo.nativeplatform.contracts.EchoNativeRuntimeSide;
 import dev.echo.nativeplatform.contracts.EchoNativeServiceDescriptor;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -145,7 +146,7 @@ public final class EchoNativeGraphPlanner {
                     "Native module dependencies contain a cycle: " + String.join(", ", cycleModules) + ".",
                     null,
                     scanResult.packProfile().id(),
-                    List.of(scanResult.packProfile().profilePath().toString().replace('\\', '/')),
+                    List.of(path(scanResult.packProfile().profilePath())),
                     "Break the cycle so the Native Loader can compute a deterministic release load order."
             ));
         }
@@ -158,7 +159,7 @@ public final class EchoNativeGraphPlanner {
                             + missingReference.get("to") + "'.",
                     String.valueOf(missingReference.get("from")),
                     scanResult.packProfile().id(),
-                    List.of(scanResult.packProfile().profilePath().toString().replace('\\', '/')),
+                    List.of(path(scanResult.packProfile().profilePath())),
                     "Add the required module descriptor or remove the required dependency before release."
             ));
         }
@@ -365,6 +366,23 @@ public final class EchoNativeGraphPlanner {
 
     private static String sideName(EchoNativeRuntimeSide side) {
         return (side == null ? EchoNativeRuntimeSide.UNKNOWN : side).name();
+    }
+
+    private static String path(Path path) {
+        if (path == null) {
+            return "";
+        }
+        Path normalized = path.toAbsolutePath().normalize();
+        Path root = Path.of("").toAbsolutePath().normalize();
+        if (normalized.startsWith(root)) {
+            return root.relativize(normalized).toString().replace('\\', '/');
+        }
+        Path workspaceRoot = root.getParent();
+        if (workspaceRoot != null && normalized.startsWith(workspaceRoot)) {
+            return workspaceRoot.relativize(normalized).toString().replace('\\', '/');
+        }
+        Path fileName = normalized.getFileName();
+        return fileName == null ? "" : fileName.toString().replace('\\', '/');
     }
 
     private record DeterministicLoadOrder(

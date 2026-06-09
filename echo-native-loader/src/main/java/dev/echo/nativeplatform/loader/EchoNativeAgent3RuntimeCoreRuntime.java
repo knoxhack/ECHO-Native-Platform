@@ -79,17 +79,16 @@ public final class EchoNativeAgent3RuntimeCoreRuntime {
             throw new IllegalStateException("Agent 3 AdapterCore binding domains drifted: " + adapterCoreBindingCounts.keySet());
         }
         Map<String, Integer> fullCatalogEvidence = new LinkedHashMap<>();
-        fullCatalogEvidence.put("descriptorCount", 95);
+        fullCatalogEvidence.put("descriptorCount", 94);
         fullCatalogEvidence.put("runtimeActive", 85);
-        fullCatalogEvidence.put("runtimeToolingOnly", 6);
+        fullCatalogEvidence.put("runtimeToolingOnly", 5);
         fullCatalogEvidence.put("runtimeDevOnly", 4);
         fullCatalogEvidence.put("runtimeDisabledWithReason", 0);
-        fullCatalogEvidence.put("systemModuleCount", 8);
+        fullCatalogEvidence.put("systemModuleCount", 7);
         if (!fullCatalogEvidence.keySet().equals(new java.util.LinkedHashSet<>(fullCatalogEvidenceKeys))) {
             throw new IllegalStateException("Agent 3 full-catalog evidence keys drifted: " + fullCatalogEvidence.keySet());
         }
         Map<String, String> requiredSystemModuleStatuses = new LinkedHashMap<>();
-        requiredSystemModuleStatuses.put("echomodpackcommandcenter", "runtime-tooling-only");
         requiredSystemModuleStatuses.put("signalos", "runtime-active");
         requiredSystemModuleStatuses.put("signalosexample", "runtime-dev-only");
         requiredSystemModuleStatuses.put("echobridgecore", "runtime-dev-only");

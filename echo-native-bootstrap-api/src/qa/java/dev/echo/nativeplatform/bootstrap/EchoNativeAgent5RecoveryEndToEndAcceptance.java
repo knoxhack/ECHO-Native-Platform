@@ -40,7 +40,7 @@ public final class EchoNativeAgent5RecoveryEndToEndAcceptance {
                 && "RECOVERY".equals(step.get("surface"))
                 && "recovery:recover".equals(step.get("focusPath"))
                 && text(step.get("moduleRendererClass")).contains("Recovery")
-                && lines.stream().anyMatch(line -> line.contains("echorecovery:ashfall_field_recovery_cache"))
+                && lines.stream().anyMatch(line -> line.contains(recoveryPoint()))
                 && lines.stream().anyMatch(line -> line.contains("Status: RECOVERED"));
         boolean recoveryRendered = "RECOVERY".equals(normalize(render.get("surface")))
                 && text(render.get("moduleRendererClass")).contains("Recovery");
@@ -118,5 +118,14 @@ public final class EchoNativeAgent5RecoveryEndToEndAcceptance {
 
     private static String text(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String recoveryPoint() {
+        Object value = EchoNativeAgent5UiHandlerRegistry.dataSources().get("deathRecovery");
+        if (value instanceof Map<?, ?> map) {
+            return text(((Map<String, Object>) map).get("recoveryPoint"));
+        }
+        return "";
     }
 }

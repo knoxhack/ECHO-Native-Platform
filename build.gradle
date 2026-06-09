@@ -290,11 +290,24 @@ def defaultEchoModulesRoot = providers.provider {
 def echoModulesRoot = providers.gradleProperty('echoModulesRoot')
         .orElse(providers.environmentVariable('ECHO_MODULES_ROOT'))
         .orElse(defaultEchoModulesRoot)
+def echoModulesRepoRoot = providers.provider {
+    def modulesRoot = new File(echoModulesRoot.get())
+    modulesRoot.name == 'addons' && modulesRoot.parentFile != null ? modulesRoot.parentFile : modulesRoot
+}
+def echoModulesGradleExecutable = {
+    new File(echoModulesRepoRoot.get(),
+            System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+                    ? 'gradlew.bat'
+                    : 'gradlew')
+}
+def echoModulesGradleAvailable = {
+    echoModulesGradleExecutable().isFile()
+}
 def nativeProductSourceRoot = providers.gradleProperty('echoNativeSourceRoot')
         .orElse(providers.gradleProperty('echoNativeFixture'))
         .orElse(providers.environmentVariable('ECHO_NATIVE_SOURCE_ROOT'))
         .orElse(providers.environmentVariable('ECHO_NATIVE_FIXTURE'))
-        .orElse(echoRepoRoot.absolutePath)
+        .orElse(providers.provider { echoModulesRepoRoot.get().absolutePath })
 def nativeProductPackageOutput = providers.gradleProperty('echoNativePackageOutput')
         .orElse(providers.environmentVariable('ECHO_NATIVE_PACKAGE_OUTPUT'))
         .orElse(layout.buildDirectory.dir('native-product-package').map { it.asFile.absolutePath })
@@ -349,15 +362,10 @@ tasks.register('verifyReleaseIndexProductRouting', Exec) {
 tasks.register('prepareNativeProductModuleArtifacts', Exec) {
     group = 'release'
     description = 'Builds source workspace module artifacts before Native Loader product packaging.'
-    workingDir = echoRepoRoot
+    onlyIf { echoModulesGradleAvailable() }
     doFirst {
-        def gradleExecutable = new File(echoRepoRoot,
-                System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
-                        ? 'gradlew.bat'
-                        : 'gradlew')
-        if (!gradleExecutable.isFile()) {
-            throw new GradleException("Native product artifact preparation requires a source workspace Gradle wrapper at ${gradleExecutable}.")
-        }
+        workingDir = echoModulesRepoRoot.get()
+        def gradleExecutable = echoModulesGradleExecutable()
         commandLine gradleExecutable.absolutePath,
                 'validateReleaseArtifacts',
                 "-PechoAddonSet=${nativeProductAddonSet.get()}",
@@ -370,6 +378,7 @@ tasks.register('prepareNativeProductModuleArtifacts', Exec) {
 tasks.register('packageNativeProductLayout', JavaExec) {
     group = 'release'
     description = 'Packages Native Loader product modules into a release layout with explicit artifact classpaths.'
+    onlyIf { echoModulesGradleAvailable() }
     dependsOn ':echo-native-product-launcher:classes'
     dependsOn nativeProductLauncherRuntimeJarTasks
     dependsOn tasks.named('prepareNativeProductModuleArtifacts')
@@ -389,6 +398,7 @@ tasks.register('packageNativeProductLayout', JavaExec) {
 tasks.register('packageNativeProductReadinessLayout', JavaExec) {
     group = 'verification'
     description = 'Packages Native Loader modules into an isolated layout for product readiness verification.'
+    onlyIf { echoModulesGradleAvailable() }
     dependsOn ':echo-native-product-launcher:classes'
     dependsOn nativeProductLauncherRuntimeJarTasks
     dependsOn tasks.named('prepareNativeProductModuleArtifacts')
@@ -408,6 +418,7 @@ tasks.register('packageNativeProductReadinessLayout', JavaExec) {
 tasks.register('runPackagedNativeProductLauncher', JavaExec) {
     group = 'application'
     description = 'Packages Native Loader modules and launches the packaged product layout through the release gate by default.'
+    onlyIf { echoModulesGradleAvailable() }
     dependsOn tasks.named('packageNativeProductLayout')
     dependsOn nativeProductLauncherRuntimeJarTasks
     dependsOn tasks.named('verifyReleaseIndexProductRouting')
@@ -450,6 +461,7 @@ tasks.register('runPackagedNativeProductLauncher', JavaExec) {
 tasks.register('verifyNativeProductLauncherReadiness', JavaExec) {
     group = 'verification'
     description = 'Verifies packaged Native Loader product launch gates and live-runtime fail-closed behavior.'
+    onlyIf { echoModulesGradleAvailable() }
     dependsOn tasks.named('packageNativeProductReadinessLayout')
     dependsOn nativeProductLauncherQaClassesTask
     classpath = nativeProductLauncherQaRuntimeClasspath()
@@ -502,6 +514,8 @@ tasks.register('runNativeTransformPolicy', JavaExec) {
 def echoPythonExecutable = providers.environmentVariable('PYTHON').orElse('python').get()
 def echoRootGradleBuildDirectory = new File(System.getProperty('user.home'), 'AppData/Local/EchoGradleBuild/Echo')
 def echoNativeCoreModuleAuditReport = new File(echoRepoRoot, 'reports/echo-native/core-module-integration-audit.json')
+def echoAgent4RegistryContractReport = new File(echoRepoRoot, 'reports/echo/assets/adaptercore-registry-contracts.json')
+def echoAgent4ResourceIndexReport = new File(echoRepoRoot, 'reports/echo/assets/all-addon-resource-index.json')
 def nativeCoreModuleLoadStateProjectPaths = [
         ':echocore',
         ':echoplatformcore',
@@ -588,16 +602,25 @@ tasks.register('runNativeSdkDependencyBoundaryCheck', JavaExec) {
     workingDir = rootProject.projectDir
 }
 
-tasks.register('prepareNativeAgent4RegistryAudit', Exec) {
+tasks.register('prepareNativeAgent4RegistryAudit') {
     group = 'verification'
     description = 'Generates fresh Agent 4 registry/data/assets audit reports for the native registry smoke.'
-    workingDir = echoRepoRoot
-    commandLine echoPythonExecutable,
-            'tools/echo_agent4_registry_parity.py',
-            '--root',
-            echoRepoRoot.absolutePath,
-            '--audit-only'
     mustRunAfter 'verifyNativeReportSnapshots'
+    doLast {
+        def auditScript = new File(rootProject.projectDir, 'tools/echo_agent4_registry_parity.py')
+        if (!auditScript.isFile()) {
+            logger.lifecycle('Agent 4 registry parity script not present; using Java smoke sample snapshot fallback.')
+            return
+        }
+        exec {
+            workingDir = rootProject.projectDir
+            commandLine echoPythonExecutable,
+                    auditScript.absolutePath,
+                    '--root',
+                    echoRepoRoot.absolutePath,
+                    '--audit-only'
+        }
+    }
 }
 
 tasks.register('runNativeAgent8EntityCombatSmoke', JavaExec) {
@@ -611,12 +634,22 @@ tasks.register('runNativeAgent8EntityCombatSmoke', JavaExec) {
 
 tasks.register('runNativeAgent4RegistryContentSmoke', JavaExec) {
     group = 'verification'
-    description = 'Runs Agent 4 Native Loader registry/data/assets backend smoke.'
+    description = 'Runs Agent 4 Native Loader registry/data/assets backend smoke when external audit reports are available.'
     dependsOn 'prepareNativeAgent4RegistryAudit'
     dependsOn nativeLoaderQaClassesTask
     classpath = nativeLoaderQaRuntimeClasspath()
     mainClass = 'dev.echo.nativeplatform.loader.EchoNativeAgent4RegistrySmokeMain'
     workingDir = rootProject.projectDir
+    onlyIf {
+        def available = echoAgent4RegistryContractReport.isFile() && echoAgent4ResourceIndexReport.isFile()
+        if (!available) {
+            logger.lifecycle('Skipping Agent 4 registry content smoke; external registry/resource audit reports are not present.')
+        }
+        available
+    }
+    args echoAgent4RegistryContractReport.absolutePath,
+            echoAgent4ResourceIndexReport.absolutePath,
+            new File(echoRepoRoot, 'reports/echo/assets/native-runtime-resolution-java.json').absolutePath
     jvmArgs "-Decho.native.registry.resourcePackRoot=${layout.buildDirectory.dir("agent4/native-materialized-resource-pack-${System.currentTimeMillis()}").get().asFile.absolutePath}"
 }
 
@@ -850,10 +883,13 @@ tasks.register('runNativeServiceCollisionGate', JavaExec) {
 tasks.register('prepareNativeCoreModuleLoadStateClasses', Exec) {
     group = 'verification'
     description = 'Compiles the real repo core module classes consumed as Native Loader nativeClasspath entries.'
-    workingDir = echoRepoRoot
-    commandLine(([new File(echoRepoRoot, 'gradlew.bat').absolutePath]
-            + nativeCoreModuleLoadStateProjectPaths.collect { "${it}:classes" }
-            + ['-PechoAddonSet=beta']) as List)
+    onlyIf { echoModulesGradleAvailable() }
+    doFirst {
+        workingDir = echoModulesRepoRoot.get()
+        commandLine(([echoModulesGradleExecutable().absolutePath]
+                + nativeCoreModuleLoadStateProjectPaths.collect { "${it}:classes" }
+                + ['-PechoAddonSet=beta']) as List)
+    }
 }
 
 tasks.register('runNativeCoreModuleLoadStateSmoke', JavaExec) {
@@ -864,7 +900,8 @@ tasks.register('runNativeCoreModuleLoadStateSmoke', JavaExec) {
     classpath = nativeLoaderQaRuntimeClasspath()
     mainClass = 'dev.echo.nativeplatform.loader.EchoNativeCoreModuleLoadStateSmokeMain'
     workingDir = rootProject.projectDir
-    args echoRepoRoot.absolutePath,
+    onlyIf { echoModulesGradleAvailable() }
+    args echoModulesRepoRoot.get().absolutePath,
             echoRootGradleBuildDirectory.absolutePath,
             layout.buildDirectory.file('native-core-module-load-state/native-core-module-load-state.json').get().asFile.absolutePath
 }
@@ -872,10 +909,13 @@ tasks.register('runNativeCoreModuleLoadStateSmoke', JavaExec) {
 tasks.register('prepareNativeAllBridgeableModuleLoadStateClasses', Exec) {
     group = 'verification'
     description = 'Compiles every bridgeable repo module class output consumed as Native Loader nativeClasspath entries.'
-    workingDir = echoRepoRoot
-    commandLine(([new File(echoRepoRoot, 'gradlew.bat').absolutePath]
-            + nativeAllBridgeableModuleProjectPaths.collect { "${it}:classes" }
-            + [':compileEchoNativeM17LooseEntrypoints', '-PechoAddonSet=all']) as List)
+    onlyIf { echoModulesGradleAvailable() }
+    doFirst {
+        workingDir = echoModulesRepoRoot.get()
+        commandLine(([echoModulesGradleExecutable().absolutePath]
+                + nativeAllBridgeableModuleProjectPaths.collect { "${it}:classes" }
+                + [':compileEchoNativeM17LooseEntrypoints', '-PechoAddonSet=all']) as List)
+    }
 }
 
 tasks.register('runNativeAllBridgeableModuleLoadStateSmoke', JavaExec) {
@@ -886,7 +926,8 @@ tasks.register('runNativeAllBridgeableModuleLoadStateSmoke', JavaExec) {
     classpath = nativeLoaderQaRuntimeClasspath()
     mainClass = 'dev.echo.nativeplatform.loader.EchoNativeCoreModuleLoadStateSmokeMain'
     workingDir = rootProject.projectDir
-    args echoRepoRoot.absolutePath,
+    onlyIf { echoModulesGradleAvailable() }
+    args echoModulesRepoRoot.get().absolutePath,
             echoRootGradleBuildDirectory.absolutePath,
             layout.buildDirectory.file('native-all-bridgeable-module-load-state/native-all-bridgeable-module-load-state.json').get().asFile.absolutePath,
             'all-bridgeable'
@@ -900,6 +941,7 @@ tasks.register('packageNativeAllBridgeableModuleArtifacts') {
     def artifactDirectoryProvider = layout.buildDirectory.dir('native-all-bridgeable-module-artifacts/modules')
     outputs.dir artifactDirectoryProvider
     outputs.upToDateWhen { false }
+    onlyIf { echoModulesGradleAvailable() }
 
     doLast {
         def artifactDirectory = artifactDirectoryProvider.get().asFile
@@ -909,7 +951,7 @@ tasks.register('packageNativeAllBridgeableModuleArtifacts') {
         nativeAllBridgeableAuditModules.each { module ->
             def moduleId = String.valueOf(module.moduleId)
             def directory = String.valueOf(module.directory).replace('\\', '/')
-            def sourceRoot = new File(echoRepoRoot, directory)
+            def sourceRoot = new File(echoModulesRepoRoot.get(), directory)
             def buildDirectoryName = new File(directory).name
             def classesDir = new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/classes/java/main")
             def resourcesDir = new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/resources/main")
@@ -935,7 +977,8 @@ tasks.register('runNativeAllBridgeableModuleArtifactLoadStateSmoke', JavaExec) {
     classpath = nativeLoaderQaRuntimeClasspath()
     mainClass = 'dev.echo.nativeplatform.loader.EchoNativeCoreModuleLoadStateSmokeMain'
     workingDir = rootProject.projectDir
-    args echoRepoRoot.absolutePath,
+    onlyIf { echoModulesGradleAvailable() }
+    args echoModulesRepoRoot.get().absolutePath,
             layout.buildDirectory.dir('native-all-bridgeable-module-artifacts/modules').get().asFile.absolutePath,
             layout.buildDirectory.file('native-all-bridgeable-module-artifact-load-state/native-all-bridgeable-module-artifact-load-state.json').get().asFile.absolutePath,
             'all-bridgeable',

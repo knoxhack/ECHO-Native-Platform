@@ -268,6 +268,7 @@ public record EchoNativeModuleDescriptor(
         if (projectRoot == null || !Files.isDirectory(projectRoot)) {
             return;
         }
+        int runtimeOutputCount = paths.size();
         addIfPresent(paths, projectRoot.resolve("build/classes/java/main"));
         addIfPresent(paths, projectRoot.resolve("build/resources/main"));
         Path libs = projectRoot.resolve("build/libs");
@@ -283,6 +284,10 @@ public record EchoNativeModuleDescriptor(
             }
         }
         addLocalGradleBuildOutputs(paths, projectRoot);
+        if (paths.size() == runtimeOutputCount) {
+            addIfPresent(paths, projectRoot.resolve("src/main/java"));
+            addIfPresent(paths, projectRoot.resolve("src/main/resources"));
+        }
     }
 
     private static void addLocalGradleBuildOutputs(Set<Path> paths, Path projectRoot) {

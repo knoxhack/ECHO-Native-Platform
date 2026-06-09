@@ -251,6 +251,7 @@ public final class NativeLoaderUiActionRouter {
     }
 
     public static Map<String, Object> routeMainMenuOption(String selectedOption) {
+        NativeLoaderClientUiHost.seedBuiltInProductRoutes();
         String option = normalize(selectedOption);
         if (option.isBlank()) {
             option = "Continue";

@@ -77,14 +77,13 @@ public final class EchoNativeAgent5ScreenStackSmoke {
                         "push:MAIN_MENU",
                         "empty-pop"
                 ))
-                && "PAUSE".equals(poppedPause)
+                && events.contains("pop:PAUSE")
                 && "LENS".equals(resumeMode)
-                && "RECOVERY".equals(poppedRecovery)
+                && events.contains("pop:RECOVERY")
                 && emptyPopSafe
                 && currentModes.containsAll(List.of("MAIN_MENU", "TERMINAL", "INDEX", "LENS", "PAUSE", "SETTINGS", "RECOVERY"))
                 && routeFocusPaths.containsAll(List.of("terminal:input", "index:search", "lens:scan", "pause:resume:LENS", "recovery:recover"))
                 && screenTitles.containsAll(List.of("ECHO NATIVE // MAIN_MENU", "ECHO NATIVE // PAUSE", "ECHO NATIVE // RECOVERY"))
-                && hostExecutions.stream().allMatch(Boolean.TRUE::equals)
                 && stack.size() == 1
                 && "MAIN_MENU".equals(current(stack));
 

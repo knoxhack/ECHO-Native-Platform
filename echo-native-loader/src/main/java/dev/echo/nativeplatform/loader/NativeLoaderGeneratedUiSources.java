@@ -119,6 +119,7 @@ public final class NativeLoaderGeneratedUiSources {
 
                     private EchoNativeDashboardScreen(String mode, String packId, int moduleCount, int itemCount, int missionCount, int regionCount, String previousMode) {
                         super(Component.literal("ECHO Native " + mode));
+                        configureScreenHostModel();
                         this.mode = mode == null ? "TERMINAL" : mode;
                         this.packId = packId == null ? EchoNativeBootstrapMain.nativeProductNamespace() : packId;
                         this.moduleCount = moduleCount;
@@ -132,6 +133,25 @@ public final class NativeLoaderGeneratedUiSources {
                         Map<String, Object> initialFocus = EchoNativeAgent5UiActionRouter.routeInitialFocus(this.mode, this.previousMode);
                         this.focusedControl = String.valueOf(initialFocus.get("focusedControl"));
                         this.initialFocusRouted = Boolean.TRUE.equals(initialFocus.get("initialFocusRouted"));
+                    }
+
+                    private static void configureScreenHostModel() {
+                        NativeLoaderScreenHostModel.configure(new NativeLoaderScreenHostModel.Provider() {
+                            @Override
+                            public Map<String, Object> dataSources() {
+                                return EchoNativeAgent5UiHandlerRegistry.dataSources();
+                            }
+
+                            @Override
+                            public Map<String, Object> renderSurface(String mode, Map<String, Object> state) {
+                                return EchoNativeAgent5UiHandlerRegistry.renderSurface(mode, state);
+                            }
+
+                            @Override
+                            public String productNamespace() {
+                                return EchoNativeBootstrapMain.nativeProductNamespace();
+                            }
+                        });
                     }
 
                     @Override
@@ -497,9 +517,9 @@ public final class NativeLoaderGeneratedUiSources {
                                 "eventType", "generated_dashboard_navigation",
                                 "fromMode", this.mode,
                                 "destinationMode", mode,
-                                "nativeRouteOwner", "EchoNativeClientRouteRegistries",
-                                "neoForgeEventOwnershipRequired", false
-                        );
+                                                "nativeRouteOwner", "EchoNativeClientRouteRegistries",
+                                                "neoForgeEventOwnershipRequired", false
+                                        );
                         dev.echo.nativeplatform.contracts.EchoNativeLoadStatus status = switch (mode) {
                             case "TERMINAL" -> dev.echo.nativeplatform.contracts.EchoNativeClientRouteRegistries.get()
                                     .openSurface("terminal", "terminal.open", metadata);
@@ -514,10 +534,20 @@ public final class NativeLoaderGeneratedUiSources {
                             case "MAIN_MENU" -> dev.echo.nativeplatform.contracts.EchoNativeClientRouteRegistries.get()
                                     .openSurface("main_menu", "menu.open", metadata);
                             case "SIGNALOS" -> dev.echo.nativeplatform.contracts.EchoNativeClientRouteRegistries.get()
-                                    .dispatchStatus("terminal", "signalos.terminal", metadata);
+                                    .openSurface("signalos", "signalos.terminal", metadata);
                             default -> dev.echo.nativeplatform.contracts.EchoNativeLoadStatus.MUTATED;
                         };
-                        return status == dev.echo.nativeplatform.contracts.EchoNativeLoadStatus.MUTATED;
+                        if (status == dev.echo.nativeplatform.contracts.EchoNativeLoadStatus.MUTATED) {
+                            return true;
+                        }
+                        java.util.Map<String, Object> fallbackMetadata = new java.util.LinkedHashMap<>(metadata);
+                        fallbackMetadata.put("productRouteStatus", status.name());
+                        fallbackMetadata.put("dashboardNavigationFallback", true);
+                        return dev.echo.nativeplatform.contracts.EchoNativeClientRouteRegistries.get().overlayInput(
+                                "native_dashboard",
+                                "dashboard.navigate",
+                                Map.copyOf(fallbackMetadata)
+                        ) == dev.echo.nativeplatform.contracts.EchoNativeLoadStatus.MUTATED;
                     }
 
                     private boolean applyAction(Map<String, Object> result) {

@@ -1,0 +1,8 @@
+{
+  "schema": "echo.addon.package.v1",
+  "id": "echoashfallnativeproof",
+  "name": "ECHO Ashfall Native Proof",
+  "version": "1.0.0",
+  "entrypoint": "dev.echo.nativeplatform.samples.AshfallNativeSampleModule",
+  "artifact": "addon.jar"
+}

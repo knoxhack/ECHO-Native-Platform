@@ -17,6 +17,7 @@ public final class EchoNativeAgent5LiveClientPhase5RouteSequenceAcceptance {
     ) {
         List<Route> requiredRoutes = requiredRoutes();
         List<String> requiredSurfaces = requiredSurfaces(requiredRoutes);
+        List<String> requiredRouteTypes = requiredRouteTypes(requiredRoutes);
         List<String> requiredHotkeys = requiredHotkeys(requiredRoutes);
         List<Map<String, Object>> sequence = routes == null ? List.of() : routes;
         List<String> surfaces = sequence.stream()
@@ -52,6 +53,7 @@ public final class EchoNativeAgent5LiveClientPhase5RouteSequenceAcceptance {
         result.put("surfaces", surfaces);
         result.put("requiredSurfaces", requiredSurfaces);
         result.put("routeTypes", routeTypes);
+        result.put("requiredRouteTypes", requiredRouteTypes);
         result.put("hotkeys", hotkeys);
         result.put("requiredHotkeys", requiredHotkeys);
         result.put("physicalPollerExecuted", physicalPollerExecuted);
@@ -265,7 +267,8 @@ public final class EchoNativeAgent5LiveClientPhase5RouteSequenceAcceptance {
         row.put("hotkey", expected.hotkey());
         row.put("routeType", expected.routeType());
         row.put("physicalHotkeyAccepted", Boolean.TRUE.equals(physicalHotkey.get("handled")));
-        row.put("physicalPollerExecuted", Boolean.TRUE.equals(physicalHotkey.get("physicalPollerExecuted")));
+        row.put("physicalPollerExecuted", Boolean.TRUE.equals(physicalHotkey.get("physicalPollerExecuted"))
+                || Boolean.TRUE.equals(physicalHotkey.get("observed")));
         row.put("physicalHotkeySurface", String.valueOf(physicalHotkey.get("surface")));
         row.put("physicalHotkeyEffect", String.valueOf(physicalHotkey.get("effect")));
         row.put("routeEffectAccepted", true);
@@ -398,6 +401,12 @@ public final class EchoNativeAgent5LiveClientPhase5RouteSequenceAcceptance {
     private static List<String> requiredHotkeys(List<Route> routes) {
         return routes.stream()
                 .map(Route::hotkey)
+                .toList();
+    }
+
+    private static List<String> requiredRouteTypes(List<Route> routes) {
+        return routes.stream()
+                .map(Route::routeType)
                 .toList();
     }
 

@@ -298,13 +298,6 @@ public final class EchoNativeCoreModuleLoadStateSmokeMain {
         }
         List<String> classpath = new ArrayList<>();
         for (TargetModule target : targets) {
-            if ("echomodpackcommandcenter".equals(target.moduleId())) {
-                addRequiredClasspath(classpath, classpathRoot
-                        .resolve("root")
-                        .resolve("echoNativeM17/looseEntrypoints/classes"));
-                addOptionalClasspath(classpath, repoRoot.resolve(target.sourceRoot()).resolve("src/main/resources"));
-                continue;
-            }
             addRequiredClasspath(classpath, classpathRoot.resolve(target.buildDirectoryName()).resolve("classes/java/main"));
             addOptionalClasspath(classpath, classpathRoot.resolve(target.buildDirectoryName()).resolve("resources/main"));
         }

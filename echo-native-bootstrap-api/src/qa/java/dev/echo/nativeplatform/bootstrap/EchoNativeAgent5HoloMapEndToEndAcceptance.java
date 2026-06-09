@@ -23,7 +23,7 @@ public final class EchoNativeAgent5HoloMapEndToEndAcceptance {
         Map<String, Object> render = liveSurfaceRenderAcceptance == null ? Map.of() : liveSurfaceRenderAcceptance;
         Map<String, Object> interaction = interactionSmoke == null ? Map.of() : interactionSmoke;
         Map<String, Object> surfaceOpenMutation = object(interaction.get("surfaceOpenMutation"));
-        String key = text(hotkey.get("key"));
+        String key = firstNonBlank(hotkey.get("key"), hotkey.get("hotkey"));
         String surface = normalize(hotkey.get("surface"));
         Map<String, Object> step = step(interaction, "holomap_open");
         Map<String, Object> snapshot = object(step.get("snapshot"));
@@ -129,5 +129,10 @@ public final class EchoNativeAgent5HoloMapEndToEndAcceptance {
 
     private static String text(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private static String firstNonBlank(Object first, Object second) {
+        String firstText = text(first);
+        return firstText.isBlank() ? text(second) : firstText;
     }
 }

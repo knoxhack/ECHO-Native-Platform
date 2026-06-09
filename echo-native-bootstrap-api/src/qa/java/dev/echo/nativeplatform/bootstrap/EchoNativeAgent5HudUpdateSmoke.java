@@ -9,7 +9,9 @@ public final class EchoNativeAgent5HudUpdateSmoke {
     }
 
     public static Map<String, Object> capture() {
-        Map<String, Object> update = EchoNativeAgent5UiActionRouter.routeHudUpdate(Map.of("hudHealth", 92));
+        int currentHealth = integer(EchoNativeAgent5UiExpectedValues.hud().get("health"));
+        int expectedHealth = EchoNativeAgent5UiExpectedValues.hudUpdatedHealth();
+        Map<String, Object> update = EchoNativeAgent5UiActionRouter.routeHudUpdate(Map.of("hudHealth", currentHealth));
         Map<String, Object> state = Map.of(
                 "hudHealth", update.get("hudHealth"),
                 "hudHazard", update.get("hudHazard"),
@@ -43,14 +45,14 @@ public final class EchoNativeAgent5HudUpdateSmoke {
         );
 
         boolean passed = Boolean.TRUE.equals(update.get("handled"))
-                && Integer.valueOf(85).equals(update.get("hudHealth"))
+                && Integer.valueOf(expectedHealth).equals(update.get("hudHealth"))
                 && String.valueOf(EchoNativeAgent5UiExpectedValues.hud().get("hazard")).equals(update.get("hudHazard"))
                 && "hud:update:health_hazard_mission".equals(update.get("effect"))
                 && runtimeMutationAccepted
-                && lines(surface).stream().anyMatch(line -> line.contains("HUD: Health 85"))
+                && lines(surface).stream().anyMatch(line -> line.contains("HUD: Health " + expectedHealth))
                 && lines(surface).stream().anyMatch(line -> line.contains("Hazard: " + update.get("hudHazard")))
-                && list(host, "headerLines").stream().anyMatch(line -> line.contains(
-                        "HUD: Health 85 / " + update.get("hudHazard")));
+                && list(host, "surfaceLines").stream().anyMatch(line -> line.contains(
+                        "HUD refreshed: health " + expectedHealth + " / " + update.get("hudHazard")));
 
         Map<String, Object> smoke = new LinkedHashMap<>();
         smoke.put("hudUpdateSmokeClass", EchoNativeAgent5HudUpdateSmoke.class.getSimpleName());
@@ -62,6 +64,7 @@ public final class EchoNativeAgent5HudUpdateSmoke {
         smoke.put("effect", update.get("effect"));
         smoke.put("surfaceLines", lines(surface));
         smoke.put("hostHeaderLines", list(host, "headerLines"));
+        smoke.put("hostSurfaceLines", list(host, "surfaceLines"));
         smoke.put("hudMutation", hudMutation);
         smoke.put("runtimeMutationAccepted", runtimeMutationAccepted);
         smoke.put("runtimeActionId", String.valueOf(hudMutation.getOrDefault("runtimeActionId", "")));

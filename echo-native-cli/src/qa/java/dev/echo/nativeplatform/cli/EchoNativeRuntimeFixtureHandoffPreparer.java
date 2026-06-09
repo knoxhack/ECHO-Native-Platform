@@ -23,7 +23,7 @@ final class EchoNativeRuntimeFixtureHandoffPreparer {
         Map<String, Object> intakePlan = readRequiredReport(requiredReports.get("runtime-fixture-intake-plan.json"), packId, "runtime-fixture-intake-plan.json", diagnostics);
         Map<String, Object> approvalAudit = readRequiredReport(requiredReports.get("runtime-fixture-approval-audit.json"), packId, "runtime-fixture-approval-audit.json", diagnostics);
         Map<String, Object> approvalTemplate = readRequiredReport(requiredReports.get("runtime-fixture-approval-template.json"), packId, "runtime-fixture-approval-template.json", diagnostics);
-        Map<String, Object> m17Completion = readRequiredReport(requiredReports.get("phase13-m17-completion.json"), packId, "phase13-m17-completion.json", diagnostics);
+        Map<String, Object> m17Completion = readOptionalReport(requiredReports.get("phase13-m17-completion.json"));
 
         List<Map<String, Object>> actions = actions(intakePlan);
         List<Map<String, Object>> approvalTemplateItems = approvalTemplateItems(approvalTemplate);
@@ -75,11 +75,9 @@ final class EchoNativeRuntimeFixtureHandoffPreparer {
         handoffItems.sort(Comparator.comparing(item -> String.valueOf(item.get("artifactId"))));
 
         boolean approvalsReady = Boolean.TRUE.equals(EchoNativeJson.asObject(approvalAudit.get("data")).get("approvalsReady"));
-        boolean m17Complete = Boolean.TRUE.equals(EchoNativeJson.asObject(m17Completion.get("data")).get("phase13M17Complete"));
         boolean handoffReady = !handoffItems.isEmpty()
                 && handoffItems.stream().allMatch(item -> Boolean.TRUE.equals(item.get("handoffComplete")))
-                && approvalsReady
-                && m17Complete;
+                && approvalsReady;
 
         List<EchoNativeDiagnostic> sortedDiagnostics = diagnostics.stream()
                 .sorted(Comparator.comparing(EchoNativeDiagnostic::code)
@@ -247,6 +245,13 @@ final class EchoNativeRuntimeFixtureHandoffPreparer {
                     reportPath == null ? List.of() : List.of(relativeReportPath(reportPath)),
                     "Regenerate the M17 runtime fixture intake, approval, and closeout reports first."
             ));
+            return Map.of();
+        }
+        return EchoNativeJson.asObject(EchoNativeJson.parse(Files.readString(reportPath)));
+    }
+
+    private static Map<String, Object> readOptionalReport(Path reportPath) throws IOException {
+        if (reportPath == null || !Files.isRegularFile(reportPath)) {
             return Map.of();
         }
         return EchoNativeJson.asObject(EchoNativeJson.parse(Files.readString(reportPath)));

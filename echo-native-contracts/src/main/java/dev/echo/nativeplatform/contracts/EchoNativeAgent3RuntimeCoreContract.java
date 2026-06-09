@@ -141,7 +141,6 @@ public final class EchoNativeAgent3RuntimeCoreContract {
 
     public static List<String> requiredSystemModuleIds() {
         return List.of(
-                "echomodpackcommandcenter",
                 "signalos",
                 "signalosexample",
                 "echobridgecore",

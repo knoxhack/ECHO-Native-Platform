@@ -20,7 +20,7 @@ public final class EchoNativeAgent5UiHostEndToEndAcceptance {
         Map<String, Object> live = liveSurfaceAcceptance == null ? Map.of() : liveSurfaceAcceptance;
         Map<String, Object> render = liveSurfaceRenderAcceptance == null ? Map.of() : liveSurfaceRenderAcceptance;
         Map<String, Object> interaction = interactionStateAcceptance == null ? Map.of() : interactionStateAcceptance;
-        String key = text(hotkey.get("key"));
+        String key = firstNonBlank(hotkey.get("key"), hotkey.get("hotkey"));
         String surface = normalize(hotkey.get("surface"));
         String inputSurface = normalize(input.get("surface"));
         String liveSurface = normalize(live.get("currentMode"));
@@ -62,5 +62,10 @@ public final class EchoNativeAgent5UiHostEndToEndAcceptance {
 
     private static String text(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private static String firstNonBlank(Object first, Object second) {
+        String firstText = text(first);
+        return firstText.isBlank() ? text(second) : firstText;
     }
 }

@@ -116,6 +116,14 @@ public final class EchoNativeBootstrapMain {
         return EchoNativeBootstrapOrchestrator.nativeGameplaySurfaceContextForMode(mode);
     }
 
+    static List<Map<String, Object>> ashfallGameplayHandlers() {
+        return EchoNativeBootstrapOrchestrator.ashfallGameplayHandlers();
+    }
+
+    static Map<String, Object> applyAshfallGameplayBridge(String packId) {
+        return EchoNativeBootstrapOrchestrator.applyAshfallGameplayBridge(packId);
+    }
+
     static String nativeProductId(String path) {
         return EchoNativeBootstrapOrchestrator.nativeProductId(path);
     }

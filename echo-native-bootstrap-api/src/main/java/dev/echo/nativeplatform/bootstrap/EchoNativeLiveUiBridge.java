@@ -98,6 +98,15 @@ final class EchoNativeLiveUiBridge {
     private EchoNativeLiveUiBridge() {
     }
 
+    static String screenSource() {
+        return NativeLoaderGeneratedUiSources.dashboardScreenSource(new NativeLoaderGeneratedUiSources.DashboardScreenBootstrap(
+                SCREEN_CLASS_NAME,
+                EchoNativeBootstrapMain.class.getName(),
+                EchoNativeAgent5UiActionRouter.class.getName(),
+                EchoNativeAgent5UiHandlerRegistry.class.getName()
+        ));
+    }
+
     private static List<String> concat(List<String> first, List<String> second) {
         List<String> values = new ArrayList<>(first.size() + second.size());
         values.addAll(first);
@@ -1154,12 +1163,7 @@ final class EchoNativeLiveUiBridge {
         Files.createDirectories(classRoot);
         Files.writeString(
                 sourceFile,
-                NativeLoaderGeneratedUiSources.dashboardScreenSource(new NativeLoaderGeneratedUiSources.DashboardScreenBootstrap(
-                        SCREEN_CLASS_NAME,
-                        EchoNativeBootstrapMain.class.getName(),
-                        EchoNativeAgent5UiActionRouter.class.getName(),
-                        EchoNativeAgent5UiHandlerRegistry.class.getName()
-                )),
+                screenSource(),
                 StandardCharsets.UTF_8
         );
 
@@ -3956,7 +3960,7 @@ final class EchoNativeLiveUiBridge {
                 ? EchoNativeBootstrapMain.executeNativeSurfaceOpenFromUi(destination, effect)
                 : Map.of("mutated", false, "failureKind", route.getOrDefault("routeFailureKind", "native_route_unbound"));
         boolean mutated = applyNativeUiMutationEvidence(route, mutation);
-        if (openRealDeclaredModuleSurface(destination, minecraftClass, minecraft, route)) {
+        if (mutated && openRealDeclaredModuleSurface(destination, minecraftClass, minecraft, route)) {
             route.put("handled", true);
             route.put("routeBound", true);
             route.put("screenOpened", !"LENS".equals(destination));

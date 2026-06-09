@@ -724,6 +724,7 @@ public final class EchoNativeLoaderLiveProofTruthGateVerifier {
             record.put("liveRuntimeSurfaceMutationSatisfied", mutated);
             if (mutated) {
                 record.put("surfaceLiveRuntimeProofEvidence", surfaceProofEvidence(surface, sequence));
+                record.put("adapterCoreSurfaceDispatchId", "proof:" + surface + ":" + sequence);
                 record.put("liveRuntimeDispatchId", "proof:" + surface + ":" + sequence);
                 record.put("liveRuntimeSurface", surface);
             }

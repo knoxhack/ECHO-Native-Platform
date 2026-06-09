@@ -14,7 +14,7 @@ public final class EchoNativeAgent5LiveRouteBoundHudUpdateAcceptance {
     ) {
         boolean hudAccepted = hud != null
                 && Boolean.TRUE.equals(hud.get("accepted"))
-                && "hud_overlay_end_to_end:data_backed:85".equals(hud.get("effect"));
+                && EchoNativeAgent5UiExpectedValues.hudOverlayEffect().equals(hud.get("effect"));
         List<String> observedKeys = strings(routeEffectTranscript == null
                 ? null
                 : routeEffectTranscript.get("observedKeys"));

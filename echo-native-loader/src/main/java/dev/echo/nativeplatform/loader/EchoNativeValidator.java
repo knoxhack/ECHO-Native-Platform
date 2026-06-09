@@ -48,7 +48,7 @@ public final class EchoNativeValidator {
                         "Module id '" + entry.getKey() + "' appears " + entry.getValue().size() + " times in the fixture.",
                         entry.getKey(),
                         packId,
-                        entry.getValue().stream().map(descriptor -> descriptor.descriptorPath().toString().replace('\\', '/')).toList(),
+                        entry.getValue().stream().map(descriptor -> path(descriptor.descriptorPath())).toList(),
                         "Keep one descriptor per module id."
                 ));
             }
@@ -61,7 +61,7 @@ public final class EchoNativeValidator {
                     "Root module '" + scanResult.packProfile().rootModule() + "' was not discovered.",
                     scanResult.packProfile().rootModule(),
                     packId,
-                    List.of(scanResult.packProfile().profilePath().toString().replace('\\', '/')),
+                    List.of(path(scanResult.packProfile().profilePath())),
                     "Add the root module descriptor to the fixture or correct rootModule."
             ));
         }
@@ -74,7 +74,7 @@ public final class EchoNativeValidator {
                         "Required module '" + requiredModule + "' was not discovered.",
                         requiredModule,
                         packId,
-                        List.of(scanResult.packProfile().profilePath().toString().replace('\\', '/')),
+                        List.of(path(scanResult.packProfile().profilePath())),
                         "Add a descriptor fixture for the required module."
                 ));
             }
@@ -88,7 +88,7 @@ public final class EchoNativeValidator {
                         "Required feature '" + requiredFeature + "' has no discovered provider.",
                         null,
                         packId,
-                        List.of(scanResult.packProfile().profilePath().toString().replace('\\', '/')),
+                        List.of(path(scanResult.packProfile().profilePath())),
                         "Add a provider descriptor or adjust the pack profile."
                 ));
             }
@@ -110,7 +110,7 @@ public final class EchoNativeValidator {
                     "Descriptor '" + descriptor.id() + "' uses schema '" + descriptor.schema() + "'.",
                     descriptor.id(),
                     packId,
-                    List.of(descriptor.descriptorPath().toString().replace('\\', '/')),
+                    List.of(path(descriptor.descriptorPath())),
                     "Use schema echo.mod.v1 for native loader descriptors."
             ));
         }
@@ -122,7 +122,7 @@ public final class EchoNativeValidator {
                     "A descriptor is missing id.",
                     null,
                     packId,
-                    List.of(descriptor.descriptorPath().toString().replace('\\', '/')),
+                    List.of(path(descriptor.descriptorPath())),
                     "Add a stable module id."
             ));
         }
@@ -240,7 +240,7 @@ public final class EchoNativeValidator {
     }
 
     private static String descriptorPath(EchoNativeAddonDescriptor descriptor) {
-        return descriptor.descriptorPath() == null ? "" : descriptor.descriptorPath().toString().replace('\\', '/');
+        return path(descriptor.descriptorPath());
     }
 
     private static List<String> diagnosticSources(EchoNativeAddonDescriptor descriptor, List<Path> classpath) {
@@ -253,6 +253,19 @@ public final class EchoNativeValidator {
     }
 
     private static String path(Path path) {
-        return path == null ? "" : path.toString().replace('\\', '/');
+        if (path == null) {
+            return "";
+        }
+        Path normalized = path.toAbsolutePath().normalize();
+        Path root = Path.of("").toAbsolutePath().normalize();
+        if (normalized.startsWith(root)) {
+            return root.relativize(normalized).toString().replace('\\', '/');
+        }
+        Path workspaceRoot = root.getParent();
+        if (workspaceRoot != null && normalized.startsWith(workspaceRoot)) {
+            return workspaceRoot.relativize(normalized).toString().replace('\\', '/');
+        }
+        Path fileName = normalized.getFileName();
+        return fileName == null ? "" : fileName.toString().replace('\\', '/');
     }
 }

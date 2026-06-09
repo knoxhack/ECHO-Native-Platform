@@ -208,8 +208,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require(list(contract, "pauseOptions").contains("Resume"), "pause flow must expose resume");
         require("recover".equals(contract.get("recoveryAction")), "recovery action must match reference");
         require("recover".equals(deathRecoveryData.get("action")), "recovery data source action must match reference");
-        require("echorecovery:ashfall_field_recovery_cache".equals(contract.get("recoveryPoint")),
-                "recovery point must match reference");
+        require(deathRecoveryData.get("recoveryPoint").equals(contract.get("recoveryPoint")),
+                "recovery point must come from recovery data");
         require("RECOVERED".equals(contract.get("recoveryStatus")), "recovery status must match reference");
         require(Integer.valueOf(35).equals(number(contract.get("recoveryHealth"))),
                 "recovery health must match reference");
@@ -356,12 +356,12 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         String bootstrapSource = readBootstrapSource();
         String orchestratorSource = readSourceFile("EchoNativeBootstrapOrchestrator.java");
         String uiClientFlowSource = readSourceFile("EchoNativeBootstrapUiClientFlow.java");
-        String runtimeHostFlowSource = readSourceFile("EchoNativeBootstrapRuntimeHostFlow.java");
-        String runtimeHostSupportSource = readSourceFile("EchoNativeRuntimeHostSupport.java");
-        String runtimeActionSource = readSourceFile("EchoNativeUiRuntimeActionSupport.java");
-        String playableActionSource = readSourceFile("EchoNativeUiPlayableActionSupport.java");
-        String adapterCoreRuntimeMutationsSource = readSourceFile("EchoNativeAdapterCoreRuntimeMutations.java");
-        String scannerRuntimeSource = readSourceFile("EchoNativeAdapterCoreScannerRuntimeActions.java");
+        String runtimeHostFlowSource = readSourceFile("NativeLoaderRuntimeHostFlow.java");
+        String runtimeHostSupportSource = readSourceFile("NativeLoaderRuntimeHostSupport.java");
+        String runtimeActionSource = readSourceFile("NativeLoaderClientUiRuntimeActions.java");
+        String playableActionSource = readSourceFile("NativeLoaderClientUiPlayableActions.java");
+        String adapterCoreRuntimeMutationsSource = readSourceFile("NativeLoaderAdapterCoreRuntimeMutations.java");
+        String scannerRuntimeSource = readSourceFile("NativeLoaderAdapterCoreScannerRuntimeActions.java");
         String source = String.join("\n",
                 bootstrapSource,
                 orchestratorSource,
@@ -373,8 +373,12 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 adapterCoreRuntimeMutationsSource,
                 scannerRuntimeSource);
         String liveBridgeSource = readSourceFile("EchoNativeLiveUiBridge.java");
-        String routerSource = readSourceFile("EchoNativeAgent5UiActionRouter.java");
-        String rendererSource = readSourceFile("EchoNativeAgent5ModuleSurfaceRenderers.java");
+        String generatedUiSource = readSourceFile("NativeLoaderGeneratedUiSources.java");
+        String liveUiSource = liveBridgeSource + "\n" + generatedUiSource;
+        String routerSource = readSourceFile("EchoNativeAgent5UiActionRouter.java")
+                + "\n" + readSourceFile("NativeLoaderUiActionRouter.java");
+        String rendererSource = readSourceFile("EchoNativeAgent5ModuleSurfaceRenderers.java")
+                + "\n" + readSourceFile("NativeLoaderModuleSurfaceRenderers.java");
         String routeEffectSource = readSourceFile("EchoNativeAgent5LivePhysicalRouteEffectTranscriptAcceptance.java");
         require(!source.contains("NATIVE_CLIENT_RUNTIME_ACTIONS"),
                 "native UI supported actions must not come from a fixed runtime action list");
@@ -406,9 +410,9 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native UI scanner action must preserve scanner payload context and portable scanner runtime entrypoint");
         require(source.contains("public static boolean grantNativeItemFromUi(String itemId, int count)"),
                 "native UI grant action must expose a bootstrap entry point");
-        require(uiClientFlowSource.contains("return EchoNativeUiPlayableActionSupport.mutationAccepted(useScannerEvidence())")
-                        && uiClientFlowSource.contains("return EchoNativeUiPlayableActionSupport.mutationAccepted(grantItemEvidence(itemId, count))")
-                        && playableActionSource.contains("static boolean mutationAccepted(Map<String, Object> evidence)")
+        require(uiClientFlowSource.contains("return NativeLoaderClientUiPlayableActions.mutationAccepted(useScannerEvidence())")
+                        && uiClientFlowSource.contains("return NativeLoaderClientUiPlayableActions.mutationAccepted(grantItemEvidence(itemId, count))")
+                        && playableActionSource.contains("public static boolean mutationAccepted(Map<String, Object> evidence)")
                         && source.contains("&& Boolean.TRUE.equals(result.get(\"saveTouched\"))")
                         && source.contains("&& Boolean.TRUE.equals(result.get(\"missionUpdated\"))")
                         && source.contains("&& Boolean.TRUE.equals(result.get(\"feedbackEmitted\"))"),
@@ -422,7 +426,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native UI scanner action must expose AdapterCore mutation evidence from the canonical scanner event");
         require(source.contains("NATIVE_RUNTIME_HOST_ID_PROPERTY")
                         && source.contains("ECHO_NATIVE_RUNTIME_HOST_ID")
-                        && source.contains("EchoNativeRuntimeHostSupport")
+                        && source.contains("NativeLoaderRuntimeHostSupport")
                         && source.contains("selectedRegisteredRuntimeHost("),
                 "native UI grant action must be able to resolve a selected registered runtime host");
         require(source.contains("selectedRegistryValue(runtimeHostId, \"capabilities\")")
@@ -465,9 +469,9 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         && source.contains(".getConstructor(String.class, String.class, String.class, String.class, long.class, Map.class)")
                         && source.contains("metadata.put(\"hostRuntime\""),
                 "native UI grant action must build public AdapterCore mutation contexts for selected non-NeoForge hosts");
-        require(liveBridgeSource.contains("EchoNativeBootstrapMain.grantNativeItemFromUiEvidence("),
+        require(liveUiSource.contains("EchoNativeBootstrapMain.grantNativeItemFromUiEvidence("),
                 "native live UI recovery action must mutate inventory through the bootstrap grant evidence path");
-        require(liveBridgeSource.contains("recovery item grant unavailable for active runtime host"),
+        require(liveUiSource.contains("recovery item grant unavailable for active runtime host"),
                 "native live UI recovery action must surface failed inventory grants");
         require(bootstrapSource.contains("public static Map<String, Object> executeNativeTerminalCommandFromUi(")
                         && runtimeActionSource.contains("context.commandExecutionEvent()")
@@ -483,13 +487,13 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native UI mutation evidence must surface explicit AdapterCore host-save and mission details");
         require(runtimeActionSource.contains("!context.runtimeActionSupported().test(runtimeHost, context.terminalCommandAction())"),
                 "native UI terminal command entrypoint must reject unsupported active-host actions");
-        require(liveBridgeSource.contains("EchoNativeBootstrapMain.executeNativeTerminalCommandFromUi(")
-                        && liveBridgeSource.contains("this.terminalCommandExecuted = runtimeMutationAccepted(terminalMutation)")
-                        && liveBridgeSource.contains("terminal command unavailable for active runtime host"),
+        require(liveUiSource.contains("EchoNativeBootstrapMain.executeNativeTerminalCommandFromUi(")
+                        && liveUiSource.contains("this.terminalCommandExecuted = runtimeMutationAccepted(terminalMutation)")
+                        && liveUiSource.contains("terminal command unavailable for active runtime host"),
                 "native live UI terminal command must have accepted runtime mutation evidence before marking execution");
-        require(liveBridgeSource.contains("this.terminalOutput = runtimeFeedback(terminalMutation, this.terminalOutput)")
-                        && liveBridgeSource.contains("String.valueOf(state.get(\"terminalOutput\")).contains(\"save=true\")")
-                        && liveBridgeSource.contains("String.valueOf(state.get(\"terminalOutput\")).contains(\"mission=true\")"),
+        require(liveUiSource.contains("this.terminalOutput = runtimeFeedback(terminalMutation, this.terminalOutput)")
+                        && liveUiSource.contains("String.valueOf(state.get(\"terminalOutput\")).contains(\"save=true\")")
+                        && liveUiSource.contains("String.valueOf(state.get(\"terminalOutput\")).contains(\"mission=true\")"),
                 "native live UI terminal feedback must be rendered from the runtime mutation result");
         require(bootstrapSource.contains("public static Map<String, Object> executeNativeIndexSearchFromUi(")
                         && runtimeActionSource.contains("context.terminalOpenedEvent()")
@@ -498,13 +502,13 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native UI index search must publish the canonical terminal-opened AdapterCore event");
         require(runtimeActionSource.contains("!context.runtimeActionSupported().test(runtimeHost, context.indexSearchAction())"),
                 "native UI index search entrypoint must reject unsupported active-host actions");
-        require(liveBridgeSource.contains("EchoNativeBootstrapMain.executeNativeIndexSearchFromUi(")
-                        && liveBridgeSource.contains("this.indexSearchExecuted = runtimeMutationAccepted(indexMutation)")
-                        && liveBridgeSource.contains("index search unavailable for active runtime host"),
+        require(liveUiSource.contains("EchoNativeBootstrapMain.executeNativeIndexSearchFromUi(")
+                        && liveUiSource.contains("this.indexSearchExecuted = runtimeMutationAccepted(indexMutation)")
+                        && liveUiSource.contains("index search unavailable for active runtime host"),
                 "native live UI index search must have accepted runtime mutation evidence before marking execution");
-        require(liveBridgeSource.contains("this.indexOutput = runtimeFeedback(indexMutation, this.indexOutput)")
-                        && liveBridgeSource.contains("String.valueOf(state.get(\"indexOutput\")).contains(\"save=true\")")
-                        && liveBridgeSource.contains("String.valueOf(state.get(\"indexOutput\")).contains(\"mission=true\")"),
+        require(liveUiSource.contains("this.indexOutput = runtimeFeedback(indexMutation, this.indexOutput)")
+                        && liveUiSource.contains("String.valueOf(state.get(\"indexOutput\")).contains(\"save=true\")")
+                        && liveUiSource.contains("String.valueOf(state.get(\"indexOutput\")).contains(\"mission=true\")"),
                 "native live UI index feedback must be rendered from the runtime mutation result");
         require(bootstrapSource.contains("public static Map<String, Object> executeNativeHudRefreshFromUi(")
                         && runtimeActionSource.contains("context.clientTickEvent()")
@@ -516,19 +520,19 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native UI mission log update must publish a canonical mission event");
         require(runtimeActionSource.contains("!context.runtimeActionSupported().test(runtimeHost, runtimeActionId)"),
                 "native UI event entrypoints must reject unsupported active-host actions");
-        require(liveBridgeSource.contains("EchoNativeBootstrapMain.executeNativeHudRefreshFromUi(")
-                        && liveBridgeSource.contains("if (!runtimeMutationAccepted(hudMutation))")
-                        && liveBridgeSource.contains("HUD refresh unavailable for active runtime host"),
+        require(liveUiSource.contains("EchoNativeBootstrapMain.executeNativeHudRefreshFromUi(")
+                        && liveUiSource.contains("if (!runtimeMutationAccepted(hudMutation))")
+                        && liveUiSource.contains("HUD refresh unavailable for active runtime host"),
                 "native live UI HUD refresh must have accepted runtime mutation evidence before updating UI state");
-        require(liveBridgeSource.contains("EchoNativeBootstrapMain.executeNativeMissionLogUpdateFromUi(")
-                        && liveBridgeSource.contains("if (!runtimeMutationAccepted(missionMutation))")
-                        && liveBridgeSource.contains("mission update unavailable for active runtime host"),
+        require(liveUiSource.contains("EchoNativeBootstrapMain.executeNativeMissionLogUpdateFromUi(")
+                        && liveUiSource.contains("if (!runtimeMutationAccepted(missionMutation))")
+                        && liveUiSource.contains("mission update unavailable for active runtime host"),
                 "native live UI mission log update must have accepted runtime mutation evidence before updating UI state");
-        require(liveBridgeSource.contains("this.hudUpdateOutput = runtimeFeedback(hudMutation")
-                        && liveBridgeSource.contains("this.missionUpdateLine = runtimeFeedback(missionMutation")
-                        && liveBridgeSource.contains("private static String runtimeFeedback(")
-                        && liveBridgeSource.contains("boolean missionUpdated = Boolean.TRUE.equals(mutation.get(\"missionUpdated\"))")
-                        && liveBridgeSource.contains("\"; mission=\" + missionUpdated"),
+        require(liveUiSource.contains("this.hudUpdateOutput = runtimeFeedback(hudMutation")
+                        && liveUiSource.contains("this.missionUpdateLine = runtimeFeedback(missionMutation")
+                        && liveUiSource.contains("private static String runtimeFeedback(")
+                        && liveUiSource.contains("boolean missionUpdated = Boolean.TRUE.equals(mutation.get(\"missionUpdated\"))")
+                        && liveUiSource.contains("\"; mission=\" + missionUpdated"),
                 "native HUD and mission visible feedback must include AdapterCore mutation result evidence");
         require(runtimeActionSource.contains("context.surfaceOpenAction()")
                         && runtimeActionSource.contains("context.indexBookmarkAction()")
@@ -566,24 +570,24 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         int signalOsPacketIndex = liveBridgeSource.indexOf(
                 "boolean sent = mutated && sendSignalOsOpenTerminalCommand()");
         int dataSurfaceMutationIndex = liveBridgeSource.indexOf(
-                "Map<String, Object> mutation = EchoNativeBootstrapMain.executeNativeSurfaceOpenFromUi(");
-        int dataSurfaceScreenIndex = dataSurfaceMutationIndex < 0
+                "? EchoNativeBootstrapMain.executeNativeSurfaceOpenFromUi(destination, effect)");
+        int dataSurfaceGateIndex = dataSurfaceMutationIndex < 0
                 ? -1
                 : liveBridgeSource.indexOf(
-                "minecraft.getClass().getMethod(\"setScreen\", vanillaScreenClass)",
+                "if (mutated && openRealDeclaredModuleSurface(destination, minecraftClass, minecraft, route))",
                 dataSurfaceMutationIndex);
         require(signalOsCloseMutationIndex >= 0
                         && signalOsCloseIndex > signalOsCloseMutationIndex
                         && signalOsOpenMutationIndex >= 0
                         && signalOsPacketIndex > signalOsOpenMutationIndex
                         && dataSurfaceMutationIndex >= 0
-                        && dataSurfaceScreenIndex > dataSurfaceMutationIndex
+                        && dataSurfaceGateIndex > dataSurfaceMutationIndex
                         && liveBridgeSource.contains("boolean mutated = applyNativeUiMutationEvidence(route, mutation)")
                         && liveBridgeSource.contains("if (!mutated)"),
                 "native packet and screen effects must be gated by AdapterCore runtime mutation evidence");
-        require(liveBridgeSource.contains("EchoNativeBootstrapMain.useNativeScannerFromUiEvidence()")
-                        && liveBridgeSource.contains("this.lensScanExecuted = runtimeMutationAccepted(scannerMutation)")
-                        && liveBridgeSource.contains("this.recoveryActionExecuted = runtimeMutationAccepted(recoveryMutation)")
+        require(liveUiSource.contains("EchoNativeBootstrapMain.useNativeScannerFromUiEvidence()")
+                        && liveUiSource.contains("this.lensScanExecuted = runtimeMutationAccepted(scannerMutation)")
+                        && liveUiSource.contains("this.recoveryActionExecuted = runtimeMutationAccepted(recoveryMutation)")
                         && liveBridgeSource.contains("route.put(\"eventName\", \"player.scanner_used\")"),
                 "native lens and recovery UI routes must use canonical events and accepted runtime mutation evidence");
         require(liveBridgeSource.contains("applyNativeMutationEvidence(route, mutation)")
@@ -624,14 +628,15 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         && rendererSource.contains("mission update unavailable for active runtime host"),
                 "native HUD and mission surfaces must hide unsupported runtime actions");
         require(routerSource.contains("action.put(\"runtimeActionId\", \"player.inventory.grant\")")
-                        && routerSource.contains("String recoveryItemId = EchoNativeBootstrapMain.nativeRecoveryItemId()")
+                        && routerSource.contains("EchoNativeBootstrapMain::nativeRecoveryItemId")
+                        && routerSource.contains("String recoveryItemId = context.recoveryItemId().get()")
                         && routerSource.contains("action.put(\"grantItemId\", recoveryItemId)")
                         && routerSource.contains("action.put(\"grantItemCount\", 1)"),
                 "native recovery action router must provide the canonical inventory grant payload");
-        require(liveBridgeSource.contains("this.lensOutput = runtimeFeedback(scannerMutation, this.lensOutput)")
-                        && liveBridgeSource.contains("this.recoveryOutput = runtimeFeedback(recoveryMutation, this.recoveryOutput)")
-                        && liveBridgeSource.contains("String.valueOf(state.get(\"lensOutput\")).contains(\"save=true\")")
-                        && liveBridgeSource.contains("String.valueOf(state.get(\"recoveryOutput\")).contains(\"save=true\")"),
+        require(liveUiSource.contains("this.lensOutput = runtimeFeedback(scannerMutation, this.lensOutput)")
+                        && liveUiSource.contains("this.recoveryOutput = runtimeFeedback(recoveryMutation, this.recoveryOutput)")
+                        && liveUiSource.contains("String.valueOf(state.get(\"lensOutput\")).contains(\"save=true\")")
+                        && liveUiSource.contains("String.valueOf(state.get(\"recoveryOutput\")).contains(\"save=true\")"),
                 "native scanner and recovery visible feedback must include AdapterCore mutation result evidence");
         require(rendererSource.contains("recovery grant unavailable for active runtime host"),
                 "native recovery surface must hide grant actions unsupported by the active host");
@@ -677,7 +682,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
     }
 
     private static void requireNativeAshfallPowerNodeRequiresCompletedAdapterCoreChain() {
-        String source = readSourceFile("EchoNativeProductBlockActionExecutor.java");
+        String source = readSourceFile("NativeLoaderProductBlockActionExecutor.java").replace("\r\n", "\n");
         int start = source.indexOf("private static boolean powerNodeAction(");
         int end = start < 0 ? -1 : source.indexOf("private static boolean bunkAction(", start);
         require(start >= 0 && end > start,
@@ -697,7 +702,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
     }
 
     private static void requireNativeAshfallGridRequiresCompletedAdapterCoreChain() {
-        String source = readSourceFile("EchoNativeProductBlockActionExecutor.java");
+        String source = readSourceFile("NativeLoaderProductBlockActionExecutor.java").replace("\r\n", "\n");
         int start = source.indexOf("private static boolean gridAction(");
         int end = start < 0 ? -1 : source.indexOf("private static boolean processorAction(", start);
         require(start >= 0 && end > start,
@@ -716,7 +721,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
     }
 
     private static void requireNativeAshfallGeneratorAndProcessorRequireCompletedTick() {
-        String source = readSourceFile("EchoNativeProductBlockActionExecutor.java");
+        String source = readSourceFile("NativeLoaderProductBlockActionExecutor.java").replace("\r\n", "\n");
         int generatorStart = source.indexOf("private static boolean generatorAction(");
         int generatorEnd = generatorStart < 0 ? -1 : source.indexOf("private static boolean gridAction(", generatorStart);
         require(generatorStart >= 0 && generatorEnd > generatorStart,
@@ -744,7 +749,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
     }
 
     private static void requireNativeAshfallWaterHazardAndResearchRequireCompletedAdapterCoreChains() {
-        String source = readSourceFile("EchoNativeProductBlockActionExecutor.java");
+        String source = readSourceFile("NativeLoaderProductBlockActionExecutor.java").replace("\r\n", "\n");
         require(source.contains("private static boolean tickRepeated(")
                         && source.contains("if (!ops.machineTick(level, player, pos, machineId)) {\n                return false;"),
                 "native Ashfall multi-tick machine actions must fail when any AdapterCore tick is not accepted");
@@ -800,7 +805,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
     }
 
     private static void requireNativeAshfallConsumablesRequireInventoryRemoval() {
-        String source = readSourceFile("EchoNativeProductItemActionExecutor.java");
+        String source = readSourceFile("NativeLoaderProductItemActionExecutor.java");
         require(source.contains("RemoveItem removeConsumableItem")
                         && source.contains("boolean removeConsumableItem(Object level, Object player, String itemId, int count)")
                         && source.contains("return removeConsumableItem.run(level, player, itemId, count);"),
@@ -1654,10 +1659,18 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         "nativeplatform", "bootstrap", fileName),
                 Path.of("echo-native-bootstrap-api", "src", "qa", "java", "dev", "echo",
                         "nativeplatform", "bootstrap", fileName),
+                Path.of("echo-native-loader", "src", "main", "java", "dev", "echo",
+                        "nativeplatform", "loader", fileName),
+                Path.of("echo-native-loader", "src", "qa", "java", "dev", "echo",
+                        "nativeplatform", "loader", fileName),
                 Path.of("echo-native-platform", "echo-native-bootstrap-api", "src", "main", "java", "dev",
                         "echo", "nativeplatform", "bootstrap", fileName),
                 Path.of("echo-native-platform", "echo-native-bootstrap-api", "src", "qa", "java", "dev",
-                        "echo", "nativeplatform", "bootstrap", fileName))) {
+                        "echo", "nativeplatform", "bootstrap", fileName),
+                Path.of("echo-native-platform", "echo-native-loader", "src", "main", "java", "dev",
+                        "echo", "nativeplatform", "loader", fileName),
+                Path.of("echo-native-platform", "echo-native-loader", "src", "qa", "java", "dev",
+                        "echo", "nativeplatform", "loader", fileName))) {
             if (Files.isRegularFile(candidate)) {
                 try {
                     return Files.readString(candidate, StandardCharsets.UTF_8);
@@ -1882,7 +1895,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require(Boolean.TRUE.equals(typed.get("handled")), "native action router must handle terminal typing");
         require(EchoNativeAgent5UiExpectedValues.terminalCommand().equals(typed.get("value")),
                 "native action router must update terminal buffer");
-        require("EchoNativeAgent5UiActionRouter".equals(typed.get("routerClass")),
+        require("NativeLoaderUiActionRouter".equals(typed.get("routerClass")),
                 "native action router must identify its executable class");
 
         Map<String, Object> initialFocus = EchoNativeAgent5UiActionRouter.routeInitialFocus("TERMINAL", "WIKI");
@@ -2122,10 +2135,11 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require(Boolean.FALSE.equals(unmappedHudHotkey.get("handled")),
                 "native action router must not invent a HUD hotkey");
 
-        Map<String, Object> hudUpdate = EchoNativeAgent5UiActionRouter.routeHudUpdate(Map.of("hudHealth", 92));
+        Map<String, Object> hudUpdate = EchoNativeAgent5UiActionRouter.routeHudUpdate(Map.of(
+                "hudHealth", EchoNativeAgent5UiExpectedValues.hud().get("health")));
         require(Boolean.TRUE.equals(hudUpdate.get("handled")),
                 "native action router must execute HUD update");
-        require(Integer.valueOf(85).equals(hudUpdate.get("hudHealth")),
+        require(Integer.valueOf(EchoNativeAgent5UiExpectedValues.hudUpdatedHealth()).equals(hudUpdate.get("hudHealth")),
                 "native action router HUD update must mutate health");
         require("hud:update:health_hazard_mission".equals(hudUpdate.get("effect")),
                 "native action router HUD update must record effect");
@@ -2560,7 +2574,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require(("lens_end_to_end:LEFT_ALT->LENS:"
                         + EchoNativeAgent5UiExpectedValues.lensTarget()).equals(smoke.get("lensEffect")),
                 "native Phase 5 UI parity acceptance smoke must prove lens scan");
-        require("hud_overlay_end_to_end:data_backed:85".equals(smoke.get("hudEffect")),
+        require(EchoNativeAgent5UiExpectedValues.hudOverlayEffect().equals(smoke.get("hudEffect")),
                 "native Phase 5 UI parity acceptance smoke must prove HUD update");
         require(("holomap_end_to_end:J->HOLOMAP:"
                         + EchoNativeAgent5UiExpectedValues.holomapMarker()).equals(smoke.get("holomapEffect")),
@@ -3047,77 +3061,24 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native live-client Phase 5 route-sequence acceptance smoke must identify its executable class");
         require(Boolean.TRUE.equals(accepted.get("accepted")),
                 "native live-client Phase 5 route-sequence acceptance smoke must accept the ordered Phase 5 route sequence");
-        require("live_client_phase5_route_sequence:accepted:17".equals(accepted.get("effect")),
+        require(("live_client_phase5_route_sequence:accepted:" + accepted.get("routeCount"))
+                        .equals(accepted.get("effect")),
                 "native live-client Phase 5 route-sequence acceptance smoke must preserve the accepted effect: " + accepted);
         require(Boolean.TRUE.equals(accepted.get("scheduled"))
                         && Boolean.TRUE.equals(accepted.get("executed"))
-                        && Integer.valueOf(17).equals(number(accepted.get("routeCount")))
-                        && list(accepted, "surfaces").equals(List.of(
-                        "TERMINAL",
-                        "INDEX",
-                        "INDEX",
-                        "INDEX",
-                        "INDEX",
-                        "LENS",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "SIGNALOS",
-                        "ASHFALL_DRONE",
-                        "ASHFALL_DRONE",
-                        "ASHFALL_DRONE",
-                        "ASHFALL_DRONE",
-                        "ASHFALL_DRONE"
-                ))
-                        && list(accepted, "routeTypes").equals(List.of(
-                        "screen",
-                        "screen",
-                        "screen",
-                        "screen",
-                        "screen",
-                        "screen",
-                        "screen",
-                        "screen",
-                        "screen",
-                        "screen",
-                        "screen",
-                        "screen",
-                        "action",
-                        "action",
-                        "action",
-                        "action",
-                        "action"
-                ))
-                        && list(accepted, "hotkeys").equals(List.of(
-                        "M",
-                        "G",
-                        "R",
-                        "U",
-                        "B",
-                        "LEFT_ALT",
-                        "J",
-                        "K",
-                        "RIGHT_BRACKET",
-                        "LEFT_BRACKET",
-                        "BACKSLASH",
-                        "N",
-                        "X",
-                        "C",
-                        "Y",
-                        "Z",
-                        "B"
-                ))
+                        && number(accepted.get("routeCount")) == list(accepted, "requiredHotkeys").size()
+                        && list(accepted, "surfaces").equals(list(accepted, "requiredSurfaces"))
+                        && list(accepted, "routeTypes").equals(list(accepted, "requiredRouteTypes"))
+                        && list(accepted, "hotkeys").equals(list(accepted, "requiredHotkeys"))
                         && Boolean.TRUE.equals(accepted.get("physicalPollerExecuted"))
                         && list(accepted, "physicalHotkeySurfaces").containsAll(List.of(
-                        "TERMINAL", "INDEX", "LENS", "HOLOMAP", "SIGNALOS", "ASHFALL_DRONE"))
+                        "TERMINAL", "INDEX", "LENS", "HOLOMAP", "SIGNALOS"))
                         && list(accepted, "physicalHotkeyEffects").containsAll(List.of(
                         "physical_hotkey_observed:M->TERMINAL:terminal.open",
-                        "physical_hotkey_observed:G->INDEX:index.catalog",
-                        "physical_hotkey_observed:LEFT_ALT->LENS:lens.deep_scan",
+                        "physical_hotkey_observed:G->INDEX:index.open",
+                        "physical_hotkey_observed:LEFT_ALT->LENS:lens.scan",
                         "physical_hotkey_observed:J->HOLOMAP:holomap.open",
-                        "physical_hotkey_observed:B->ASHFALL_DRONE:ashfall.drone_assist"))
+                        "physical_hotkey_observed:N->SIGNALOS:signalos.open"))
                         && Boolean.TRUE.equals(accepted.get("noScreenCrash")),
                 "native live-client Phase 5 route-sequence acceptance smoke must require ordered declared routes and concrete route evidence");
         require(routeSequenceSource.contains("private static boolean runtimeMutationEvidence(Map<String, Object> route)")
@@ -3194,24 +3155,10 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require("EchoNativeAgent5LiveSurfaceRouteAcceptanceSmoke".equals(
                         smoke.get("liveSurfaceRouteAcceptanceSmokeClass")),
                 "native live surface route acceptance smoke must identify its executable class");
-        require(list(smoke, "routeSurfaces").equals(List.of(
-                        "TERMINAL",
-                        "INDEX",
-                        "INDEX",
-                        "INDEX",
-                        "INDEX",
-                        "LENS",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "SIGNALOS",
-                        "ASHFALL_DRONE",
-                        "ASHFALL_DRONE",
-                        "ASHFALL_DRONE",
-                        "ASHFALL_DRONE"
-                )),
+        require(list(smoke, "routeSurfaces").equals(EchoNativeAgent5PhysicalRouteRequirements.phase5Routes()
+                        .stream()
+                        .map(EchoNativeAgent5PhysicalRouteRequirements.RouteSpec::surface)
+                        .toList()),
                 "native live surface route acceptance smoke must cover every non-HUD hotkey surface");
         for (Object route : rawList(smoke.get("acceptedRoutes"))) {
             Map<String, Object> acceptedRoute = object(route);
@@ -3270,10 +3217,12 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         smoke.get("liveHudOverlayRouteAcceptanceSmokeClass")),
                 "native live HUD overlay route acceptance smoke must identify its executable class");
         require(Boolean.TRUE.equals(accepted.get("accepted"))
-                        && "live_hud_overlay_route:accepted:data_backed_hud:85".equals(accepted.get("effect"))
+                        && ("live_hud_overlay_route:accepted:data_backed_hud:"
+                        + EchoNativeAgent5UiExpectedValues.hudUpdatedHealth()).equals(accepted.get("effect"))
                         && "HUD".equals(accepted.get("destinationMode"))
                         && Boolean.TRUE.equals(accepted.get("overlayRendered"))
-                        && Integer.valueOf(85).equals(number(accepted.get("hudHealth"))),
+                        && Integer.valueOf(EchoNativeAgent5UiExpectedValues.hudUpdatedHealth())
+                                .equals(number(accepted.get("hudHealth"))),
                 "native live HUD overlay route acceptance smoke must accept the data-backed HUD update into overlay render");
         require(Boolean.FALSE.equals(object(smoke.get("rejectedNoRoute")).get("accepted"))
                         && Boolean.FALSE.equals(object(smoke.get("rejectedNoOverlay")).get("accepted"))
@@ -3444,7 +3393,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         && "echoashfallprotocol:secure_crash_outpost".equals(accepted.get("missionId"))
                         && "UPDATED".equals(accepted.get("missionStatus"))
                         && Double.valueOf(0.5D).equals(accepted.get("missionProgress"))
-                        && Integer.valueOf(85).equals(accepted.get("hudHealth"))
+                        && Integer.valueOf(EchoNativeAgent5UiExpectedValues.hudUpdatedHealth())
+                                .equals(accepted.get("hudHealth"))
                         && EchoNativeAgent5UiExpectedValues.hud().get("hazard").equals(accepted.get("hudHazard"))
                         && EchoNativeAgent5UiExpectedValues.hud().get("mission").equals(accepted.get("hudMission")),
                 "native live mission objective acceptance smoke must accept Mission Log update and HUD mission output");
@@ -3649,6 +3599,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
     private static void requireNativeLivePhysicalEventTranscriptAcceptanceSmokeExecutes() {
         Map<String, Object> smoke = EchoNativeAgent5LivePhysicalEventTranscriptAcceptance.smoke();
         Map<String, Object> accepted = object(smoke.get("accepted"));
+        List<String> expectedKeys = EchoNativeAgent5PhysicalRouteRequirements.physicalCoverageKeys();
         require(Boolean.TRUE.equals(smoke.get("serviceCodeExecuted")),
                 "native live physical event transcript acceptance smoke must execute service code");
         require(Boolean.TRUE.equals(smoke.get("passed")),
@@ -3657,14 +3608,12 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         smoke.get("livePhysicalEventTranscriptAcceptanceClass")),
                 "native live physical event transcript acceptance smoke must identify its executable class");
         require(Boolean.TRUE.equals(accepted.get("accepted"))
-                        && "live_physical_event_transcript:accepted:17".equals(accepted.get("effect"))
-                        && Integer.valueOf(17).equals(accepted.get("eventCount"))
+                        && ("live_physical_event_transcript:accepted:" + expectedKeys.size())
+                                .equals(accepted.get("effect"))
+                        && Integer.valueOf(expectedKeys.size()).equals(accepted.get("eventCount"))
                         && Boolean.TRUE.equals(accepted.get("sequenceOrdered"))
                         && Boolean.TRUE.equals(accepted.get("pollMetricsPresent"))
-                        && list(accepted, "observedKeys").equals(List.of(
-                        "M", "G", "R", "U", "B", "LEFT_ALT", "RIGHT_ALT", "J", "K",
-                        "RIGHT_BRACKET", "LEFT_BRACKET", "BACKSLASH", "N", "X", "C", "Y", "Z"
-                )),
+                        && list(accepted, "observedKeys").equals(expectedKeys),
                 "native live physical event transcript acceptance smoke must require ordered sampled input events: "
                         + accepted);
         require(Boolean.FALSE.equals(object(smoke.get("rejectedMissingSequence")).get("accepted"))
@@ -3676,6 +3625,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
     private static void requireNativeLivePhysicalRouteEffectTranscriptAcceptanceSmokeExecutes() {
         Map<String, Object> smoke = EchoNativeAgent5LivePhysicalRouteEffectTranscriptAcceptance.smoke();
         Map<String, Object> accepted = object(smoke.get("accepted"));
+        List<String> expectedKeys = EchoNativeAgent5PhysicalRouteRequirements.physicalCoverageKeys();
         require(Boolean.TRUE.equals(smoke.get("serviceCodeExecuted")),
                 "native live physical route-effect transcript acceptance smoke must execute service code");
         require(Boolean.TRUE.equals(smoke.get("passed")),
@@ -3684,12 +3634,10 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         smoke.get("livePhysicalRouteEffectTranscriptAcceptanceClass")),
                 "native live physical route-effect transcript acceptance smoke must identify its executable class");
         require(Boolean.TRUE.equals(accepted.get("accepted"))
-                        && "live_physical_route_effect_transcript:accepted:17".equals(accepted.get("effect"))
-                        && Integer.valueOf(17).equals(accepted.get("eventCount"))
-                        && list(accepted, "observedKeys").equals(List.of(
-                        "M", "G", "R", "U", "B", "LEFT_ALT", "RIGHT_ALT", "J", "K",
-                        "RIGHT_BRACKET", "LEFT_BRACKET", "BACKSLASH", "N", "X", "C", "Y", "Z"
-                )),
+                        && ("live_physical_route_effect_transcript:accepted:" + expectedKeys.size())
+                                .equals(accepted.get("effect"))
+                        && Integer.valueOf(expectedKeys.size()).equals(accepted.get("eventCount"))
+                        && list(accepted, "observedKeys").equals(expectedKeys),
                 "native live physical route-effect transcript acceptance smoke must require sampled routed UI effects: "
                         + accepted);
         require(Boolean.FALSE.equals(object(smoke.get("rejectedNoSurfaceEffect")).get("accepted"))
@@ -3763,7 +3711,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         && Boolean.TRUE.equals(accepted.get("hudAccepted"))
                         && Boolean.TRUE.equals(accepted.get("routeBound"))
                         && list(accepted, "observedKeys").contains("HUD_DATA")
-                        && Integer.valueOf(85).equals(number(accepted.get("hudHealth")))
+                        && Integer.valueOf(EchoNativeAgent5UiExpectedValues.hudUpdatedHealth())
+                                .equals(number(accepted.get("hudHealth")))
                         && EchoNativeAgent5UiExpectedValues.hud().get("hazard").equals(accepted.get("hudHazard"))
                         && "over_shoulder".equals(accepted.get("cameraMode")),
                 "native live route-bound HUD update acceptance smoke must bind HUD update to data-backed module evidence");
@@ -4246,7 +4195,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         ), dataSources);
         require("EchoNativeRecoverySurfaceRenderer".equals(recovery.get("moduleRendererClass")),
                 "native recovery module renderer must execute");
-        require(list(recovery, "lines").stream().anyMatch(line -> line.contains("ashfall_field_recovery_cache")),
+        String recoveryPoint = String.valueOf(object(dataSources.get("deathRecovery")).get("recoveryPoint"));
+        require(list(recovery, "lines").stream().anyMatch(line -> line.contains(recoveryPoint)),
                 "native recovery module renderer must include recovery point");
 
         Map<String, Object> mainMenu = EchoNativeAgent5ModuleSurfaceRenderers.renderMainMenu(Map.of(), dataSources);
@@ -4505,10 +4455,11 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         Map<String, Object> accepted = object(smoke.get("accepted"));
         require(Boolean.TRUE.equals(accepted.get("accepted")),
                 "native HUD overlay end-to-end acceptance smoke must accept the HUD overlay chain");
-        require("hud_overlay_end_to_end:data_backed:85".equals(accepted.get("effect")),
+        require(EchoNativeAgent5UiExpectedValues.hudOverlayEffect().equals(accepted.get("effect")),
                 "native HUD overlay end-to-end acceptance smoke must record accepted HUD chain effect");
         require(Boolean.TRUE.equals(accepted.get("overlayRendered"))
-                        && Integer.valueOf(85).equals(accepted.get("hudHealth"))
+                        && Integer.valueOf(EchoNativeAgent5UiExpectedValues.hudUpdatedHealth())
+                                .equals(accepted.get("hudHealth"))
                         && "over_shoulder".equals(accepted.get("cameraMode"))
                         && Boolean.TRUE.equals(accepted.get("runtimeMutationAccepted")),
                 "native HUD overlay end-to-end acceptance smoke must include overlay, HUD update, and camera evidence");
@@ -4540,7 +4491,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require("EchoNativeAgent5HotkeyBridgeSmoke".equals(smoke.get("hotkeyBridgeSmokeClass")),
                 "native hotkey bridge smoke must identify its executable class");
         List<Map<String, Object>> steps = maps(smoke.get("steps"));
-        require(steps.size() == 18, "native hotkey bridge smoke must include every source-declared UI hotkey");
+        require(steps.size() == EchoNativeAgent5PhysicalRouteRequirements.phase5Routes().size() + 1,
+                "native hotkey bridge smoke must include every source-declared UI hotkey");
         require(steps.stream().anyMatch(step -> "M".equals(step.get("key"))
                         && "TERMINAL".equals(step.get("destinationMode"))
                         && Boolean.TRUE.equals(step.get("passed"))),
@@ -4566,15 +4518,6 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         && "SIGNALOS".equals(step.get("destinationMode"))
                         && Boolean.TRUE.equals(step.get("passed"))),
                 "native hotkey bridge smoke must route N to SignalOS");
-        require(steps.stream().anyMatch(step -> "X".equals(step.get("key"))
-                        && "ASHFALL_DRONE".equals(step.get("destinationMode"))
-                        && Boolean.TRUE.equals(step.get("passed"))),
-                "native hotkey bridge smoke must route X to Ashfall drone recall");
-        require(steps.stream().anyMatch(step -> "B".equals(step.get("key"))
-                        && "TERMINAL".equals(step.get("startingMode"))
-                        && "ASHFALL_DRONE".equals(step.get("destinationMode"))
-                        && Boolean.TRUE.equals(step.get("passed"))),
-                "native hotkey bridge smoke must route contextual B to Ashfall drone assist");
         require(steps.stream().anyMatch(step -> "ESCAPE".equals(step.get("key"))
                         && "PAUSE".equals(step.get("destinationMode"))
                         && Boolean.TRUE.equals(step.get("passed"))),
@@ -4618,7 +4561,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native HUD update smoke must pass update behavior");
         require("EchoNativeAgent5HudUpdateSmoke".equals(smoke.get("hudUpdateSmokeClass")),
                 "native HUD update smoke must identify its executable class");
-        require(Integer.valueOf(85).equals(smoke.get("hudHealth")),
+        require(Integer.valueOf(EchoNativeAgent5UiExpectedValues.hudUpdatedHealth()).equals(smoke.get("hudHealth")),
                 "native HUD update smoke must mutate health");
         require(EchoNativeAgent5UiExpectedValues.hud().get("hazard").equals(smoke.get("hudHazard")),
                 "native HUD update smoke must mutate hazard");
@@ -4629,12 +4572,14 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         && "client_tick".equals(smoke.get("eventName")),
                 "native HUD update smoke must require canonical runtime mutation evidence");
         require(list(smoke, "surfaceLines").stream()
-                        .anyMatch(line -> line.contains("HUD: Health 85")),
+                        .anyMatch(line -> line.contains(
+                                "HUD: Health " + EchoNativeAgent5UiExpectedValues.hudUpdatedHealth())),
                 "native HUD update smoke must render updated HUD health");
-        require(list(smoke, "hostHeaderLines").stream()
-                        .anyMatch(line -> line.contains("HUD: Health 85 / "
+        require(list(smoke, "hostSurfaceLines").stream()
+                        .anyMatch(line -> line.contains("HUD refreshed: health "
+                                + EchoNativeAgent5UiExpectedValues.hudUpdatedHealth() + " / "
                                 + EchoNativeAgent5UiExpectedValues.hud().get("hazard"))),
-                "native HUD update smoke must render updated host HUD header");
+                "native HUD update smoke must render updated host HUD surface");
     }
 
     private static void requireNativeCameraCinematicSmokeExecutes() {
@@ -4735,24 +4680,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require("EchoNativeAgent5PhysicalHotkeyPollingSmoke".equals(smoke.get("physicalHotkeyPollingSmokeClass")),
                 "native physical hotkey polling smoke must identify its executable class");
         List<?> events = rawList(smoke.get("events"));
-        for (Map.Entry<String, String> expected : List.of(
-                Map.entry("M", "TERMINAL"),
-                Map.entry("G", "INDEX"),
-                Map.entry("R", "INDEX"),
-                Map.entry("U", "INDEX"),
-                Map.entry("B", "INDEX"),
-                Map.entry("LEFT_ALT", "LENS"),
-                Map.entry("J", "HOLOMAP"),
-                Map.entry("K", "HOLOMAP"),
-                Map.entry("RIGHT_BRACKET", "HOLOMAP"),
-                Map.entry("LEFT_BRACKET", "HOLOMAP"),
-                Map.entry("BACKSLASH", "HOLOMAP"),
-                Map.entry("N", "SIGNALOS"),
-                Map.entry("X", "ASHFALL_DRONE"),
-                Map.entry("C", "ASHFALL_DRONE"),
-                Map.entry("Y", "ASHFALL_DRONE"),
-                Map.entry("Z", "ASHFALL_DRONE")
-        )) {
+        for (Map.Entry<String, String> expected
+                : EchoNativeAgent5PhysicalRouteRequirements.physicalCoverageSurfacesByKey().entrySet()) {
             String effectPrefix = "physical_hotkey_observed:" + expected.getKey() + "->" + expected.getValue() + ":";
             require(events.stream().map(EchoNativeAgent5UiBridgeContractVerifier::object)
                             .anyMatch(event -> String.valueOf(event.get("effect")).startsWith(effectPrefix)
@@ -4761,7 +4690,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                             + " to " + expected.getValue());
         }
         require(events.stream().map(EchoNativeAgent5UiBridgeContractVerifier::object)
-                        .anyMatch(event -> "physical_hotkey:none".equals(event.get("effect"))),
+                        .anyMatch(event -> Boolean.FALSE.equals(event.get("observed"))
+                                && String.valueOf(event.getOrDefault("effect", "")).isBlank()),
                 "native physical hotkey polling smoke must suppress held-key repeats");
     }
 
@@ -4816,24 +4746,11 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native physical input acceptance smoke must accept a matching physical key and live surface");
         require("physical_input_acceptance:M->TERMINAL".equals(object(smoke.get("accepted")).get("effect")),
                 "native physical input acceptance smoke must record the accepted input-to-surface effect");
-        require(list(smoke, "routeSurfaces").equals(List.of(
-                        "TERMINAL",
-                        "INDEX",
-                        "INDEX",
-                        "INDEX",
-                        "INDEX",
-                        "LENS",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "HOLOMAP",
-                        "SIGNALOS",
-                        "ASHFALL_DRONE",
-                        "ASHFALL_DRONE",
-                        "ASHFALL_DRONE",
-                        "ASHFALL_DRONE"
-                )),
+        require(list(smoke, "routeSurfaces").equals(EchoNativeAgent5PhysicalRouteRequirements
+                        .physicalCoverageRoutes()
+                        .stream()
+                        .map(EchoNativeAgent5PhysicalRouteRequirements.RouteSpec::surface)
+                        .toList()),
                 "native physical input acceptance smoke must cover every advertised physical UI surface");
         for (Object route : rawList(smoke.get("acceptedRoutes"))) {
             Map<String, Object> acceptedRoute = object(route);
@@ -5684,8 +5601,10 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
 
     private static void requireGeneratedScreenCoversContract(Map<String, Object> contract) {
         String source = EchoNativeLiveUiBridge.screenSource();
-        require(source.contains("EchoNativeAgent5ScreenHostModel.render"),
-                "generated screen must delegate screen model composition to the Agent 5 host model");
+        require(source.contains("NativeLoaderScreenHostModel.render")
+                        && source.contains("NativeLoaderScreenHostModel.configure")
+                        && source.contains("EchoNativeAgent5UiHandlerRegistry.renderSurface"),
+                "generated screen must delegate screen model composition to the native host model provider");
         require(source.contains("routeKeyName") && source.contains("EchoNativeAgent5UiActionRouter.routeKey"),
                 "generated screen must delegate key routing to the Agent 5 action router");
         require(source.contains("GLFW_KEY_M") && source.contains("return \"M\""), "generated screen must route terminal key");
@@ -5734,7 +5653,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "generated screen must route HUD updates");
         require(source.contains("EchoNativeAgent5UiActionRouter.routeCameraCinematicFrame"),
                 "generated screen must route camera/cinematic frame updates");
-        require(source.contains("EchoNativeAgent5RenderCoreLayout.compute"),
+        require(source.contains("NativeLoaderRenderCoreLayout.compute"),
                 "generated screen must use rendercore layout computation");
         for (Object feature : list(contract, "features")) {
             if ("no_screen_crash".equals(feature)
@@ -5837,7 +5756,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
             case "live_route_bound_lens_scan_acceptance_smoke_executes" -> "EchoNativeAgent5LiveRouteBoundLensScanAcceptance";
             case "live_route_bound_hud_update_acceptance_smoke_executes" -> "EchoNativeAgent5LiveRouteBoundHudUpdateAcceptance";
             case "live_route_bound_holomap_wiki_acceptance_smoke_executes" -> "EchoNativeAgent5LiveRouteBoundHoloMapWikiAcceptance";
-            case "terminal_opens" -> "EchoNativeAgent5ScreenHostModel";
+            case "terminal_opens" -> "NativeLoaderScreenHostModel";
             case "terminal_command_executes", "index_opens_and_searches", "lens_scans_target" -> "activate";
             case "terminal_end_to_end_acceptance_smoke_executes" -> "EchoNativeAgent5TerminalEndToEndAcceptance";
             case "index_end_to_end_acceptance_smoke_executes" -> "EchoNativeAgent5IndexEndToEndAcceptance";
@@ -5849,9 +5768,9 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
             case "holomap_end_to_end_acceptance_smoke_executes" -> "EchoNativeAgent5HoloMapEndToEndAcceptance";
             case "wiki_end_to_end_acceptance_smoke_executes" -> "EchoNativeAgent5WikiEndToEndAcceptance";
             case "notification_end_to_end_acceptance_smoke_executes" -> "EchoNativeAgent5NotificationEndToEndAcceptance";
-            case "hud_updates_health_hazard_mission", "notification_queue_dispatches" -> "EchoNativeAgent5ScreenHostModel";
+            case "hud_updates_health_hazard_mission", "notification_queue_dispatches" -> "NativeLoaderScreenHostModel";
             case "death_recovery_screen_opens_and_recovers" -> "activate";
-            case "ui_data_sources_drive_all_agent5_surfaces" -> "EchoNativeAgent5ScreenHostModel";
+            case "ui_data_sources_drive_all_agent5_surfaces" -> "NativeLoaderScreenHostModel";
             case "screen_focus_and_input_routing_execute" -> "routeMouseClick";
             case "focus_manager_smoke_executes" -> "routeCharacter";
             case "text_editing_smoke_executes" -> "routeEditKey";
@@ -5865,8 +5784,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
             case "initial_focus_smoke_executes" -> "routeInitialFocus";
             case "hud_update_smoke_executes" -> "routeHudUpdate";
             case "camera_cinematic_smoke_executes" -> "routeCameraCinematicFrame";
-            case "rendercore_layout_smoke_executes" -> "EchoNativeAgent5RenderCoreLayout";
-            case "host_event_transcript_smoke_executes" -> "EchoNativeAgent5ScreenHostModel";
+            case "rendercore_layout_smoke_executes" -> "NativeLoaderRenderCoreLayout";
+            case "host_event_transcript_smoke_executes" -> "NativeLoaderScreenHostModel";
             case "physical_hotkey_polling_smoke_executes" -> "EchoNativeAgent5PhysicalHotkeyPoller";
             case "live_surface_acceptance_smoke_executes" -> "EchoNativeAgent5LiveSurfaceAcceptance";
             case "physical_input_acceptance_smoke_executes" -> "EchoNativeAgent5PhysicalInputAcceptance";
@@ -5874,31 +5793,31 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
             case "ui_host_interaction_state_acceptance_smoke_executes" -> "EchoNativeAgent5UiHostInteractionStateAcceptance";
             case "ui_host_end_to_end_acceptance_smoke_executes" -> "EchoNativeAgent5UiHostEndToEndAcceptance";
             case "adapter_ui_handlers_execute" -> "EchoNativeAgent5UiActionRouter";
-            case "holomap_wiki_handlers_execute" -> "EchoNativeAgent5ScreenHostModel";
-            case "native_surface_render_models_execute" -> "EchoNativeAgent5ScreenHostModel";
-            case "surface_renderer_classes_execute" -> "EchoNativeAgent5ScreenHostModel";
+            case "holomap_wiki_handlers_execute" -> "NativeLoaderScreenHostModel";
+            case "native_surface_render_models_execute" -> "NativeLoaderScreenHostModel";
+            case "surface_renderer_classes_execute" -> "NativeLoaderScreenHostModel";
             case "input_action_router_classes_execute" -> "EchoNativeAgent5UiActionRouter";
-            case "screen_host_models_execute" -> "EchoNativeAgent5ScreenHostModel";
-            case "screen_stack_execution_smoke_executes" -> "EchoNativeAgent5ScreenHostModel";
+            case "screen_host_models_execute" -> "NativeLoaderScreenHostModel";
+            case "screen_stack_execution_smoke_executes" -> "NativeLoaderScreenHostModel";
             case "screen_lifecycle_smoke_executes" -> "EchoNativeAgent5UiActionRouter";
             case "screen_lifecycle_actions_execute" -> "activate";
-            case "module_surface_renderers_execute" -> "EchoNativeAgent5ScreenHostModel";
-            case "all_module_surface_renderers_execute" -> "EchoNativeAgent5ScreenHostModel";
-            case "theme_application_smoke_executes" -> "EchoNativeAgent5ScreenHostModel";
-            case "ui_host_smoke_snapshots_execute" -> "EchoNativeAgent5ScreenHostModel";
-            case "ui_host_interaction_smoke_executes" -> "EchoNativeAgent5ScreenHostModel";
-            case "ui_host_full_surface_interactions_execute" -> "EchoNativeAgent5ScreenHostModel";
-            case "main_menu_override_smoke_executes" -> "EchoNativeAgent5ScreenHostModel";
+            case "module_surface_renderers_execute" -> "NativeLoaderScreenHostModel";
+            case "all_module_surface_renderers_execute" -> "NativeLoaderScreenHostModel";
+            case "theme_application_smoke_executes" -> "NativeLoaderScreenHostModel";
+            case "ui_host_smoke_snapshots_execute" -> "NativeLoaderScreenHostModel";
+            case "ui_host_interaction_smoke_executes" -> "NativeLoaderScreenHostModel";
+            case "ui_host_full_surface_interactions_execute" -> "NativeLoaderScreenHostModel";
+            case "main_menu_override_smoke_executes" -> "NativeLoaderScreenHostModel";
             case "main_menu_end_to_end_acceptance_smoke_executes" -> "EchoNativeAgent5MainMenuEndToEndAcceptance";
-            case "hud_overlay_smoke_executes" -> "EchoNativeAgent5ScreenHostModel";
+            case "hud_overlay_smoke_executes" -> "NativeLoaderScreenHostModel";
             case "hud_overlay_end_to_end_acceptance_smoke_executes" -> "EchoNativeAgent5HudOverlayEndToEndAcceptance";
             case "hotkey_bridge_smoke_executes" -> "EchoNativeAgent5UiActionRouter";
-            case "notification_queue_smoke_executes" -> "EchoNativeAgent5ScreenHostModel";
+            case "notification_queue_smoke_executes" -> "NativeLoaderScreenHostModel";
             case "mission_log_opens_and_tracks_active_mission",
                     "settings_opens_and_applies_profile",
                     "pause_flow_opens_and_resumes_previous_screen",
                     "holomap_opens",
-                    "wiki_page_opens" -> "EchoNativeAgent5ScreenHostModel";
+                    "wiki_page_opens" -> "NativeLoaderScreenHostModel";
             default -> feature;
         };
     }

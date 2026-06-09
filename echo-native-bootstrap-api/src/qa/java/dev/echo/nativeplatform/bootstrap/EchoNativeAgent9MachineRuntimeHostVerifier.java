@@ -40,7 +40,7 @@ public final class EchoNativeAgent9MachineRuntimeHostVerifier {
         Path repoRoot = args.length > 0
                 ? Path.of(args[0]).toAbsolutePath().normalize()
                 : Path.of(System.getProperty("user.dir")).getParent().toAbsolutePath().normalize();
-        Path ashfallSource = repoRoot.resolve("addons/echoashfallprotocol/src/main/java/com/knoxhack/echoashfallprotocol");
+        Path ashfallSource = echoModulesRoot().resolve("echoashfallprotocol/src/main/java/com/knoxhack/echoashfallprotocol");
         Path hostPath = ashfallSource.resolve("nativebridge/AshfallAdapterCoreMachineRuntimeHost.java");
         String hostSource = read(hostPath);
 
@@ -202,204 +202,116 @@ public final class EchoNativeAgent9MachineRuntimeHostVerifier {
         requireContains(networkSource, "AshfallAdapterCoreExplorationRuntime.schematicFragmentAnalyzed(",
                 "NeoForge Research Lab packet analysis must use the same AdapterCore runtime as native analysis");
 
-        String nativeBootstrap = read(repoRoot.resolve(
-                "echo-native-platform/echo-native-bootstrap-api/src/main/java/dev/echo/nativeplatform/bootstrap/EchoNativeBootstrapMain.java"));
-        requireContains(nativeBootstrap, "nativeAdapterCoreMachineUseBlock",
-                "native processor UI path must start through AdapterCore machine.use_block");
-        requireContains(nativeBootstrap, "nativeAdapterCoreMachineTick",
-                "native processor UI path must call AdapterCore block_entities.tick");
-        requireContains(nativeBootstrap, "nativeAdapterCoreMachineStateChanged",
-                "native processor UI path must route visible state through AdapterCore machine.state_changed");
-        requireContains(nativeBootstrap, "nativeAdapterCoreMachineInsertItem",
+        Path nativePlatform = nativePlatformRoot(repoRoot);
+        String bootstrapSource = read(nativePlatform.resolve(
+                "echo-native-bootstrap-api/src/main/java/dev/echo/nativeplatform/bootstrap/EchoNativeBootstrapOrchestrator.java"));
+        String adapterCoreFlowSource = read(nativePlatform.resolve(
+                "echo-native-loader/src/main/java/dev/echo/nativeplatform/loader/NativeLoaderAdapterCoreFlow.java"));
+        String blockExecutorSource = read(nativePlatform.resolve(
+                "echo-native-loader/src/main/java/dev/echo/nativeplatform/loader/NativeLoaderProductBlockActionExecutor.java"));
+        requireContains(bootstrapSource, "ADAPTER_CORE_FLOW::useBlock",
+                "native block UI path must start through AdapterCore machine.use_block");
+        requireContains(bootstrapSource, "ADAPTER_CORE_FLOW::machineTick",
+                "native block UI path must call AdapterCore block_entities.tick");
+        requireContains(bootstrapSource, "ADAPTER_CORE_FLOW::powerNodeState",
+                "native power-node UI path must route visible state through AdapterCore machine.state_changed");
+        requireContains(bootstrapSource, "ADAPTER_CORE_FLOW::insertItem",
                 "native generator UI path must call AdapterCore capabilities.insert_item");
-        String cacheAction = methodSlice(nativeBootstrap,
-                "private static boolean nativeAshfallCacheAction",
-                "private static boolean nativeAshfallRelayAction");
-        requireContains(cacheAction, "nativeAdapterCoreMachineUseBlock",
-                "native cache UI path must delegate to AdapterCore machine.use_block");
-        requireNotContains(cacheAction, "nativeAdapterCoreCacheOpened",
-                "native cache UI path must not publish cache-open outside StructureCacheBlock.useStructureCache");
-        requireNotContains(cacheAction, "blockRuntime.",
-                "native cache UI path must not mutate shell opened state");
-        requireNotContains(cacheAction, "giveNativeBetaItem",
-                "native cache UI path must not grant fixed fake loot outside the live cache inventory/menu");
-        String generatorAction = methodSlice(nativeBootstrap,
-                "private static boolean nativeAshfallGeneratorAction",
-                "private static boolean nativeAshfallGridAction");
-        requireContains(generatorAction, "nativeAdapterCoreMachineUseBlock",
-                "native generator UI path must start through AdapterCore machine.use_block");
-        requireContains(generatorAction, "nativeAdapterCoreMachineInsertItem",
-                "native generator UI path must insert fuel into the active machine host");
-        requireContains(generatorAction, "nativeAdapterCoreMachineTick",
-                "native generator UI path must tick the real generator block entity");
-        requireNotContains(generatorAction, "nativeAdapterCoreMachineStateChanged",
-                "native generator path must not publish synthetic state_changed as its implementation");
-        requireNotContains(generatorAction, "blockRuntime.energy",
-                "native generator path must not mutate shell blockRuntime energy");
-        requireNotContains(generatorAction, "gridEnergyGenerated",
-                "native generator path must not mutate shell player energy counters");
-        requireNotContains(generatorAction, "nativeFuelEnergy",
-                "native generator path must not use fake fuel energy math");
-        requireNotContains(generatorAction, "\"fuel_added\"",
-                "native generator path must not count activation reports as implementation");
-        String powerNodeAction = methodSlice(nativeBootstrap,
-                "private static boolean nativeAshfallPowerNodeAction",
-                "private static boolean nativeAshfallBunkAction");
-        requireContains(powerNodeAction, "nativeAdapterCoreMachineUseBlock",
-                "native power-node UI path must start through AdapterCore machine.use_block");
-        requireContains(powerNodeAction, "nativeAdapterCoreMachineReceiveEnergy",
-                "native power-node UI path must charge the real active runtime host");
-        requireContains(powerNodeAction, "nativeAdapterCoreMachineTick",
-                "native power-node UI path must tick the real power-node block entity");
-        requireNotContains(powerNodeAction, "blockRuntime.active",
-                "native power-node path must not mutate shell active state");
-        requireNotContains(powerNodeAction, "blockRuntime.energy",
-                "native power-node path must not mutate shell energy state");
-        requireNotContains(powerNodeAction, "playerRuntime.powerNodes",
-                "native power-node path must not mutate shell power-node counters");
-        String relayAction = methodSlice(nativeBootstrap,
-                "private static boolean nativeAshfallRelayAction",
-                "private static boolean nativeAshfallPowerNodeAction");
-        requireContains(relayAction, "nativeAdapterCoreMachineUseBlock",
-                "native relay UI path must delegate to AdapterCore machine.use_block");
-        requireNotContains(relayAction, "nativeAdapterCoreRelayActivated",
-                "native relay UI path must not publish relay activation outside RelayStationBlock.useRelayStation");
-        requireNotContains(relayAction, "blockRuntime.",
-                "native relay UI path must not mutate shell repair/active state");
-        requireNotContains(relayAction, "playerRuntime.",
-                "native relay UI path must not mutate shell relay lists");
-        requireNotContains(relayAction, "nativeAdapterCoreRemoveItem",
-                "native relay UI path must not consume items outside the live RelayStationBlock path");
-        requireNotContains(relayAction, "teleportPlayerTo",
-                "native relay UI path must not teleport outside RadioNetwork.fastTravelTo");
-        String bunkAction = methodSlice(nativeBootstrap,
-                "private static boolean nativeAshfallBunkAction",
-                "private static boolean nativeAshfallWaterMachineAction");
-        requireContains(bunkAction, "nativeAdapterCoreMachineUseBlock",
-                "native bunk UI path must delegate to AdapterCore machine.use_block");
-        requireNotContains(bunkAction, "nativeAdapterCoreShelterSlept",
-                "native bunk UI path must not publish a fake shelter event outside EmergencyBunkBlock.useEmergencyBunk");
-        requireNotContains(bunkAction, "blockRuntime.",
-                "native bunk UI path must not mutate shell occupied/active state");
-        requireNotContains(bunkAction, "executeNativeBetaCommand",
-                "native bunk UI path must not issue direct spawnpoint/effect command strings");
-        String serverBlockAction = methodSlice(nativeBootstrap,
-                "private static boolean nativeAshfallServerBlockAction",
-                "private static boolean nativeAshfallCacheAction");
-        String nexusBranch = branchSlice(serverBlockAction,
-                "if (hasAny(path, \"nexus_core\"))",
-                "return false;");
-        requireContains(nexusBranch, "nativeAdapterCoreMachineUseBlock",
-                "native nexus UI path must delegate to AdapterCore machine.use_block");
-        requireContains(nexusBranch, "\"echoashfallprotocol:nexus_core\"",
-                "native nexus UI path must use the canonical Ashfall nexus_core id");
-        requireNotContains(nexusBranch, "nativeAdapterCoreNexusState",
-                "native nexus UI path must not publish fake nexus state outside NexusCoreBlock.useNexusCore");
-        requireNotContains(nexusBranch, "blockRuntime.active",
-                "native nexus UI path must not mutate shell active state");
-        requireNotContains(nexusBranch, "openNativeModuleSurfaceFor(\"echoterminal\", \"terminal\")",
-                "native nexus UI path must not open the terminal outside the live NexusCoreBlock access result");
-        String gridAction = methodSlice(nativeBootstrap,
-                "private static boolean nativeAshfallGridAction",
-                "private static boolean nativeAshfallProcessorAction");
-        requireContains(gridAction, "nativeAdapterCoreMachineUseBlock",
-                "native grid UI path must start through AdapterCore machine.use_block");
-        requireContains(gridAction, "nativeAdapterCoreMachineReceiveEnergy",
-                "native grid UI path must charge the active runtime host");
-        requireContains(gridAction, "nativeAdapterCoreMachineExtractEnergy",
+        requireContains(bootstrapSource, "ADAPTER_CORE_FLOW::receiveEnergy",
+                "native machine UI path must charge the active runtime host");
+        requireContains(bootstrapSource, "ADAPTER_CORE_FLOW::extractEnergy",
                 "native grid UI path must extract from the active runtime host");
-        requireContains(gridAction, "nativeAdapterCoreMachineTick",
-                "native grid UI path must tick the real grid block entity");
-        requireNotContains(gridAction, "blockRuntime.energy",
-                "native grid path must not mutate shell energy state");
-        requireNotContains(gridAction, "blockRuntime.active",
-                "native grid path must not mutate shell active state");
-        requireNotContains(gridAction, "playerRuntime.powerNodes",
-                "native grid path must not use shell power-node counters");
-        requireNotContains(gridAction, "nativeMachineCapacity",
-                "native grid path must not use fake native capacity math");
-        String waterAction = methodSlice(nativeBootstrap,
-                "private static boolean nativeAshfallWaterMachineAction",
-                "private static boolean nativeAshfallHazardMachineAction");
-        requireContains(waterAction, "nativeAdapterCoreMachineUseBlock",
-                "native water UI path must start through AdapterCore machine.use_block");
-        requireContains(waterAction, "nativeAdapterCoreMachineReceiveEnergy",
-                "native purifier UI path must charge the active runtime host");
-        requireContains(waterAction, "nativeAdapterCoreMachineInsertItem",
-                "native purifier UI path must insert water/filter inputs into the active runtime host");
-        requireContains(waterAction, "nativeAdapterCoreMachineTick",
-                "native water UI path must tick the real water block entity");
-        requireContains(waterAction, "nativeAdapterCoreMachineExtractItem",
-                "native purifier UI path must extract clean water from the active runtime host");
-        requireContains(waterAction, "nativeAdapterCoreWaterFiltered",
-                "native purifier UI path must publish water filtered only after real output extraction");
-        requireNotContains(waterAction, "ensureNativeMachineEnergy",
-                "native water path must not charge fake shell energy");
-        requireNotContains(waterAction, "blockRuntime.",
-                "native water path must not mutate shell block runtime state");
-        requireNotContains(waterAction, "playerRuntime.filteredWaterCrafted",
-                "native water path must not mutate shell water counters");
-        requireNotContains(waterAction, "nativeAdapterCoreDirtyWaterCollected",
-                "native rain collector path must not publish a fake dirty-water event outside RainCollectorBlockEntity.fillBottle");
-        requireNotContains(waterAction, "giveNativeBetaItem(player, \"echoashfallprotocol:dirty_water_bottle\"",
-                "native rain collector path must not grant dirty water outside the live runtime host");
-        String hazardAction = methodSlice(nativeBootstrap,
-                "private static boolean nativeAshfallHazardMachineAction",
-                "private static boolean nativeAshfallResearchLabAction");
-        requireContains(hazardAction, "nativeAdapterCoreMachineUseBlock",
-                "native hazard machine UI path must start through AdapterCore machine.use_block");
-        requireContains(hazardAction, "nativeAdapterCoreMachineReceiveEnergy",
-                "native hazard machine UI path must charge the active runtime host");
-        requireContains(hazardAction, "nativeAdapterCoreMachineTick",
-                "native hazard machine UI path must tick the real hazard block entity");
-        requireContains(hazardAction, "nativeAdapterCoreMachineInsertItem",
-                "native radiation cleanser path must insert inputs into the active runtime host");
-        requireContains(hazardAction, "nativeAdapterCoreMachineExtractItem",
-                "native radiation cleanser path must extract output from the active runtime host");
-        requireNotContains(hazardAction, "ensureNativeMachineEnergy",
-                "native hazard path must not charge fake shell energy");
-        requireNotContains(hazardAction, "blockRuntime.",
-                "native hazard path must not mutate shell block runtime state");
-        requireNotContains(hazardAction, "playerRuntime.",
-                "native hazard path must not mutate shell player hazard state");
-        requireNotContains(hazardAction, "nativeAdapterCoreRadiationCleanserUsed",
-                "native radiation cleanser path must not publish cleanser use outside RadiationCleanserBlockEntity.serverTick");
-        requireNotContains(hazardAction, "nativeAdapterCoreMedBayUsed",
-                "native med bay path must not publish med bay use outside FieldMedBayBlockEntity.serverTick");
-        requireNotContains(hazardAction, "nativeAdapterCoreAtmosphericScrubberUsed",
-                "native scrubber path must not publish scrubber use outside AtmosphericScrubberBlockEntity.serverTick");
-        requireNotContains(hazardAction, "healPlayer",
-                "native med bay path must not apply direct healing outside FieldMedBayBlockEntity.serverTick");
-        requireNotContains(hazardAction, "executeNativeBetaCommand",
-                "native hazard path must not apply direct command effects outside live block entities");
-        String researchAction = methodSlice(nativeBootstrap,
-                "private static boolean nativeAshfallResearchLabAction",
-                "private static boolean nativeAshfallGeneratorAction");
-        requireContains(researchAction, "nativeAdapterCoreMachineUseBlock",
-                "native research lab UI path must start through AdapterCore machine.use_block");
-        requireContains(researchAction, "nativeAdapterCoreResearchLabAnalyze",
+        requireContains(bootstrapSource, "ADAPTER_CORE_FLOW::extractItem",
+                "native machine UI path must extract output from the active runtime host");
+        requireContains(bootstrapSource, "ADAPTER_CORE_FLOW::researchLabAnalyze",
                 "native research lab schematic analysis must delegate to AdapterCore exploration runtime");
-        requireNotContains(researchAction, "nativeAdapterCoreLabObjective",
+        requireContains(bootstrapSource, "ADAPTER_CORE_FLOW::waterFiltered",
+                "native purifier UI path must publish water filtered only after real output extraction");
+        requireContains(adapterCoreFlowSource, "NativeLoaderAdapterCoreMachineRuntimeActions.useBlock",
+                "AdapterCore flow must delegate machine.use_block to the machine runtime action service");
+        requireContains(adapterCoreFlowSource, "NativeLoaderAdapterCoreMachineRuntimeActions.tick",
+                "AdapterCore flow must delegate block_entities.tick to the machine runtime action service");
+        requireContains(adapterCoreFlowSource, "NativeLoaderAdapterCoreMachineRuntimeActions.insertItem",
+                "AdapterCore flow must delegate capabilities.insert_item to the machine runtime action service");
+        requireContains(adapterCoreFlowSource, "NativeLoaderAdapterCoreMachineRuntimeActions.extractItem",
+                "AdapterCore flow must delegate capabilities.extract_item to the machine runtime action service");
+        requireContains(adapterCoreFlowSource, "NativeLoaderAdapterCoreMachineRuntimeActions.receiveEnergy",
+                "AdapterCore flow must delegate capabilities.receive_energy to the machine runtime action service");
+        requireContains(adapterCoreFlowSource, "NativeLoaderAdapterCoreMachineRuntimeActions.extractEnergy",
+                "AdapterCore flow must delegate capabilities.extract_energy to the machine runtime action service");
+        requireContains(blockExecutorSource, "ops.machineUseBlock",
+                "native product block executor must delegate use actions to AdapterCore machine.use_block");
+        requireContains(blockExecutorSource, "ops.machineInsertItem",
+                "native product block executor must insert inputs into the active machine host");
+        requireContains(blockExecutorSource, "ops.machineTick",
+                "native product block executor must tick real block entities");
+        requireContains(blockExecutorSource, "ops.machineReceiveEnergy",
+                "native product block executor must charge active machine hosts");
+        requireContains(blockExecutorSource, "ops.machineExtractEnergy",
+                "native product block executor must extract energy from active machine hosts");
+        requireContains(blockExecutorSource, "ops.machineExtractItem",
+                "native product block executor must extract outputs from active machine hosts");
+        requireContains(blockExecutorSource, "ops.waterFiltered",
+                "native product block executor must publish water filtered only after real output extraction");
+        requireContains(blockExecutorSource, "ops.researchLabAnalyze",
+                "native research lab path must delegate to AdapterCore exploration runtime");
+        requireContains(blockExecutorSource, "ops.blockActionMachineId(\"cache\", \"recovery_cache\")",
+                "native cache UI path must use the canonical recovery cache machine id");
+        requireContains(blockExecutorSource, "ops.blockActionMachineId(\"relay\", \"relay_station\")",
+                "native relay UI path must use the canonical relay station machine id");
+        requireContains(blockExecutorSource, "ops.blockActionMachineId(\"power_node\", \"power_node\")",
+                "native power-node UI path must use the canonical power-node machine id");
+        requireContains(blockExecutorSource, "ops.blockActionMachineId(\"research_lab\", \"research_lab\")",
+                "native research lab UI path must use the canonical research lab machine id");
+        requireContains(blockExecutorSource, "ops.productId(path)",
+                "native processor/generator/grid/water/hazard paths must derive canonical product machine ids");
+        requireNotContains(blockExecutorSource, "nativeAdapterCoreCacheOpened",
+                "native cache UI path must not publish cache-open outside StructureCacheBlock.useStructureCache");
+        requireNotContains(blockExecutorSource, "nativeAdapterCoreRelayActivated",
+                "native relay UI path must not publish relay activation outside RelayStationBlock.useRelayStation");
+        requireNotContains(blockExecutorSource, "nativeAdapterCoreShelterSlept",
+                "native bunk UI path must not publish a fake shelter event outside EmergencyBunkBlock.useEmergencyBunk");
+        requireNotContains(blockExecutorSource, "nativeAdapterCoreNexusState",
+                "native nexus UI path must not publish fake nexus state outside NexusCoreBlock.useNexusCore");
+        requireNotContains(blockExecutorSource, "nativeAdapterCoreRadiationCleanserUsed",
+                "native radiation cleanser path must not publish cleanser use outside RadiationCleanserBlockEntity.serverTick");
+        requireNotContains(blockExecutorSource, "nativeAdapterCoreMedBayUsed",
+                "native med bay path must not publish med bay use outside FieldMedBayBlockEntity.serverTick");
+        requireNotContains(blockExecutorSource, "nativeAdapterCoreAtmosphericScrubberUsed",
+                "native scrubber path must not publish scrubber use outside AtmosphericScrubberBlockEntity.serverTick");
+        requireNotContains(blockExecutorSource, "nativeAdapterCoreLabObjective",
                 "native research lab tick fallback must not use a lab objective as a fake schematic implementation");
-        requireNotContains(researchAction, "nativeAdapterCoreRemoveItem",
-                "native research lab path must not remove schematic items outside the shared runtime");
-        requireNotContains(researchAction, "playerRuntime.researchPoints",
-                "native research lab path must not mutate shell research point counters");
-        requireNotContains(researchAction, "playerRuntime.schematicsUnlocked",
-                "native research lab path must not mutate shell schematic counters");
-        requireNotContains(researchAction, "blockRuntime.progress",
-                "native research lab path must not mutate shell progress state");
-        requireNotContains(researchAction, "giveNativeBetaItem",
-                "native research lab path must not grant fake upgrade loot outside the shared runtime");
-        requireNotContains(researchAction, "openNativeModuleSurfaceFor(\"echoindex\", \"index\")",
+        requireNotContains(blockExecutorSource, "blockRuntime.",
+                "native machine paths must not mutate shell block runtime state");
+        requireNotContains(blockExecutorSource, "playerRuntime.",
+                "native machine paths must not mutate shell player counters");
+        requireNotContains(blockExecutorSource, "ensureNativeMachineEnergy",
+                "native machine paths must not charge fake shell energy");
+        requireNotContains(blockExecutorSource, "nativeMachineCapacity",
+                "native grid path must not use fake native capacity math");
+        requireNotContains(blockExecutorSource, "nativeFuelEnergy",
+                "native generator path must not use fake fuel energy math");
+        requireNotContains(blockExecutorSource, "\"fuel_added\"",
+                "native generator path must not count activation reports as implementation");
+        requireNotContains(blockExecutorSource, "teleportPlayerTo",
+                "native relay UI path must not teleport outside RadioNetwork.fastTravelTo");
+        requireNotContains(blockExecutorSource, "executeNativeBetaCommand",
+                "native machine paths must not apply direct command effects outside live block entities");
+        requireNotContains(blockExecutorSource, "healPlayer",
+                "native med bay path must not apply direct healing outside FieldMedBayBlockEntity.serverTick");
+        requireNotContains(blockExecutorSource, "giveNativeBetaItem",
+                "native machine paths must not grant fixed fake loot outside live runtime hosts");
+        requireNotContains(blockExecutorSource, "openNativeModuleSurfaceFor(\"echoterminal\", \"terminal\")",
+                "native nexus UI path must not open the terminal outside the live NexusCoreBlock access result");
+        requireNotContains(blockExecutorSource, "openNativeModuleSurfaceFor(\"echoindex\", \"index\")",
                 "native research lab path must not open a fake index surface instead of using the live block result");
-        requireNotContains(nativeBootstrap, "nativeAshfallProcessorShellAction",
+        requireNotContains(blockExecutorSource, "nativeAshfallProcessorShellAction",
                 "native processor path must not keep a dead fake recipe shell");
-        requireNotContains(nativeBootstrap, "nativeAdapterCoreMachineOutputCreated",
+        requireNotContains(blockExecutorSource, "nativeAdapterCoreMachineOutputCreated",
                 "native processor path must not synthesize output events outside real block entity ticks");
-        requireNotContains(nativeBootstrap, "scrap_press_cycle",
+        requireNotContains(blockExecutorSource, "scrap_press_cycle",
                 "native processor path must not duplicate scrap press recipe cycles");
-        requireNotContains(nativeBootstrap, "ore_grinder_cycle",
+        requireNotContains(blockExecutorSource, "ore_grinder_cycle",
                 "native processor path must not duplicate ore grinder recipe cycles");
 
         System.out.println("agent9 machine runtime host verifier PASS processors=" + PROCESSOR_ENTITIES.size()
@@ -418,6 +330,41 @@ public final class EchoNativeAgent9MachineRuntimeHostVerifier {
             throw new IllegalStateException("Missing required source file: " + path);
         }
         return Files.readString(path);
+    }
+
+    private static Path echoModulesRoot() {
+        String configured = System.getProperty("echo.modules.root");
+        if (configured == null || configured.isBlank()) {
+            configured = System.getenv("ECHO_MODULES_ROOT");
+        }
+        if (configured != null && !configured.isBlank()) {
+            return Path.of(configured).toAbsolutePath().normalize();
+        }
+        Path workspaceRoot = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize().getParent();
+        Path workspaceModules = workspaceRoot == null
+                ? Path.of("..", "ECHO-Modules", "addons")
+                : workspaceRoot.resolve("ECHO-Modules").resolve("addons");
+        if (Files.isDirectory(workspaceModules)) {
+            return workspaceModules.toAbsolutePath().normalize();
+        }
+        Path legacyAddons = workspaceRoot == null
+                ? Path.of("..", "addons")
+                : workspaceRoot.resolve("addons");
+        return legacyAddons.toAbsolutePath().normalize();
+    }
+
+    private static Path nativePlatformRoot(Path repoRoot) {
+        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        if (Files.isDirectory(current.resolve("echo-native-bootstrap-api"))) {
+            return current;
+        }
+        for (String candidate : List.of("ECHO-Native-Platform", "echo-native-platform")) {
+            Path path = repoRoot.resolve(candidate).toAbsolutePath().normalize();
+            if (Files.isDirectory(path.resolve("echo-native-bootstrap-api"))) {
+                return path;
+            }
+        }
+        return repoRoot.resolve("ECHO-Native-Platform").toAbsolutePath().normalize();
     }
 
     private static void requireContains(String source, String needle, String message) {
