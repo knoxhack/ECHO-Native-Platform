@@ -32,6 +32,33 @@ try {
     saveEvidence: ['settings persisted'],
     networkEvidence: ['ui sync ack'],
   })
+  await writeJson(root, 'build/native-agent2-client-routes/native-client-route-ownership.json', {
+    schema: 'echo.native.agent2.client_route_ownership.v1',
+    exitGate: 'Native route dispatch opened Terminal, Index, Lens, HoloMap, HUD, menu, and loading actions without NeoForge event ownership.',
+    neoForgeEventOwnershipRequired: false,
+    requiredSurfaces: ['terminal', 'index', 'lens', 'holomap', 'hud'],
+    unownedRouteStatus: 'UNSUPPORTED',
+    unknownInputBindingStatus: 'UNSUPPORTED',
+    hudOverlayLifecycleNativeOwned: true,
+    sharedClientOverlayRouteOwned: true,
+    actionDispatchEvidence: {
+      dispatchCount: 2,
+      events: [
+        {
+          routeModuleId: 'echolens',
+          handledHandlerId: 'echolens:lens:scan',
+          route: { moduleId: 'echolens', surfaceId: 'echolens:lens' },
+        },
+      ],
+    },
+    directPublicSdkDispatchGateResults: { terminal: true, index: true },
+    directPublicSdkInputDispatchGateResults: { input: true },
+    directPublicSdkLifecycleGateResults: { lifecycle: true },
+    productionClientRouteRegistrationGateResults: { registered: true },
+    routeTableOwnerHandlerGateResults: { handlers: true },
+    terminalNativeRouteStateGateResults: { terminal: true },
+    holoMapNativeRouteStateGateResults: { holomap: true },
+  })
   await writeJson(root, 'build/agent4/registry-content/native-agent4-registry-content-state.json', {
     schema: 'echo.native.agent4.registry_content_smoke_state.v1',
     status: 'SKIPPED',
@@ -65,7 +92,8 @@ try {
 
   const ui = await readJson(root, 'build/native-ui-surfaces/native-ui-surfaces.json')
   assert.equal(ui.status, 'PASS')
-  assert.deepEqual(ui.moduleIds, ['echohudcore', 'echoindex'])
+  assert.deepEqual(ui.moduleIds, ['echohudcore', 'echoindex', 'echolens'])
+  assert.ok(ui.visibleRoutes.includes('echolens:lens'))
 
   const registry = await readJson(root, 'build/native-registry-content/native-registry-content.json')
   assert.equal(registry.status, 'PARTIAL')
