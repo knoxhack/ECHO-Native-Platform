@@ -10,6 +10,7 @@ import dev.echo.nativeplatform.contracts.EchoNativeRuntimeSide;
 import dev.echo.nativeplatform.contracts.EchoNativeServiceMutation;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,11 +18,36 @@ public final class EchoNativeMutationTruthGateMain {
     private EchoNativeMutationTruthGateMain() {
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         requireMapOnlyMutationClaimRejected();
         requireTypedMutationReceiptAccepted();
         requireRegisteredReceiptDoesNotMutate();
+        writeJsonReportIfRequested();
         System.out.println("native mutation truth gate PASS");
+    }
+
+    private static void writeJsonReportIfRequested() throws Exception {
+        String configured = System.getProperty("echo.native.mutationTruthGateReport");
+        if (configured == null || configured.isBlank()) {
+            return;
+        }
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("schema", "echo.native.mutation_truth_gate.v1");
+        report.put("generatedAt", "1970-01-01T00:00:00Z");
+        report.put("status", "PASS");
+        report.put("runtime", "echo_native");
+        report.put("moduleIds", List.of("truth_gate_module"));
+        report.put("featureBuckets", List.of("blocks", "items", "block_actions", "networking", "save_data"));
+        report.put("trustedMutations", List.of(
+                "map-only mutation claims rejected",
+                "typed MUTATED receipt accepted",
+                "typed REGISTERED receipt does not satisfy mutation"
+        ));
+        report.put("visibleRoutes", List.of());
+        report.put("saveEvidence", List.of("honest status downgrade is verified for non-mutating receipts"));
+        report.put("networkEvidence", List.of("typed mutation receipt side is carried by EchoNativeServiceMutation"));
+        report.put("blockers", List.of());
+        NativeLoaderJsonSupport.writeAtomically(Path.of(configured), report);
     }
 
     private static void requireMapOnlyMutationClaimRejected() {
