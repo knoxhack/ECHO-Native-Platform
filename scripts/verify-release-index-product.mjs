@@ -5,7 +5,7 @@ import path from 'node:path'
 const productId = process.env.ECHO_RELEASE_INDEX_PRODUCT_ID || 'echo-native-platform'
 const expectedSourceRepo = process.env.ECHO_RELEASE_INDEX_SOURCE_REPO || 'knoxhack/ECHO-Native-Platform'
 const expectedKind = process.env.ECHO_RELEASE_INDEX_KIND || 'runtime'
-const expectedCompatibility = process.env.ECHO_RELEASE_INDEX_COMPATIBILITY || 'ashfall-native-edition'
+const expectedCompatibility = process.env.ECHO_RELEASE_INDEX_COMPATIBILITY || 'native-loader-runtime'
 const channelUrl =
   process.env.ECHO_RELEASE_INDEX_CHANNEL_URL ||
   'https://raw.githubusercontent.com/knoxhack/ECHO-Release-Index/main/channels/alpha/launcher-channel.json'
