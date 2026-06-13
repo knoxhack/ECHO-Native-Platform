@@ -503,7 +503,7 @@ tasks.register('packageNativePlatformLayout') {
                 moduleDirectoryIncluded: false,
                 packagedPackFiles      : [],
                 launcherArtifacts      : [
-                        nativeLoader: 'native-loader-1.0.0.jar'
+                        nativeLoader: 'echo-native-loader-1.0.0.jar'
                 ],
                 releaseIndex           : [
                         productId : 'echo-native-platform',
@@ -1441,7 +1441,7 @@ tasks.register('packagePublicAlphaRelease') {
         copy {
             from nativeLoaderJar
             into outDir
-            rename { 'native-loader-1.0.0.jar' }
+            rename { 'echo-native-loader-1.0.0.jar' }
         }
 
         writeJson('native-live-proof-gate.json', [
@@ -1500,7 +1500,7 @@ tasks.register('packagePublicAlphaRelease') {
                         nativePlatformCommitSha: gitCommit,
                         buildCommand           : '.\\gradlew.bat runNativeLoaderClientEntrypointGate packageNativePlatformLayout packagePublicAlphaRelease --no-daemon --no-parallel --max-workers=1',
                         artifactPath           : platformArchive.absolutePath.replace('\\', '/'),
-                        nativeLoaderPath       : new File(outDir, 'native-loader-1.0.0.jar').absolutePath.replace('\\', '/'),
+                        nativeLoaderPath       : new File(outDir, 'echo-native-loader-1.0.0.jar').absolutePath.replace('\\', '/'),
                         releaseAssetGeneratedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
                         attestation            : [
                                 status: 'not-attested',

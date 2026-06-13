@@ -9,7 +9,7 @@ Public claims should use "release candidate" or "beta/RC" language until those g
 Current local artifacts:
 
 - `build/public-alpha/echo-native-platform-1.0.0-RC1.zip`
-- `build/public-alpha/native-loader-1.0.0.jar`
+- `build/public-alpha/echo-native-loader-1.0.0.jar`
 - SHA-256 values are recorded in `build/public-alpha/checksums.txt` for the current local build.
 
 The ZIP is a Native Platform loader/runtime package only. It must not include pack profiles, modpack manifests, `modules/`, or pack-owned module jars.
