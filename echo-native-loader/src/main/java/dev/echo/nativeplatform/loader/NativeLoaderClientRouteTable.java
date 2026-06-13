@@ -568,6 +568,9 @@ public final class NativeLoaderClientRouteTable {
         return switch (safeSurfaceType + ":" + safePhase) {
             case "main_menu:mount", "main_menu:open" -> "menu.open";
             case "main_menu:close", "main_menu:unmount" -> "menu.quit";
+            case "world_setup:mount", "world_setup:open" -> "world_setup.open";
+            case "world_setup:create", "world_setup:submit" -> "world_setup.create";
+            case "world_setup:close", "world_setup:unmount", "world_setup:back" -> "world_setup.back";
             case "loading_screen:mount", "loading_screen:open" -> "loading.open";
             case "loading_screen:render" -> "loading.render";
             case "loading_screen:progress" -> "loading.progress";
@@ -1190,10 +1193,12 @@ public final class NativeLoaderClientRouteTable {
                 || normalizedType.equals("main_menu") || normalizedType.equals("terminal")
                 || normalizedType.equals("index") || normalizedType.equals("lens")
                 || normalizedType.equals("holomap") || normalizedType.equals("holo_map")
+                || normalizedType.equals("world_setup")
                 || normalizedType.equals("loading_screen");
         boolean renderLifecycle = hud || overlay || screen || normalizedType.equals("theme");
         boolean inputLifecycle = screen && !normalizedType.equals("loading_screen") || hud || overlay;
-        boolean visibleByDefault = hud || overlay || normalizedType.equals("main_menu") || normalizedType.equals("loading_screen");
+        boolean visibleByDefault = hud || overlay || normalizedType.equals("main_menu")
+                || normalizedType.equals("world_setup") || normalizedType.equals("loading_screen");
         boolean mountedByDefault = visibleByDefault || normalizedType.equals("terminal")
                 || normalizedType.equals("index") || normalizedType.equals("lens")
                 || normalizedType.equals("holomap") || normalizedType.equals("holo_map");

@@ -13,6 +13,7 @@ import dev.echo.nativeplatform.loader.NativeLoaderUiExpectedValues;
 import dev.echo.nativeplatform.loader.NativeLoaderPhysicalRouteRequirements;
 import dev.echo.nativeplatform.loader.NativeLoaderPhysicalHotkeyPoller;
 import dev.echo.nativeplatform.loader.NativeLoaderLiveClientDiagnostics;
+import dev.echo.nativeplatform.loader.NativeLoaderThemeResolver;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -512,6 +513,11 @@ final class EchoNativeLiveUiBridge {
                 EchoNativeBootstrapMain::nativeClientLoadingRendererClassNames,
                 EchoNativeBootstrapMain::nativeClientModuleClassLoader
         );
+        NativeLoaderThemeResolver.configure(
+                EchoNativeBootstrapMain::nativeLoaderThemeMode,
+                EchoNativeBootstrapMain::nativeLoaderThemeId,
+                EchoNativeBootstrapMain::nativeClientModuleClassLoader
+        );
         NativeLoaderUiExpectedValues.configure(new NativeLoaderUiExpectedValues.Provider() {
             @Override
             public Map<String, Object> dataSources() {
@@ -590,6 +596,7 @@ final class EchoNativeLiveUiBridge {
         bridge.put("deterministicHotkeyBindings", deterministicHotkeyBindings());
         bridge.put("nativeOnlyShortcuts", List.of());
         bridge.put("screenIds", paritySurfaces());
+        bridge.putAll(NativeLoaderThemeResolver.activeThemeEvidence());
         bridge.put("realModuleSurfaces", realModuleSurfaces());
         bridge.put("clientRuntimeClassAvailable", false);
         bridge.put("clientRuntimeAccessed", false);
@@ -1270,11 +1277,9 @@ final class EchoNativeLiveUiBridge {
     ) {
         bridge.put("nativeLoadingOverlayProjectionAttempted", true);
         bridge.put("nativeLoadingRendererClasses", EchoNativeBootstrapMain.nativeClientLoadingRendererClassNames());
-        if (EchoNativeBootstrapMain.nativeClientLoadingRendererClassNames().isEmpty()) {
-            bridge.put("nativeLoadingOverlayProjectionInstalled", false);
-            bridge.put("nativeLoadingOverlayProjectionSkipped", "no_profile_loading_renderers");
-            return;
-        }
+        bridge.put("nativeLoadingOverlayUsesBuiltInFallbackRenderer",
+                EchoNativeBootstrapMain.nativeClientLoadingRendererClassNames().isEmpty());
+        bridge.putAll(NativeLoaderThemeResolver.refresh().evidence());
         try {
             Object currentOverlay = minecraft.getClass().getMethod("getOverlay").invoke(minecraft);
             if (currentOverlay != null && LOADING_OVERLAY_CLASS_NAME.equals(currentOverlay.getClass().getName())) {
@@ -1316,7 +1321,7 @@ final class EchoNativeLiveUiBridge {
             bridge.put("nativeLoadingOverlayProjectionClass", overlayProjectionClass.getName());
             bridge.put("nativeLoadingOverlayProjectionSelfClearing", accepted);
             bridge.put("summary", accepted
-                    ? "Native client loading overlay projection installed and will call profile loading renderers."
+                    ? "Native client loading overlay projection installed and will call native loader themed rendering."
                     : "Native client loading overlay projection was created but Minecraft did not accept it.");
         } catch (Throwable exception) {
             bridge.put("nativeLoadingOverlayProjectionInstalled", false);
@@ -1619,6 +1624,7 @@ final class EchoNativeLiveUiBridge {
             return;
         }
         try {
+            bridge.putAll(NativeLoaderThemeResolver.refresh().evidence());
             Object mainMenuScreen = newNativeClientScreen(
                     "MAIN_MENU",
                     packId,

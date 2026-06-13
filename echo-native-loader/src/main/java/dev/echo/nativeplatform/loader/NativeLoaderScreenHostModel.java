@@ -31,10 +31,12 @@ public final class NativeLoaderScreenHostModel {
         Map<String, Object> dataSources = object(current.dataSources());
         Map<String, Object> hud = hudValues(state, object(dataSources.get("hud")));
         Map<String, Object> surface = object(current.renderSurface(normalizedMode, state));
+        NativeLoaderTheme theme = NativeLoaderThemeResolver.activeTheme();
         Map<String, Object> model = new LinkedHashMap<>();
         model.put("nativeScreenHostModelServiceId", SERVICE_ID);
-        model.put("screenTitle", "ECHO NATIVE // " + normalizedMode);
+        model.put("screenTitle", screenTitle(normalizedMode, theme));
         model.put("headerLines", List.of(
+                theme.token("identityLabel") + "     Theme: " + theme.id() + " / " + theme.source(),
                 "Pack: " + fallback(packId, current.productNamespace()) + "     Host: native client bridge",
                 "Registered content: " + itemCount + " items/blocks",
                 "Modules discovered: " + moduleCount,
@@ -49,7 +51,16 @@ public final class NativeLoaderScreenHostModel {
         model.put("adapterCoreBridge", true);
         model.put("serviceCodeExecuted", true);
         model.put("hostModelClass", NativeLoaderScreenHostModel.class.getSimpleName());
+        model.putAll(theme.evidence());
         return Map.copyOf(model);
+    }
+
+    private static String screenTitle(String mode, NativeLoaderTheme theme) {
+        return switch (mode) {
+            case "MAIN_MENU" -> theme.token("mainMenuTitle");
+            case "WORLD_SETUP" -> theme.token("worldSetupTitle");
+            default -> "ECHO NATIVE // " + mode;
+        };
     }
 
     @SuppressWarnings("unchecked")

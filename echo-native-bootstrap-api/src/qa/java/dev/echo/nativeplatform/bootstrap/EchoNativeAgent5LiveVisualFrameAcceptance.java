@@ -20,10 +20,11 @@ public final class EchoNativeAgent5LiveVisualFrameAcceptance {
         Map<String, Object> hud = hudOverlaySmoke == null ? Map.of() : hudOverlaySmoke;
         boolean themeAccepted = Boolean.TRUE.equals(theme.get("passed"))
                 && "EchoNativeAgent5ThemeApplicationSmoke".equals(theme.get("themeApplicationSmokeClass"))
-                && "ashfall-agent5".equals(theme.get("themeId"))
+                && "echo_native:loader_blue_console".equals(theme.get("nativeLoaderThemeId"))
+                && "loader_default".equals(theme.get("nativeLoaderThemeMode"))
                 && "ashfall-accessible".equals(theme.get("settingsProfile"))
                 && "keyboard_mouse".equals(theme.get("inputMode"))
-                && "ASH>".equals(object(theme.get("tokens")).get("terminal.prompt"));
+                && "ECHO>".equals(object(theme.get("tokens")).get("terminal.prompt"));
         boolean layoutAccepted = Boolean.TRUE.equals(layout.get("passed"))
                 && "EchoNativeAgent5RenderCoreLayoutSmoke".equals(layout.get("renderCoreLayoutSmokeClass"))
                 && Integer.valueOf(620).equals(layout.get("desktopPanelW"))
@@ -57,7 +58,7 @@ public final class EchoNativeAgent5LiveVisualFrameAcceptance {
         result.put("layoutAccepted", layoutAccepted);
         result.put("cameraAccepted", cameraAccepted);
         result.put("hudAccepted", hudAccepted);
-        result.put("themeId", String.valueOf(theme.getOrDefault("themeId", "")));
+        result.put("themeId", String.valueOf(theme.getOrDefault("nativeLoaderThemeId", "")));
         result.put("desktopPanelW", layout.getOrDefault("desktopPanelW", 0));
         result.put("compactPanelW", layout.getOrDefault("compactPanelW", 0));
         result.put("cameraMode", String.valueOf(camera.getOrDefault("cameraMode", "")));

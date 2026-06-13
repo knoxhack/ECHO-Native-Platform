@@ -163,7 +163,7 @@ public final class EchoNativeRegistryHost {
             case "recipe_backend", "recipe_category", "search_index", "loot_table", "tag",
                     "structure", "world_preset", "world_template", "resource", "data_pack",
                     "resource_pack", "ui_surface", "ui_overlay", "client_overlay", "hud",
-                    "hud_widget", "hud_layout", "screen", "screen_surface", "loading_screen", "main_menu",
+                    "hud_widget", "hud_layout", "screen", "screen_surface", "loading_screen", "main_menu", "world_setup",
                     "terminal", "index", "lens", "holomap", "holo_map", "minimap", "theme", "theme_tokens",
                     "ui_skin", "render_profile", "asset_kit", "block_palette", "screen_action",
                     "screen_binding", "screen_component", "screen_layout", "screen_markup", "theme_bridge",
@@ -1227,6 +1227,7 @@ public final class EchoNativeRegistryHost {
             case "screensurface", "screensurfaces", "screen_surface", "screen_surfaces" -> "screen_surface";
             case "loadingscreen", "loadingscreens", "loading_screen", "loading_screens" -> "loading_screen";
             case "mainmenu", "mainmenus", "main_menu", "main_menus" -> "main_menu";
+            case "worldsetup", "worldsetups", "world_setup", "world_setups", "worldcreation", "world_creation" -> "world_setup";
             case "holomap", "holo_map", "holo_maps", "holo.map", "holo.maps" -> "holomap";
             case "minimaps" -> "minimap";
             case "themes" -> "theme";

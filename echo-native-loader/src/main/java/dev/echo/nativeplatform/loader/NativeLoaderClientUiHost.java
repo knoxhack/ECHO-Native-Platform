@@ -39,7 +39,7 @@ public final class NativeLoaderClientUiHost {
 
     public static synchronized void seedBuiltInProductRoutes() {
         registerBuiltInRoute(
-                "echo-native-loader:ashfall_main_menu",
+                "echo-native-loader:main_menu",
                 "main_menu",
                 Map.of(
                         "menu.open", Map.of("kind", "native_loader_menu", "command", "open"),
@@ -51,7 +51,7 @@ public final class NativeLoaderClientUiHost {
                 Map.of(
                         "nativeSurfaceImplementationClass", NativeLoaderClientUiHost.class.getName(),
                         "nativeScreenBridgeClass", NativeLoaderLiveClientBridge.class.getName(),
-                        "productSurface", "ashfall_main_menu",
+                        "productSurface", "native_loader_main_menu",
                         "source", "native_loader_builtin_product_route",
                         "visibleRenderRequiresWindowedClient", true
                 )
@@ -78,7 +78,23 @@ public final class NativeLoaderClientUiHost {
                 "source", "native_loader_builtin_product_route"
         ));
         registerBuiltInRoute(
-                "echo-native-loader:ashfall_loading",
+                "echo-native-loader:world_setup",
+                "world_setup",
+                Map.of(
+                        "world_setup.open", Map.of("kind", "native_loader_world_setup", "command", "open"),
+                        "world_setup.create", Map.of("kind", "native_loader_world_setup", "command", "create"),
+                        "world_setup.back", Map.of("kind", "native_loader_world_setup", "command", "back")
+                ),
+                Map.of(
+                        "nativeSurfaceImplementationClass", NativeLoaderClientUiHost.class.getName(),
+                        "nativeScreenBridgeClass", NativeLoaderLiveClientBridge.class.getName(),
+                        "productSurface", "world_setup",
+                        "source", "native_loader_builtin_product_route",
+                        "visibleRenderRequiresWindowedClient", true
+                )
+        );
+        registerBuiltInRoute(
+                "echo-native-loader:loading",
                 "loading_screen",
                 Map.of(
                         "loading.open", Map.of("kind", "native_loader_loading", "command", "open"),
@@ -89,7 +105,7 @@ public final class NativeLoaderClientUiHost {
                 Map.of(
                         "nativeSurfaceImplementationClass", NativeLoaderClientUiHost.class.getName(),
                         "nativeScreenBridgeClass", NativeLoaderLiveClientBridge.class.getName(),
-                        "productSurface", "ashfall_loading",
+                        "productSurface", "native_loader_loading",
                         "source", "native_loader_builtin_product_route",
                         "visibleRenderRequiresWindowedClient", true
                 )
@@ -885,6 +901,7 @@ public final class NativeLoaderClientUiHost {
                 "hud_layout",
                 "client_overlay",
                 "main_menu",
+                "world_setup",
                 "loading_screen"
         );
         Map<String, Map<String, Object>> trustedSurfaceRoutes = new LinkedHashMap<>();
@@ -916,6 +933,9 @@ public final class NativeLoaderClientUiHost {
                 Map.entry("main_menu:menu.open", "main_menu"),
                 Map.entry("main_menu:menu.new_run", "main_menu"),
                 Map.entry("main_menu:menu.quit", "main_menu"),
+                Map.entry("world_setup:world_setup.open", "world_setup"),
+                Map.entry("world_setup:world_setup.create", "world_setup"),
+                Map.entry("world_setup:world_setup.back", "world_setup"),
                 Map.entry("loading_screen:loading.open", "loading_screen"),
                 Map.entry("loading_screen:loading.render", "loading_screen"),
                 Map.entry("loading_screen:loading.progress", "loading_screen"),
@@ -2011,6 +2031,9 @@ public final class NativeLoaderClientUiHost {
         return switch (safeSurfaceType + ":" + safePhase) {
             case "main_menu:mount", "main_menu:open" -> "menu.open";
             case "main_menu:close", "main_menu:unmount" -> "menu.quit";
+            case "world_setup:mount", "world_setup:open" -> "world_setup.open";
+            case "world_setup:create", "world_setup:submit" -> "world_setup.create";
+            case "world_setup:close", "world_setup:unmount", "world_setup:back" -> "world_setup.back";
             case "loading_screen:mount", "loading_screen:open" -> "loading.open";
             case "loading_screen:render" -> "loading.render";
             case "loading_screen:progress" -> "loading.progress";
@@ -2101,6 +2124,7 @@ public final class NativeLoaderClientUiHost {
         next.put("mutationCount", intValue(previous.get("mutationCount")) + 1);
         switch (surfaceType) {
             case "main_menu" -> mutateBuiltInMenu(next, previous, command);
+            case "world_setup" -> mutateBuiltInWorldSetup(next, previous, command, safeMetadata);
             case "loading_screen" -> mutateBuiltInLoading(next, previous, command, safeMetadata);
             default -> next.put("phase", command.isBlank() ? "action" : command);
         }
@@ -2162,16 +2186,45 @@ public final class NativeLoaderClientUiHost {
         next.put("renderModel", loadingRenderModel(next));
     }
 
+    private static void mutateBuiltInWorldSetup(
+            Map<String, Object> next,
+            Map<String, Object> previous,
+            String command,
+            Map<String, Object> metadata
+    ) {
+        next.put("visible", !"back".equals(command));
+        next.put("phase", command.isBlank() ? "open" : command);
+        next.put("nativeLoaderOwnedWorldPolicy", true);
+        next.put("forcedWorldPreset", NativeLoaderAshfallWorldStartupService.WORLD_PRESET_ID);
+        next.put("vanillaWorldCreationFallbackAllowed", false);
+        next.put("worldName", NativeLoaderAshfallWorldStartupService.configuredProductWorldName());
+        next.put("worldFolder", NativeLoaderAshfallWorldStartupService.configuredProductWorldFolder());
+        if ("open".equals(command)) {
+            next.put("openCount", intValue(previous.get("openCount")) + 1);
+        }
+        if ("create".equals(command)) {
+            next.put("createRequested", true);
+            next.put("createCount", intValue(previous.get("createCount")) + 1);
+            putIfPresent(next, "createSource", metadata.get("source"));
+        }
+        if ("back".equals(command)) {
+            next.put("backRequested", true);
+        }
+        next.put("renderModel", worldSetupRenderModel(next));
+    }
+
     private static Map<String, Object> menuRenderModel(Map<String, Object> state) {
         Map<String, Object> model = new LinkedHashMap<>();
         String selected = text(state.get("selectedCommand"));
+        NativeLoaderTheme theme = NativeLoaderThemeResolver.activeTheme();
         model.put("surface", "main_menu");
-        model.put("product", "ECHO Ashfall");
+        model.put("product", theme.token("identityLabel"));
         model.put("routeDriven", true);
         model.put("visible", Boolean.TRUE.equals(state.get("visible")));
         model.put("phase", text(state.get("phase")));
         model.put("selectedCommand", selected);
         model.put("pendingAshfallWorldStartup", Boolean.TRUE.equals(state.get("pendingAshfallWorldStartup")));
+        model.putAll(theme.evidence());
         model.put("commands", List.of(
                 menuCommand("new_run", "New Run", selected),
                 menuCommand("continue", "Continue", selected),
@@ -2191,8 +2244,9 @@ public final class NativeLoaderClientUiHost {
 
     private static Map<String, Object> loadingRenderModel(Map<String, Object> state) {
         Map<String, Object> model = new LinkedHashMap<>();
+        NativeLoaderTheme theme = NativeLoaderThemeResolver.activeTheme();
         model.put("surface", "loading_screen");
-        model.put("product", "ECHO Ashfall");
+        model.put("product", theme.token("identityLabel"));
         model.put("routeDriven", true);
         model.put("visible", Boolean.TRUE.equals(state.get("visible")));
         model.put("phase", text(state.get("phase")));
@@ -2200,6 +2254,25 @@ public final class NativeLoaderClientUiHost {
         model.put("label", text(state.get("progressLabel")));
         model.put("completed", Boolean.TRUE.equals(state.get("completed")));
         model.put("renderCount", intValue(state.get("renderCount")));
+        model.putAll(theme.evidence());
+        return Map.copyOf(model);
+    }
+
+    private static Map<String, Object> worldSetupRenderModel(Map<String, Object> state) {
+        Map<String, Object> model = new LinkedHashMap<>();
+        NativeLoaderTheme theme = NativeLoaderThemeResolver.activeTheme();
+        model.put("surface", "world_setup");
+        model.put("product", theme.token("identityLabel"));
+        model.put("routeDriven", true);
+        model.put("visible", Boolean.TRUE.equals(state.get("visible")));
+        model.put("phase", text(state.get("phase")));
+        model.put("worldName", text(state.get("worldName")));
+        model.put("worldFolder", text(state.get("worldFolder")));
+        model.put("forcedWorldPreset", text(state.get("forcedWorldPreset")));
+        model.put("nativeLoaderOwnedWorldPolicy", Boolean.TRUE.equals(state.get("nativeLoaderOwnedWorldPolicy")));
+        model.put("vanillaWorldCreationFallbackAllowed",
+                Boolean.TRUE.equals(state.get("vanillaWorldCreationFallbackAllowed")));
+        model.putAll(theme.evidence());
         return Map.copyOf(model);
     }
 

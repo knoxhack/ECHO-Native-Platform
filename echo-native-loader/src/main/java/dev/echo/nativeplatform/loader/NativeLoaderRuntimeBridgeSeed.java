@@ -12,6 +12,7 @@ import java.util.Map;
 public final class NativeLoaderRuntimeBridgeSeed {
     private static final List<String> REQUIRED_PRODUCT_CLIENT_SURFACE_TYPES = List.of(
             "main_menu",
+            "world_setup",
             "loading_screen",
             "hud",
             "terminal",
@@ -125,6 +126,7 @@ public final class NativeLoaderRuntimeBridgeSeed {
         String normalized = normalize(surface);
         String type = switch (normalized) {
             case "main_menu", "mainmenu" -> "main_menu";
+            case "world_setup", "worldsetup", "world_creation", "worldcreation", "create_world" -> "world_setup";
             case "loading", "loading_screen" -> "loading_screen";
             case "hud" -> "hud";
             case "terminal" -> "terminal";

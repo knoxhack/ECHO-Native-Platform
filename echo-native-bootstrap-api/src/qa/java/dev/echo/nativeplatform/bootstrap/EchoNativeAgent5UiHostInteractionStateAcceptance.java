@@ -31,7 +31,7 @@ public final class EchoNativeAgent5UiHostInteractionStateAcceptance {
         boolean wiki = passedStep(steps, "wiki_open", "WIKI", "wiki:surface",
                 String.valueOf(EchoNativeAgent5UiExpectedValues.wiki().get("page")));
         boolean mainMenu = passedStep(steps, "main_menu_open", "MAIN_MENU", "main_menu:surface",
-                "Main Menu: Ashfall native routes");
+                "Main Menu: ECHO Native Loader routes");
         boolean accepted = Boolean.TRUE.equals(smoke.get("serviceCodeExecuted"))
                 && Boolean.TRUE.equals(smoke.get("passed"))
                 && steps.size() == 10

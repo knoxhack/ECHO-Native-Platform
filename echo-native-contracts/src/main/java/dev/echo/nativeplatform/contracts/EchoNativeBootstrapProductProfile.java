@@ -433,6 +433,14 @@ public interface EchoNativeBootstrapProductProfile {
         return Map.of();
     }
 
+    default String nativeLoaderThemeMode() {
+        return "loader_default";
+    }
+
+    default String nativeLoaderThemeId() {
+        return "";
+    }
+
     default List<NativeUiActionRoute> nativeUiActionRoutes() {
         return List.of();
     }

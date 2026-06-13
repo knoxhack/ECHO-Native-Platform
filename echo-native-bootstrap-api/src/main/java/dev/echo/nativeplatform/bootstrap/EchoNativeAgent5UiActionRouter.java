@@ -87,6 +87,11 @@ public final class EchoNativeAgent5UiActionRouter {
         return NativeLoaderUiActionRouter.routeMainMenuOption(selectedOption);
     }
 
+    public static Map<String, Object> routeWorldSetupCreate() {
+        configure();
+        return NativeLoaderUiActionRouter.routeWorldSetupCreate();
+    }
+
     public static Map<String, Object> routeHudUpdate(Map<String, Object> state) {
         configure();
         return NativeLoaderUiActionRouter.routeHudUpdate(state);

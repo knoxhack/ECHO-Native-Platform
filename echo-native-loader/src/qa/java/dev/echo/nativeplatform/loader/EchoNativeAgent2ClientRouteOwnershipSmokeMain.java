@@ -28,6 +28,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
             "holomap",
             "hud",
             "main_menu",
+            "world_setup",
             "loading_screen"
     );
 
@@ -278,6 +279,18 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "main_menu",
                 "menu.new_run",
                 directPublicSdkMetadata("main_menu", Map.of("selection", "new_run"))) == EchoNativeLoadStatus.MUTATED);
+        directPublicSdkDispatchResults.put("world_setup.open", registry.dispatchStatus(
+                "world_setup",
+                "world_setup.open",
+                directPublicSdkMetadata("world_setup", Map.of("phase", "open"))) == EchoNativeLoadStatus.MUTATED);
+        directPublicSdkDispatchResults.put("world_setup.create", registry.dispatchStatus(
+                "world_setup",
+                "world_setup.create",
+                directPublicSdkMetadata("world_setup", Map.of("phase", "create"))) == EchoNativeLoadStatus.MUTATED);
+        directPublicSdkDispatchResults.put("world_setup.back", registry.dispatchStatus(
+                "world_setup",
+                "world_setup.back",
+                directPublicSdkMetadata("world_setup", Map.of("phase", "back"))) == EchoNativeLoadStatus.MUTATED);
         directPublicSdkDispatchResults.put("loading.open", registry.dispatchStatus(
                 "loading_screen",
                 "loading.open",
@@ -2013,7 +2026,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
         requireInputSummaryTarget(latestTargets, "holomap", "holomap.cycle_corner",
                 "echoholomap", "echoholomap:minimap");
         requireInputSummaryTarget(latestTargets, "main_menu", "menu.quit",
-                "echo-native-loader", "echo-native-loader:ashfall_main_menu");
+                "echo-native-loader", "echo-native-loader:main_menu");
         Object latestTargetsBySourceObject = summary.get("latestHandledTargetByMetadataSource");
         require(latestTargetsBySourceObject instanceof Map<?, ?>,
                 "Native input dispatch summary must include latest handled targets by metadata source.");
@@ -2023,7 +2036,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "main_menu",
                 "menu.quit",
                 "echo-native-loader",
-                "echo-native-loader:ashfall_main_menu");
+                "echo-native-loader:main_menu");
     }
 
     private static void requireInputSummaryTarget(
@@ -4598,7 +4611,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "index", "mouse", "index.catalog_screen.mouse", "echoindex", "echoindex:index");
         requireHostServiceSummaryRoute(latestByActiveSurfaceService, "main_menu:key_input",
                 "main_menu", "key_input", "menu.open",
-                "echo-native-loader", "echo-native-loader:ashfall_main_menu");
+                "echo-native-loader", "echo-native-loader:main_menu");
         requireHostServiceSummaryRoute(latestByActiveSurfaceService, "holomap:key_input",
                 "holomap", "key_input", "holomap.cycle_corner", "echoholomap", "echoholomap:minimap");
         requireHostServiceSummaryRoute(latestByActiveSurfaceService, "client_overlay:gui_layer",
@@ -4608,10 +4621,10 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "echohudcore", "echohudcore:compass_indicator");
         requireHostServiceSummaryRoute(latestByActiveSurfaceService, "main_menu:screen_close",
                 "main_menu", "screen_close", "menu.quit",
-                "echo-native-loader", "echo-native-loader:ashfall_main_menu");
+                "echo-native-loader", "echo-native-loader:main_menu");
         requireHostServiceSummaryRoute(latestByActiveSurfaceService, "loading_screen:screen_unmount",
                 "loading_screen", "screen_unmount", "loading.complete",
-                "echo-native-loader", "echo-native-loader:ashfall_loading");
+                "echo-native-loader", "echo-native-loader:loading");
         Object latestRouteOwnedBySurfaceObject = summary.get("latestRouteOwnedBySurface");
         require(latestRouteOwnedBySurfaceObject instanceof Map<?, ?>,
                 "Native Loader UI host service summary must include latest route-owned service by surface.");
@@ -4733,10 +4746,10 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "echohudcore", "echohudcore:compass_indicator");
         requireLiveClientBridgeServiceSummaryRoute(latestByActiveSurfaceService, "main_menu:screenLifecycle",
                 "main_menu", "screenLifecycle", "menu.quit",
-                "echo-native-loader", "echo-native-loader:ashfall_main_menu");
+                "echo-native-loader", "echo-native-loader:main_menu");
         requireLiveClientBridgeServiceSummaryRoute(latestByActiveSurfaceService, "loading_screen:screenLifecycle",
                 "loading_screen", "screenLifecycle", "loading.complete",
-                "echo-native-loader", "echo-native-loader:ashfall_loading");
+                "echo-native-loader", "echo-native-loader:loading");
         Object latestRouteOwnedBySurfaceObject = summary.get("latestRouteOwnedBySurface");
         require(latestRouteOwnedBySurfaceObject instanceof Map<?, ?>,
                 "Default product NativeLoaderLiveClientBridge service summary must expose route-owned surfaces.");
@@ -5101,9 +5114,9 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
         requireLiveClientBridgeActiveRoute(active, "hud_widget", "echohudcore",
                 "echohudcore:compass_indicator", "hud.compass_indicator.render");
         requireLiveClientBridgeActiveRoute(active, "main_menu", "echo-native-loader",
-                "echo-native-loader:ashfall_main_menu", "menu.new_run");
+                "echo-native-loader:main_menu", "menu.new_run");
         requireLiveClientBridgeActiveRoute(active, "loading_screen", "echo-native-loader",
-                "echo-native-loader:ashfall_loading", "loading.complete");
+                "echo-native-loader:loading", "loading.complete");
     }
 
     private static void requireLiveClientBridgeActiveRoute(
@@ -5189,8 +5202,8 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
         requireRuntimeScreenMetadata(screens, "loading_screen", "closeReason", "complete");
         requireRuntimeScreenRoute(screens, "terminal", "echoterminal", "echoterminal:eui");
         requireRuntimeScreenRoute(screens, "holomap", "echoholomap", "echoholomap:fullscreen_map");
-        requireRuntimeScreenRoute(screens, "main_menu", "echo-native-loader", "echo-native-loader:ashfall_main_menu");
-        requireRuntimeScreenRoute(screens, "loading_screen", "echo-native-loader", "echo-native-loader:ashfall_loading");
+        requireRuntimeScreenRoute(screens, "main_menu", "echo-native-loader", "echo-native-loader:main_menu");
+        requireRuntimeScreenRoute(screens, "loading_screen", "echo-native-loader", "echo-native-loader:loading");
         require(state.get("input") instanceof Map<?, ?> input
                         && "key_input".equals(input.get("service"))
                         && "key.echoholomap.minimap_cycle_corner".equals(input.get("actionId"))
@@ -5269,9 +5282,9 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
         requireActiveUiSurfaceActiveRoute(active, "hud_widget", "echohudcore",
                 "echohudcore:compass_indicator");
         requireActiveUiSurfaceActiveRoute(active, "main_menu", "echo-native-loader",
-                "echo-native-loader:ashfall_main_menu");
+                "echo-native-loader:main_menu");
         requireActiveUiSurfaceActiveRoute(active, "loading_screen", "echo-native-loader",
-                "echo-native-loader:ashfall_loading");
+                "echo-native-loader:loading");
     }
 
     private static void requireActiveUiSurfaceRoute(Map<?, ?> active, String surfaceType, boolean mounted) {
@@ -5645,7 +5658,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && latestHandledBySource.get("agent2_direct_public_sdk_probe:loading_screen") instanceof Map<?, ?> directTarget
                         && "loading.complete".equals(directTarget.get("actionId"))
                         && "echo-native-loader".equals(directTarget.get("routeModuleId"))
-                        && "echo-native-loader:ashfall_loading".equals(directTarget.get("routeSurfaceId")),
+                        && "echo-native-loader:loading".equals(directTarget.get("routeSurfaceId")),
                 "Native route table action dispatch summary must expose latest direct public SDK handled target.");
         Object latestHandledObject = summary.get("latestHandledBySurface");
         require(latestHandledObject instanceof Map<?, ?>,
@@ -5667,9 +5680,9 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
         requireActionSummaryEvent(latestHandled, "hud_layout", "hud.screen_safe_area.resolve",
                 "echohudcore", "echohudcore:screen_safe_area");
         requireActionSummaryEvent(latestHandled, "main_menu", "menu.new_run",
-                "echo-native-loader", "echo-native-loader:ashfall_main_menu");
+                "echo-native-loader", "echo-native-loader:main_menu");
         requireActionSummaryEvent(latestHandled, "loading_screen", "loading.complete",
-                "echo-native-loader", "echo-native-loader:ashfall_loading");
+                "echo-native-loader", "echo-native-loader:loading");
         Object latestUnsupportedBySurfaceObject = summary.get("latestUnsupportedBySurface");
         require(latestUnsupportedBySurfaceObject instanceof Map<?, ?> latestUnsupportedBySurface
                         && latestUnsupportedBySurface.get("index") instanceof Map<?, ?> index
@@ -5764,7 +5777,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         && latestBySourceSurface.get("agent2_direct_public_sdk_lifecycle_probe:loading_screen") instanceof Map<?, ?> directLoading
                         && "loading.render".equals(directLoading.get("actionId"))
                         && "echo-native-loader".equals(directLoading.get("routeModuleId"))
-                        && "echo-native-loader:ashfall_loading".equals(directLoading.get("routeSurfaceId")),
+                        && "echo-native-loader:loading".equals(directLoading.get("routeSurfaceId")),
                 "Native route table lifecycle summary must expose direct public SDK lifecycle target ownership.");
         Object latestBySurfaceActionObject = summary.get("latestBySurfaceAction");
         require(latestBySurfaceActionObject instanceof Map<?, ?>,
@@ -5775,7 +5788,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
         requireScreenLifecycleHostSummaryEvent(latestBySurfaceAction, "index:index.catalog",
                 "index", "index.catalog", "echoindex", "echoindex:index");
         requireScreenLifecycleHostSummaryEvent(latestBySurfaceAction, "main_menu:menu.open",
-                "main_menu", "menu.open", "echo-native-loader", "echo-native-loader:ashfall_main_menu");
+                "main_menu", "menu.open", "echo-native-loader", "echo-native-loader:main_menu");
         Object latestBySurfacePhaseObject = summary.get("latestBySurfacePhase");
         require(latestBySurfacePhaseObject instanceof Map<?, ?>,
                 "Native route table lifecycle summary must include latest lifecycle events by surface and phase.");
@@ -5801,10 +5814,10 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "echohudcore", "echohudcore:compass_indicator");
         requireLifecycleSummaryEvent(latestBySurfacePhase, "main_menu:close",
                 "main_menu", "close", "menu.quit",
-                "echo-native-loader", "echo-native-loader:ashfall_main_menu");
+                "echo-native-loader", "echo-native-loader:main_menu");
         requireLifecycleSummaryEvent(latestBySurfacePhase, "loading_screen:unmount",
                 "loading_screen", "unmount", "loading.complete",
-                "echo-native-loader", "echo-native-loader:ashfall_loading");
+                "echo-native-loader", "echo-native-loader:loading");
     }
 
     private static void requireLifecycleSummaryEvent(
@@ -6488,7 +6501,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         || "direct_lifecycle_publication".equals(menuMetadata.get("eventType"))),
                 "Native Loader main menu route state must preserve dispatch metadata from the UI host.");
         require(menuRenderModelObject instanceof Map<?, ?> menuRenderModel
-                        && "ECHO Ashfall".equals(menuRenderModel.get("product"))
+                        && "ECHO Native Loader".equals(menuRenderModel.get("product"))
                         && Boolean.TRUE.equals(menuRenderModel.get("routeDriven"))
                         && menuRenderModel.get("commands") instanceof List<?>
                         && Boolean.TRUE.equals(menuRenderModel.get("pendingAshfallWorldStartup")),
@@ -6515,7 +6528,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                         || "direct_public_sdk_gui_layer".equals(loadingMetadata.get("eventType"))),
                 "Native Loader loading route state must preserve dispatch metadata from the UI host.");
         require(loadingRenderModelObject instanceof Map<?, ?> loadingRenderModel
-                        && "ECHO Ashfall".equals(loadingRenderModel.get("product"))
+                        && "ECHO Native Loader".equals(loadingRenderModel.get("product"))
                         && Boolean.TRUE.equals(loadingRenderModel.get("routeDriven"))
                         && Boolean.TRUE.equals(loadingRenderModel.get("completed"))
                         && loadingRenderModel.get("progress") instanceof Number renderProgress
@@ -6551,7 +6564,7 @@ public final class EchoNativeAgent2ClientRouteOwnershipSmokeMain {
                 "Native Loader window pump must expose a mutating built-in product renderer frame for "
                         + surfaceType + "/" + actionId + ".");
         require(renderModelObject instanceof Map<?, ?> renderModel
-                        && "ECHO Ashfall".equals(renderModel.get("product"))
+                        && "ECHO Native Loader".equals(renderModel.get("product"))
                         && surfaceType.equals(renderModel.get("surface"))
                         && Boolean.TRUE.equals(renderModel.get("routeDriven")),
                 "Native Loader window pump renderer frame must expose the route-driven render model for "

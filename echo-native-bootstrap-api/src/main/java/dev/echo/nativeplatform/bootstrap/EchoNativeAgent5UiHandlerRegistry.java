@@ -81,7 +81,7 @@ public final class EchoNativeAgent5UiHandlerRegistry {
         dataSources.put("machine", machine);
         dataSources.put("camera", camera());
         dataSources.put("cinematic", cinematic());
-        dataSources.put("mainMenu", Map.of("options", List.of("Continue", "New Ashfall Run", "Settings", "Quit")));
+        dataSources.put("mainMenu", Map.of("options", EchoNativeBootstrapMain.nativeMainMenuOptions()));
         dataSourcesCache = Map.copyOf(dataSources);
         return dataSourcesCache;
     }

@@ -41,6 +41,10 @@ public final class NativeLoaderSurfaceRenderer {
                     lines,
                     NativeLoaderModuleSurfaceRenderers.renderMainMenu(state, source, context)
             );
+            case "WORLD_SETUP" -> moduleRendererClass = addModuleLines(
+                    lines,
+                    NativeLoaderModuleSurfaceRenderers.renderWorldSetup(state, source, context)
+            );
             case "TERMINAL" -> moduleRendererClass = addModuleLines(
                     lines,
                     NativeLoaderModuleSurfaceRenderers.renderTerminal(state, source, context)

@@ -729,6 +729,14 @@ final class EchoNativeBootstrapOrchestrator {
         return UI_CLIENT_FLOW.mainMenuOptions();
     }
 
+    static String nativeLoaderThemeMode() {
+        return BOOTSTRAP_PROFILE.nativeLoaderThemeMode();
+    }
+
+    static String nativeLoaderThemeId() {
+        return BOOTSTRAP_PROFILE.nativeLoaderThemeId();
+    }
+
     static List<NativePhysicalActionRoute> nativePhysicalActionRoutes() {
         return UI_CLIENT_FLOW.physicalActionRoutes();
     }

@@ -259,12 +259,12 @@ public final class NativeLoaderUiActionRouter {
         String normalizedOption = option.toUpperCase(java.util.Locale.ROOT);
         if (newRunOption(normalizedOption)) {
             return routeNativeMainMenuOption(option, "menu.new_run", Map.of(
-                    "destinationMode", "MISSION_LOG",
+                    "destinationMode", "WORLD_SETUP",
                     "destinationPreviousMode", "MAIN_MENU",
                     "selectedOption", option,
-                    "mainMenuOutput", option + " selected: opening Mission Log",
+                    "mainMenuOutput", option + " selected: opening Native World Setup",
                     "quitRequested", false,
-                    "effect", "main_menu:new_run"
+                    "effect", "main_menu:new_run_world_setup"
             ));
         }
         return switch (normalizedOption) {
@@ -318,6 +318,30 @@ public final class NativeLoaderUiActionRouter {
         result.put("nativeRouteOwner", "EchoNativeClientRouteRegistries");
         result.put("neoForgeEventOwnershipRequired", false);
         return handled(Map.copyOf(result));
+    }
+
+    public static Map<String, Object> routeWorldSetupCreate() {
+        NativeLoaderClientUiHost.seedBuiltInProductRoutes();
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("source", "native_loader_generated_world_setup");
+        metadata.put("eventType", "generated_world_setup_create");
+        metadata.put("nativeRouteOwner", "EchoNativeClientRouteRegistries");
+        metadata.put("neoForgeEventOwnershipRequired", false);
+        EchoNativeLoadStatus status = EchoNativeClientRouteRegistries.get()
+                .dispatchStatus("world_setup", "world_setup.create", Map.copyOf(metadata));
+        if (status != EchoNativeLoadStatus.MUTATED) {
+            return ignored("world_setup:native-route-unavailable:world_setup.create");
+        }
+        return handled(Map.of(
+                "destinationMode", "MISSION_LOG",
+                "destinationPreviousMode", "WORLD_SETUP",
+                "worldSetupOutput", "Native Loader owned world setup accepted",
+                "nativeRouteActionId", "world_setup.create",
+                "nativeRouteStatus", status.name(),
+                "nativeRouteOwner", "EchoNativeClientRouteRegistries",
+                "neoForgeEventOwnershipRequired", false,
+                "effect", "world_setup:create"
+        ));
     }
 
     public static Map<String, Object> routeHudUpdate(Map<String, Object> state) {
@@ -509,6 +533,7 @@ public final class NativeLoaderUiActionRouter {
     private static List<String> listOptions(String mode) {
         return switch (mode) {
             case "MAIN_MENU" -> strings(object(context.dataSources().get().get("mainMenu")).get("options"));
+            case "WORLD_SETUP" -> List.of("Create Native World", "Back");
             case "PAUSE" -> strings(object(context.dataSources().get().get("pauseFlow")).get("options"));
             case "SETTINGS" -> List.of("Profile", "Theme", "Input Mode", "HUD Scale", "Subtitles");
             default -> List.of();

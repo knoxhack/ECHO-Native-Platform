@@ -331,6 +331,7 @@ public final class NativeLoaderCoreServiceRegistrar {
                         "screen_surface",
                         "loading_screen",
                         "main_menu",
+                        "world_setup",
                         "terminal",
                         "index",
                         "lens",

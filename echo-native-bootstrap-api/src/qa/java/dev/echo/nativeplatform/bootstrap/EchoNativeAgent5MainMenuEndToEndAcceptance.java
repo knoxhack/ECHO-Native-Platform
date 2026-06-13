@@ -23,13 +23,13 @@ public final class EchoNativeAgent5MainMenuEndToEndAcceptance {
                 && Boolean.TRUE.equals(override.get("guardSatisfied"))
                 && Boolean.TRUE.equals(override.get("overrideAttached"))
                 && String.valueOf(override.get("screenTitle")).contains("MAIN_MENU")
-                && surfaceLines.stream().anyMatch(line -> line.contains("Main Menu: Ashfall native routes"))
+                && surfaceLines.stream().anyMatch(line -> line.contains("Main Menu: ECHO Native Loader routes"))
                 && Boolean.TRUE.equals(options.get("passed"))
-                && selectedOptions.equals(List.of("Continue", "New Ashfall Run", "Settings", "Quit"))
-                && destinations.equals(List.of("WIKI", "MISSION_LOG", "SETTINGS", "MAIN_MENU"))
+                && selectedOptions.equals(List.of("Continue", "New Run", "Settings", "Quit"))
+                && destinations.equals(List.of("WIKI", "WORLD_SETUP", "SETTINGS", "MAIN_MENU"))
                 && effects.equals(List.of(
                         "main_menu:continue",
-                        "main_menu:new_run",
+                        "main_menu:new_run_world_setup",
                         "main_menu:settings",
                         "main_menu:quit_requested"
                 ))
@@ -47,7 +47,7 @@ public final class EchoNativeAgent5MainMenuEndToEndAcceptance {
         result.put("quitRequested", Boolean.TRUE.equals(options.get("quitRequested")));
         result.put("overrideAttached", Boolean.TRUE.equals(override.get("overrideAttached")));
         result.put("renderedSurfaceLine", surfaceLines.stream()
-                .filter(line -> line.contains("Main Menu: Ashfall native routes"))
+                .filter(line -> line.contains("Main Menu: ECHO Native Loader routes"))
                 .findFirst()
                 .orElse(""));
         result.put("effect", accepted

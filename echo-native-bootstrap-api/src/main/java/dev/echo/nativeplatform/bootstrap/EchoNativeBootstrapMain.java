@@ -256,6 +256,14 @@ public final class EchoNativeBootstrapMain {
         return EchoNativeBootstrapOrchestrator.nativeMainMenuOptions();
     }
 
+    static String nativeLoaderThemeMode() {
+        return EchoNativeBootstrapOrchestrator.nativeLoaderThemeMode();
+    }
+
+    static String nativeLoaderThemeId() {
+        return EchoNativeBootstrapOrchestrator.nativeLoaderThemeId();
+    }
+
     static List<NativePhysicalActionRoute> nativePhysicalActionRoutes() {
         return EchoNativeBootstrapOrchestrator.nativePhysicalActionRoutes();
     }

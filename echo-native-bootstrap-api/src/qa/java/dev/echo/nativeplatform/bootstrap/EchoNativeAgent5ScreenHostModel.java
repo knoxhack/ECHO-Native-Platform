@@ -76,7 +76,8 @@ final class EchoNativeAgent5ScreenHostModel {
                     + " / " + firstNonBlank(state.get("recoveryOutput"), EchoNativeAgent5UiExpectedValues.recoveryOutput());
             case "PAUSE" -> "Pause: previous screen " + firstNonBlank(state.get("previousMode"), "WIKI")
                     + " / Press Esc to resume";
-            case "MAIN_MENU" -> "Main Menu: Ashfall native routes";
+            case "MAIN_MENU" -> "Main Menu: ECHO Native Loader routes";
+            case "WORLD_SETUP" -> "World Setup: ECHO Native Loader owns creation";
             default -> String.valueOf(state.getOrDefault("output", EchoNativeAgent5UiExpectedValues.terminalOutput()));
         };
     }

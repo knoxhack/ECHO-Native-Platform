@@ -44,7 +44,9 @@ public final class NativeLoaderLiveLoadingRenderBridge {
         state.put("progressAvailable", progress >= 0.0F);
         state.put("phase", phase == null ? "" : phase.trim());
         state.put("rendererCount", classNames.size());
-        state.put("rendered", false);
+        state.put("builtInThemedFallbackRendered", true);
+        state.put("rendered", classNames.isEmpty());
+        state.putAll(NativeLoaderThemeResolver.activeThemeEvidence());
         state.put("routeDispatch", dispatchLoadingRoutes(partialTick, ticks, progress, phase));
         for (String className : classNames) {
             if (className == null || className.isBlank()) {
@@ -149,6 +151,7 @@ public final class NativeLoaderLiveLoadingRenderBridge {
         metadata.put("progress", clampProgress(progress));
         metadata.put("progressAvailable", progress >= 0.0F);
         metadata.put("phase", phase == null ? "" : phase.trim());
+        metadata.putAll(NativeLoaderThemeResolver.activeThemeEvidence());
         return Map.copyOf(metadata);
     }
 

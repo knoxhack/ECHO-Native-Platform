@@ -1,5 +1,7 @@
 package dev.echo.nativeplatform.bootstrap;
 
+import dev.echo.nativeplatform.loader.NativeLoaderJsonSupport;
+
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -34,7 +36,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
     private EchoNativeAgent5UiBridgeContractVerifier() {
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         Map<String, Object> contract = EchoNativeLiveUiBridge.contractSnapshot();
         require("echo-native-loader".equals(contract.get("runtimeId")), "native runtime id must match");
         require(Boolean.TRUE.equals(contract.get("adapterCoreBridge")), "contract must be AdapterCore-backed");
@@ -341,11 +343,57 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "main menu override strategy must be guarded title-screen replacement");
         requireGeneratedScreenCompiles(contract);
         requireGeneratedScreenCoversContract(contract);
+        writeJsonReportIfRequested(contract);
         System.out.println("agent5 native ui bridge contract PASS screens="
                 + list(contract, "screenIds").size()
                 + " features="
                 + list(contract, "features").size()
                 + " generatedScreen=compiled+executed");
+    }
+
+    private static void writeJsonReportIfRequested(Map<String, Object> contract) throws IOException {
+        String configured = System.getProperty("echo.native.agent5.uiBridgeContractReport");
+        if (configured == null || configured.isBlank()) {
+            return;
+        }
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("schema", "echo.native.agent5.ui_bridge_contract_smoke.v1");
+        report.put("generatedAt", "1970-01-01T00:00:00Z");
+        report.put("status", "PASS");
+        report.put("runtime", "echo_native");
+        report.put("moduleIds", List.of(
+                "echoterminal",
+                "echoindex",
+                "echolens",
+                "echohudcore",
+                "echoscreencore",
+                "echoholomap",
+                "echowiki",
+                "echoashfallprotocol",
+                "echonotificationcore",
+                "echothemecore"
+        ));
+        report.put("featureBuckets", List.of(
+                "gui",
+                "hud",
+                "screen",
+                "inventory_overlay",
+                "terminal",
+                "index",
+                "holomap",
+                "lens",
+                "audio"
+        ));
+        report.put("trustedMutations", List.of(
+                "generated ScreenCore screen compiled and executed",
+                "live route handlers executed for Terminal, Index, Lens, HUD, HoloMap, Wiki, and death recovery",
+                "input focus, hotkey, notification, and main-menu override acceptance smokes executed"
+        ));
+        report.put("visibleRoutes", list(contract, "screenIds"));
+        report.put("saveEvidence", List.of("UI theme/profile and screen-stack state routes are contract verified"));
+        report.put("networkEvidence", List.of("client route ownership and handler dispatch contract verified"));
+        report.put("blockers", List.of());
+        NativeLoaderJsonSupport.writeAtomically(Path.of(configured), report);
     }
 
     private static void requireListContains(Map<String, Object> contract, String key, String value) {
@@ -2359,7 +2407,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require("EchoNativeAgent5ListNavigationSmoke".equals(smoke.get("listNavigationSmokeClass")),
                 "native list navigation smoke must identify its executable class");
         require(list(smoke, "selectedOptions").equals(List.of(
-                "New Ashfall Run",
+                "New Run",
                 "Settings",
                 "Theme",
                 "Input Mode",
@@ -3424,7 +3472,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         && EchoNativeAgent5UiExpectedValues.indexQuery().equals(accepted.get("indexBuffer")),
                 "native live input focus routing acceptance smoke must accept focus, typing, mouse, and list routing");
         require(list(accepted, "selectedOptions").equals(List.of(
-                        "New Ashfall Run",
+                        "New Run",
                         "Settings",
                         "Theme",
                         "Input Mode",
@@ -3481,7 +3529,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                         && Boolean.TRUE.equals(accepted.get("layoutAccepted"))
                         && Boolean.TRUE.equals(accepted.get("cameraAccepted"))
                         && Boolean.TRUE.equals(accepted.get("hudAccepted"))
-                        && "ashfall-agent5".equals(accepted.get("themeId"))
+                        && "echo_native:loader_blue_console".equals(accepted.get("themeId"))
                         && Integer.valueOf(620).equals(accepted.get("desktopPanelW"))
                         && Integer.valueOf(300).equals(accepted.get("compactPanelW"))
                         && "over_shoulder".equals(accepted.get("cameraMode"))
@@ -3953,13 +4001,13 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native main-menu option activation smoke must pass route behavior");
         require("EchoNativeAgent5MainMenuOptionActivationSmoke".equals(smoke.get("mainMenuOptionActivationSmokeClass")),
                 "native main-menu option activation smoke must identify its executable class");
-        require(list(smoke, "selectedOptions").equals(List.of("Continue", "New Ashfall Run", "Settings", "Quit")),
+        require(list(smoke, "selectedOptions").equals(List.of("Continue", "New Run", "Settings", "Quit")),
                 "native main-menu option activation smoke must cover main-menu options");
-        require(list(smoke, "destinations").equals(List.of("WIKI", "MISSION_LOG", "SETTINGS", "MAIN_MENU")),
+        require(list(smoke, "destinations").equals(List.of("WIKI", "WORLD_SETUP", "SETTINGS", "MAIN_MENU")),
                 "native main-menu option activation smoke must route to expected destinations");
         require(list(smoke, "effects").equals(List.of(
                 "main_menu:continue",
-                "main_menu:new_run",
+                "main_menu:new_run_world_setup",
                 "main_menu:settings",
                 "main_menu:quit_requested"
         )), "native main-menu option activation smoke must record effects");
@@ -4352,7 +4400,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require(String.valueOf(attached.get("screenTitle")).contains("MAIN_MENU"),
                 "native main-menu override smoke must render main menu host model");
         require(EchoNativeAgent5UiHostSmokeSnapshot.strings(object(attached.get("snapshot")), "surfaceLines").stream()
-                        .anyMatch(line -> line.contains("Main Menu: Ashfall native routes")),
+                        .anyMatch(line -> line.contains("Main Menu: ECHO Native Loader routes")),
                 "native main-menu override smoke must include main menu surface lines");
 
         Map<String, Object> skipped = EchoNativeAgent5MainMenuOverrideSmoke.capture(
@@ -4390,7 +4438,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native main-menu end-to-end acceptance must route Settings");
         require(Boolean.TRUE.equals(accepted.get("quitRequested")),
                 "native main-menu end-to-end acceptance must include Quit Request handling");
-        require(list(accepted, "selectedOptions").equals(List.of("Continue", "New Ashfall Run", "Settings", "Quit")),
+        require(list(accepted, "selectedOptions").equals(List.of("Continue", "New Run", "Settings", "Quit")),
                 "native main-menu end-to-end acceptance must include all reference options");
         require(Boolean.FALSE.equals(object(smoke.get("rejectedNoOverride")).get("accepted")),
                 "native main-menu end-to-end acceptance must reject missing title-screen override");
@@ -4937,8 +4985,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native theme application smoke must pass theme application checks");
         require("EchoNativeAgent5ThemeApplicationSmoke".equals(smoke.get("themeApplicationSmokeClass")),
                 "native theme application smoke must identify its executable class");
-        require("ashfall-agent5".equals(smoke.get("themeId")),
-                "native theme application smoke must record the ashfall theme id");
+        require("echo_native:loader_blue_console".equals(smoke.get("nativeLoaderThemeId")),
+                "native theme application smoke must record the native loader theme id");
         require("ashfall-accessible".equals(smoke.get("settingsProfile")),
                 "native theme application smoke must record the settings profile");
         require("EchoNativeSettingsSurfaceRenderer".equals(smoke.get("settingsSurfaceRenderer")),
@@ -4950,8 +4998,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require(list(smoke, "terminalSurfaceLines").stream().anyMatch(line -> line.contains(
                         EchoNativeAgent5UiExpectedValues.terminalOutput())),
                 "native theme application smoke must render the theme through terminal output");
-        require(object(smoke.get("tokens")).get("terminal.prompt").equals("ASH>"),
-                "native theme application smoke must preserve terminal prompt token");
+        require(object(smoke.get("tokens")).get("terminal.prompt").equals("ECHO>"),
+                "native theme application smoke must preserve native loader prompt token");
     }
 
     @SuppressWarnings("unchecked")
@@ -5455,9 +5503,9 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
             Object mainMenu = screenConstructor.newInstance("MAIN_MENU", "ashfall", 12, 3, 2, 1);
             graphics = graphicsClass.getConstructor().newInstance();
             render.invoke(mainMenu, graphics, 0, 0, 0.0F);
-            requireRenderedTextContains(graphics, "Main Menu: Ashfall native routes");
+            requireRenderedTextContains(graphics, "Main Menu: ECHO Native Loader routes");
             require(Boolean.TRUE.equals(keyPressed.invoke(mainMenu, keyEvent(keyEventClass, glfwClass, "GLFW_KEY_DOWN"))),
-                    "generated main menu screen must route Down to New Ashfall Run");
+                    "generated main menu screen must route Down to New Run");
             require(Boolean.TRUE.equals(keyPressed.invoke(mainMenu, keyEvent(keyEventClass, glfwClass, "GLFW_KEY_DOWN"))),
                     "generated main menu screen must route Down to Settings");
             require("Settings".equals(field(mainMenu, "selectedOption")),

@@ -45,6 +45,8 @@ public final class NativeLoaderGeneratedUiSources {
                 import ${minecraft}network.chat.Component;
                 import dev.echo.nativeplatform.loader.NativeLoaderScreenHostModel;
                 import dev.echo.nativeplatform.loader.NativeLoaderRenderCoreLayout;
+                import dev.echo.nativeplatform.loader.NativeLoaderTheme;
+                import dev.echo.nativeplatform.loader.NativeLoaderThemeResolver;
                 import ${bootstrapMainClass};
                 import ${uiActionRouterClass};
                 import ${uiHandlerRegistryClass};
@@ -53,13 +55,6 @@ public final class NativeLoaderGeneratedUiSources {
                 import org.lwjgl.glfw.GLFW;
 
                 public final class EchoNativeDashboardScreen extends Screen {
-                    private static final int BG = 0xE6071018;
-                    private static final int PANEL = 0xD00B1824;
-                    private static final int LINE = 0xFF28D7F4;
-                    private static final int DIM = 0xFF6C8793;
-                    private static final int TEXT = 0xFFE8F8FF;
-                    private static final int AMBER = 0xFFFFC857;
-                    private static final int GREEN = 0xFF7CFFB2;
                     private final String mode;
                     private final String packId;
                     private final int moduleCount;
@@ -102,6 +97,7 @@ public final class NativeLoaderGeneratedUiSources {
                     private String indexOutput = "search field focused";
                     private String lensOutput = "target awaiting scan";
                     private String mainMenuOutput = "";
+                    private String worldSetupOutput = "";
                     private String holomapOutput = "";
                     private String wikiOutput = "";
                     private String recoveryOutput = "Status: WAITING";
@@ -209,7 +205,7 @@ public final class NativeLoaderGeneratedUiSources {
                                 headerLines.size(),
                                 lines.size()
                         );
-                        graphics.fill(0, 0, this.width, this.height, BG);
+                        graphics.fill(0, 0, this.width, this.height, color("background"));
                         int panelW = ((Number) layout.get("panelW")).intValue();
                         int panelH = ((Number) layout.get("panelH")).intValue();
                         int x = ((Number) layout.get("x")).intValue();
@@ -218,17 +214,17 @@ public final class NativeLoaderGeneratedUiSources {
                         int bodyY = ((Number) layout.get("bodyY")).intValue();
                         int footerY = ((Number) layout.get("footerY")).intValue();
                         int bodyLinesRendered = ((Number) layout.get("bodyLinesRendered")).intValue();
-                        graphics.fill(x, y, x + panelW, y + panelH, PANEL);
-                        graphics.outline(x, y, panelW, panelH, LINE);
-                        graphics.fill(x + 1, y + 1, x + panelW - 1, y + 28, 0xAA1A0840);
-                        text(graphics, font, String.valueOf(hostModel.get("screenTitle")), x + 14, y + 10, LINE);
+                        graphics.fill(x, y, x + panelW, y + panelH, color("panel"));
+                        graphics.outline(x, y, panelW, panelH, color("line"));
+                        graphics.fill(x + 1, y + 1, x + panelW - 1, y + 28, color("panelAlt"));
+                        text(graphics, font, String.valueOf(hostModel.get("screenTitle")), x + 14, y + 10, color("identity"));
                         for (int index = 0; index < headerLines.size(); index++) {
                             text(graphics, font, headerLines.get(index), x + 14, headerStartY + (index * 20), headerColor(index));
                         }
                         for (int index = 0; index < bodyLinesRendered; index++) {
                             text(graphics, font, lines.get(index), x + 14, bodyY + (index * 20), lineColor(index, lines.size()));
                         }
-                        text(graphics, font, String.valueOf(hostModel.get("footerLine")), x + 14, footerY, LINE);
+                        text(graphics, font, String.valueOf(hostModel.get("footerLine")), x + 14, footerY, color("line"));
                     }
 
                     @Override
@@ -348,6 +344,27 @@ public final class NativeLoaderGeneratedUiSources {
                                         String.valueOf(mainMenu.get("destinationMode")),
                                         String.valueOf(mainMenu.get("destinationPreviousMode")),
                                         "generated_main_menu_selection"
+                                )) {
+                                    return false;
+                                }
+                                return true;
+                            }
+                            if ("WORLD_SETUP".equals(this.mode)) {
+                                if ("Back".equalsIgnoreCase(this.selectedOption)) {
+                                    if (!openNativeDashboardScreen("MAIN_MENU", "WORLD_SETUP", "generated_world_setup_back")) {
+                                        return false;
+                                    }
+                                    return true;
+                                }
+                                Map<String, Object> worldSetup = EchoNativeAgent5UiActionRouter.routeWorldSetupCreate();
+                                if (!Boolean.TRUE.equals(worldSetup.get("handled"))) {
+                                    return false;
+                                }
+                                this.worldSetupOutput = String.valueOf(worldSetup.get("worldSetupOutput"));
+                                if (!openNativeDashboardScreen(
+                                        String.valueOf(worldSetup.get("destinationMode")),
+                                        String.valueOf(worldSetup.get("destinationPreviousMode")),
+                                        "generated_world_setup_create"
                                 )) {
                                     return false;
                                 }
@@ -533,6 +550,8 @@ public final class NativeLoaderGeneratedUiSources {
                                     .renderHudLayer("hud", "hud.render", metadata);
                             case "MAIN_MENU" -> dev.echo.nativeplatform.contracts.EchoNativeClientRouteRegistries.get()
                                     .openSurface("main_menu", "menu.open", metadata);
+                            case "WORLD_SETUP" -> dev.echo.nativeplatform.contracts.EchoNativeClientRouteRegistries.get()
+                                    .openSurface("world_setup", "world_setup.open", metadata);
                             case "SIGNALOS" -> dev.echo.nativeplatform.contracts.EchoNativeClientRouteRegistries.get()
                                     .openSurface("signalos", "signalos.terminal", metadata);
                             default -> dev.echo.nativeplatform.contracts.EchoNativeLoadStatus.MUTATED;
@@ -748,6 +767,7 @@ public final class NativeLoaderGeneratedUiSources {
                                 Map.entry("indexOutput", this.indexOutput),
                                 Map.entry("lensOutput", this.lensOutput),
                                 Map.entry("mainMenuOutput", this.mainMenuOutput),
+                                Map.entry("worldSetupOutput", this.worldSetupOutput),
                                 Map.entry("holomapOutput", this.holomapOutput),
                                 Map.entry("wikiOutput", this.wikiOutput),
                                 Map.entry("recoveryOutput", this.recoveryOutput),
@@ -773,19 +793,24 @@ public final class NativeLoaderGeneratedUiSources {
 
                     private static int lineColor(int index, int total) {
                         if (index == 0) {
-                            return AMBER;
+                            return color("warning");
                         }
                         if (index == total - 1) {
-                            return GREEN;
+                            return color("success");
                         }
-                        return TEXT;
+                        return color("text");
                     }
 
                     private static int headerColor(int index) {
                         if (index == 1 || index == 4) {
-                            return GREEN;
+                            return color("success");
                         }
-                        return TEXT;
+                        return color("text");
+                    }
+
+                    private static int color(String key) {
+                        NativeLoaderTheme theme = NativeLoaderThemeResolver.activeTheme();
+                        return theme.color(key);
                     }
 
                     private static void text(GuiGraphicsExtractor graphics, Font font, String value, int x, int y, int color) {
@@ -840,9 +865,12 @@ public final class NativeLoaderGeneratedUiSources {
                 package dev.echo.nativeplatform.generated;
 
                 import ${minecraft}client.Minecraft;
+                import ${minecraft}client.gui.Font;
                 import ${minecraft}client.gui.GuiGraphicsExtractor;
                 import ${minecraft}client.gui.screens.Overlay;
                 import dev.echo.nativeplatform.loader.NativeLoaderLiveLoadingRenderBridge;
+                import dev.echo.nativeplatform.loader.NativeLoaderTheme;
+                import dev.echo.nativeplatform.loader.NativeLoaderThemeResolver;
 
                 public final class EchoNativeLoadingOverlayProjection extends Overlay {
                     private final Minecraft minecraft;
@@ -881,7 +909,30 @@ public final class NativeLoaderGeneratedUiSources {
 
                     @Override
                     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-                        NativeLoaderLiveLoadingRenderBridge.render(graphics, partialTick, this.ticks);
+                        NativeLoaderTheme theme = NativeLoaderThemeResolver.activeTheme();
+                        Font font = Minecraft.getInstance().font;
+                        int width = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+                        int height = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+                        float progress = Math.min(1.0F, (this.ticks + partialTick) / 88.0F);
+                        int panelW = Math.min(520, Math.max(260, width - 56));
+                        int panelH = 118;
+                        int x = (width - panelW) / 2;
+                        int y = Math.max(32, (height - panelH) / 2);
+                        graphics.fill(0, 0, width, height, theme.color("background"));
+                        graphics.fill(x, y, x + panelW, y + panelH, theme.color("panel"));
+                        graphics.outline(x, y, panelW, panelH, theme.color("line"));
+                        graphics.fill(x + 1, y + 1, x + panelW - 1, y + 24, theme.color("panelAlt"));
+                        graphics.text(font, theme.token("loadingTitle"), x + 14, y + 8, theme.color("identity"), false);
+                        graphics.text(font, theme.token("identityLabel") + "  theme=" + theme.id(), x + 14, y + 40, theme.color("text"), false);
+                        graphics.text(font, theme.token("consolePrompt") + " initializing native route table", x + 14, y + 58, theme.color("mutedText"), false);
+                        int barX = x + 14;
+                        int barY = y + 84;
+                        int barW = panelW - 28;
+                        int fillW = Math.max(6, (int) (barW * progress));
+                        graphics.fill(barX, barY, barX + barW, barY + 8, theme.color("loadingTrack"));
+                        graphics.fill(barX, barY, barX + fillW, barY + 8, theme.color("loadingFill"));
+                        graphics.text(font, Math.round(progress * 100.0F) + "%", barX, barY + 14, theme.color("warning"), false);
+                        NativeLoaderLiveLoadingRenderBridge.render(graphics, partialTick, this.ticks, progress, "native_loader");
                     }
 
                     @Override

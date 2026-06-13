@@ -46,7 +46,7 @@ public final class EchoNativeAgent5ListNavigationSmoke {
         renderedLines.addAll(lines(EchoNativeAgent5SurfaceRenderer.render("PAUSE", state(pauseUp), dataSources)));
 
         boolean passed = selectedOptions.equals(List.of(
-                "New Ashfall Run",
+                "New Run",
                 "Settings",
                 "Theme",
                 "Input Mode",

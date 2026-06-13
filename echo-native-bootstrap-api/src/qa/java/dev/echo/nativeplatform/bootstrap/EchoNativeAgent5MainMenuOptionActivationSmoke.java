@@ -11,7 +11,7 @@ public final class EchoNativeAgent5MainMenuOptionActivationSmoke {
     public static Map<String, Object> capture() {
         Map<String, Object> dataSources = EchoNativeAgent5UiHandlerRegistry.dataSources();
         Map<String, Object> continueRoute = EchoNativeAgent5UiActionRouter.routeMainMenuOption("Continue");
-        Map<String, Object> newRunRoute = EchoNativeAgent5UiActionRouter.routeMainMenuOption("New Ashfall Run");
+        Map<String, Object> newRunRoute = EchoNativeAgent5UiActionRouter.routeMainMenuOption("New Run");
         Map<String, Object> settingsRoute = EchoNativeAgent5UiActionRouter.routeMainMenuOption("Settings");
         Map<String, Object> quitRoute = EchoNativeAgent5UiActionRouter.routeMainMenuOption("Quit");
         Map<String, Object> rendered = EchoNativeAgent5SurfaceRenderer.render("MAIN_MENU", Map.of(
@@ -40,9 +40,9 @@ public final class EchoNativeAgent5MainMenuOptionActivationSmoke {
 
         boolean passed = List.of(continueRoute, newRunRoute, settingsRoute, quitRoute).stream()
                 .allMatch(route -> Boolean.TRUE.equals(route.get("handled")))
-                && selectedOptions.equals(List.of("Continue", "New Ashfall Run", "Settings", "Quit"))
-                && destinations.equals(List.of("WIKI", "MISSION_LOG", "SETTINGS", "MAIN_MENU"))
-                && effects.equals(List.of("main_menu:continue", "main_menu:new_run", "main_menu:settings", "main_menu:quit_requested"))
+                && selectedOptions.equals(List.of("Continue", "New Run", "Settings", "Quit"))
+                && destinations.equals(List.of("WIKI", "WORLD_SETUP", "SETTINGS", "MAIN_MENU"))
+                && effects.equals(List.of("main_menu:continue", "main_menu:new_run_world_setup", "main_menu:settings", "main_menu:quit_requested"))
                 && Boolean.TRUE.equals(quitRoute.get("quitRequested"))
                 && lines(rendered).stream().anyMatch(line -> line.contains("Selected: Settings"))
                 && lines(rendered).stream().anyMatch(line -> line.contains("Action: Settings selected: opening Settings"));

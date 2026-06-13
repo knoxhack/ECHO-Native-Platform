@@ -26,7 +26,7 @@ public final class EchoNativeAgent5LiveModuleSurfaceCatalogAcceptance {
         boolean pause = accepts(catalog, "echoscreencore", "EchoNativePauseSurfaceRenderer", "pause:resume:WIKI", "Pause: previous screen WIKI");
         boolean recovery = accepts(catalog, "echoscreencore", "EchoNativeRecoverySurfaceRenderer", "recovery:recover", "Status: RECOVERED");
         boolean mainMenu = accepts(catalog, "echoscreencore", "EchoNativeMainMenuSurfaceRenderer",
-                "main_menu:surface", "Main Menu: Ashfall native routes");
+                "main_menu:surface", "Main Menu: ECHO Native Loader routes");
         boolean hud = accepts(catalog, "echohudcore", "EchoNativeHudSurfaceRenderer", "echohudcore:hud",
                 "HUD: Health " + EchoNativeAgent5UiExpectedValues.hud().get("health"));
         boolean accepted = terminal && index && lens && holomap && wiki && mission && settings && pause && recovery && mainMenu && hud;

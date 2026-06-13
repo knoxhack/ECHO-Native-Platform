@@ -77,7 +77,7 @@ public final class EchoNativeAgent5MainMenuEndToEndAcceptanceSmoke {
     private static Map<String, Object> withoutQuit(Map<String, Object> options) {
         Map<String, Object> copy = new LinkedHashMap<>(options);
         copy.put("quitRequested", false);
-        copy.put("effects", List.of("main_menu:continue", "main_menu:new_run", "main_menu:settings", ""));
+        copy.put("effects", List.of("main_menu:continue", "main_menu:new_run_world_setup", "main_menu:settings", ""));
         copy.put("passed", false);
         return Map.copyOf(copy);
     }

@@ -723,7 +723,7 @@ public final class NativeLoaderRuntimeBridgeAggregator {
     private static boolean isClientUiRegistry(String registry) {
         return switch (registry) {
             case "ui_surface", "ui_overlay", "hud", "hud_widget", "hud_layout",
-                    "screen", "screen_surface", "client_overlay", "loading_screen", "main_menu",
+                    "screen", "screen_surface", "client_overlay", "loading_screen", "main_menu", "world_setup",
                     "terminal", "index", "lens", "holomap", "holo_map", "minimap", "theme" -> true;
             default -> false;
         };
@@ -784,6 +784,7 @@ public final class NativeLoaderRuntimeBridgeAggregator {
             case "screen", "screen_surface" -> registry;
             case "loading_screen" -> "loading_screen";
             case "main_menu" -> "main_menu";
+            case "world_setup", "worldsetup", "world_creation", "worldcreation" -> "world_setup";
             case "terminal" -> "terminal";
             case "index" -> "index";
             case "lens" -> "lens";

@@ -74,7 +74,7 @@ public final class EchoNativeAgent5LiveInputFocusRoutingAcceptance {
         boolean listAccepted = Boolean.TRUE.equals(list.get("passed"))
                 && "EchoNativeAgent5ListNavigationSmoke".equals(list.get("listNavigationSmokeClass"))
                 && strings(list, "selectedOptions").equals(List.of(
-                "New Ashfall Run",
+                "New Run",
                 "Settings",
                 "Theme",
                 "Input Mode",
