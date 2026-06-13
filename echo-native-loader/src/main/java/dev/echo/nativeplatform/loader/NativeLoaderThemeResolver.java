@@ -43,6 +43,16 @@ public final class NativeLoaderThemeResolver {
         return theme;
     }
 
+    public static NativeLoaderTheme useEarlyLoadingTheme() {
+        NativeLoaderTheme theme = NativeLoaderTheme.builtIn(
+                NativeLoaderThemeMode.LOADER_DEFAULT,
+                "built_in_early_loading",
+                themeCoreAvailable(safeClassLoader())
+        );
+        lastTheme = theme;
+        return theme;
+    }
+
     public static NativeLoaderTheme activeTheme() {
         return lastTheme == null ? refresh() : lastTheme;
     }

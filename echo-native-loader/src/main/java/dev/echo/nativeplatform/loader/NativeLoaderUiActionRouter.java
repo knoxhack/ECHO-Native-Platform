@@ -3,6 +3,7 @@ package dev.echo.nativeplatform.loader;
 import dev.echo.nativeplatform.contracts.EchoNativeClientRouteRegistries;
 import dev.echo.nativeplatform.contracts.EchoNativeLoadStatus;
 
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,7 @@ import java.util.function.Supplier;
 
 public final class NativeLoaderUiActionRouter {
     public static final String SERVICE_ID = "echo.native.ui_action_router";
+    public static final String WORLD_SETUP_GAME_DIR_PROPERTY = "echo.native.gameDir";
     private static volatile Context context = Context.empty();
 
     private NativeLoaderUiActionRouter() {
@@ -322,26 +324,97 @@ public final class NativeLoaderUiActionRouter {
 
     public static Map<String, Object> routeWorldSetupCreate() {
         NativeLoaderClientUiHost.seedBuiltInProductRoutes();
+        Map<String, Object> worldSetupEvidence = worldSetupCreateEvidence();
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("source", "native_loader_generated_world_setup");
         metadata.put("eventType", "generated_world_setup_create");
         metadata.put("nativeRouteOwner", "EchoNativeClientRouteRegistries");
         metadata.put("neoForgeEventOwnershipRequired", false);
+        metadata.putAll(worldSetupEvidence);
         EchoNativeLoadStatus status = EchoNativeClientRouteRegistries.get()
                 .dispatchStatus("world_setup", "world_setup.create", Map.copyOf(metadata));
         if (status != EchoNativeLoadStatus.MUTATED) {
             return ignored("world_setup:native-route-unavailable:world_setup.create");
         }
-        return handled(Map.of(
-                "destinationMode", "MISSION_LOG",
-                "destinationPreviousMode", "WORLD_SETUP",
-                "worldSetupOutput", "Native Loader owned world setup accepted",
-                "nativeRouteActionId", "world_setup.create",
-                "nativeRouteStatus", status.name(),
-                "nativeRouteOwner", "EchoNativeClientRouteRegistries",
-                "neoForgeEventOwnershipRequired", false,
-                "effect", "world_setup:create"
-        ));
+        boolean blocked = Boolean.TRUE.equals(worldSetupEvidence.get("worldSetupBlocked"));
+        boolean dispatchRecorded = Boolean.TRUE.equals(worldSetupEvidence.get("nativeProductWorldOpenDispatchRecorded"));
+        String action = String.valueOf(worldSetupEvidence.getOrDefault("worldSetupStartupAction", ""));
+        String failureKind = String.valueOf(worldSetupEvidence.getOrDefault("worldSetupFailureKind", ""));
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("destinationMode", blocked || !dispatchRecorded ? "WORLD_SETUP" : "MISSION_LOG");
+        result.put("destinationPreviousMode", "WORLD_SETUP");
+        result.put("worldSetupOutput", blocked || !dispatchRecorded
+                ? "Native Loader world setup blocked: " + failureKind
+                : "Native Loader owned world setup prepared: " + action);
+        result.put("nativeRouteActionId", "world_setup.create");
+        result.put("nativeRouteStatus", status.name());
+        result.put("nativeRouteOwner", "EchoNativeClientRouteRegistries");
+        result.put("neoForgeEventOwnershipRequired", false);
+        result.put("effect", "world_setup:create");
+        result.putAll(worldSetupEvidence);
+        return handled(Map.copyOf(result));
+    }
+
+    private static Map<String, Object> worldSetupCreateEvidence() {
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("nativeLoaderOwnedWorldPolicy", true);
+        evidence.put("forcedWorldPreset", NativeLoaderAshfallWorldStartupService.WORLD_PRESET_ID);
+        evidence.put("vanillaWorldCreationFallbackAllowed", false);
+        Path gameDir = worldSetupGameDir();
+        evidence.put("worldSetupGameDirProperty", WORLD_SETUP_GAME_DIR_PROPERTY);
+        evidence.put("worldSetupGameDir", gameDir == null ? "" : gameDir.toString());
+        if (gameDir == null) {
+            evidence.put("worldSetupPrepared", false);
+            evidence.put("worldSetupBlocked", true);
+            evidence.put("worldSetupFailureKind", "missing_game_dir");
+            evidence.put("worldSetupSummary", "Native Loader cannot prepare a product world without echo.native.gameDir.");
+            return Map.copyOf(evidence);
+        }
+        try {
+            NativeLoaderAshfallWorldStartupService.StartupPlan plan =
+                    NativeLoaderAshfallWorldStartupService.prepare(gameDir);
+            Map<String, Object> planReport = plan.toReport();
+            boolean blocked = plan.action() == NativeLoaderAshfallWorldStartupService.StartupAction.BLOCKED;
+            boolean dispatchRecorded = false;
+            if (!blocked) {
+                dispatchRecorded = NativeLoaderAshfallWorldStartupService.recordProductWorldOpenDispatch(
+                        plan,
+                        "NativeLoaderWorldSetup.create"
+                );
+            }
+            evidence.put("worldSetupPrepared", !blocked);
+            evidence.put("worldSetupBlocked", blocked);
+            evidence.put("worldSetupStartupAction", plan.action().name());
+            evidence.put("worldSetupFailureKind", plan.failureKind());
+            evidence.put("worldSetupPlan", planReport);
+            evidence.put("worldSetupSaveDir", plan.saveDir().toString());
+            evidence.put("worldSetupStagedDatapack", plan.stagedDatapack().toString());
+            evidence.put("worldSetupProductWorldMarker", plan.marker().toString());
+            evidence.put("nativeProductWorldOpenDispatchRecorded", dispatchRecorded);
+            evidence.put("nativeProductWorldOpenDispatchMarker", blocked
+                    ? ""
+                    : plan.saveDir().resolve(NativeLoaderAshfallWorldStartupService.PRODUCT_WORLD_OPEN_MARKER).toString());
+            evidence.put("worldSetupLiveProductWorldEvidence",
+                    NativeLoaderAshfallWorldStartupService.liveProductWorldEvidence(gameDir, false, false));
+            evidence.put("worldSetupSummary", blocked
+                    ? "Native Loader blocked product world setup before vanilla world creation."
+                    : "Native Loader prepared product world setup and recorded the owned open dispatch.");
+        } catch (Throwable exception) {
+            evidence.put("worldSetupPrepared", false);
+            evidence.put("worldSetupBlocked", true);
+            evidence.put("worldSetupFailureKind", exception.getClass().getSimpleName());
+            evidence.put("worldSetupFailureMessage", exception.getMessage() == null ? "" : exception.getMessage());
+            evidence.put("worldSetupSummary", "Native Loader failed while preparing product world setup.");
+        }
+        return Map.copyOf(evidence);
+    }
+
+    private static Path worldSetupGameDir() {
+        String configured = System.getProperty(WORLD_SETUP_GAME_DIR_PROPERTY, "");
+        if (configured == null || configured.isBlank()) {
+            return null;
+        }
+        return Path.of(configured.trim()).toAbsolutePath().normalize();
     }
 
     public static Map<String, Object> routeHudUpdate(Map<String, Object> state) {

@@ -191,6 +191,10 @@ public final class EchoNativeBootstrapMain {
         return EchoNativeBootstrapOrchestrator.executeNativeSurfaceOpenFromUi(surface, effect);
     }
 
+    public static Map<String, Object> openOrCreateProductWorldFromUi(Object minecraft, Object parentScreen) {
+        return EchoNativeLiveUiBridge.openOrCreateProductWorldFromUi(minecraft, parentScreen);
+    }
+
     public static Map<String, Object> executeNativeMachineSurfaceOpenFromGameplay(Map<String, Object> context) {
         return EchoNativeBootstrapOrchestrator.executeNativeMachineSurfaceOpenFromGameplay(context);
     }

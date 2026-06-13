@@ -1,6 +1,7 @@
 package dev.echo.nativeplatform.bootstrap;
 
 import dev.echo.nativeplatform.loader.NativeLoaderJsonSupport;
+import dev.echo.nativeplatform.loader.NativeLoaderAshfallWorldStartupService;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -300,6 +301,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         requireNativeUiHostInteractionSmokeExecutes();
         requireNativeMainMenuOverrideSmokeExecutes();
         requireNativeMainMenuEndToEndAcceptanceSmokeExecutes();
+        requireNativeWorldSetupCreateAcceptanceSmokeExecutes();
         requireNativeHudOverlaySmokeExecutes();
         requireNativeHudOverlayEndToEndAcceptanceSmokeExecutes();
         requireNativeHotkeyBridgeSmokeExecutes();
@@ -4448,6 +4450,33 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native main-menu end-to-end acceptance must reject missing Quit Request handling");
     }
 
+    private static void requireNativeWorldSetupCreateAcceptanceSmokeExecutes() {
+        Map<String, Object> smoke = EchoNativeAgent5WorldSetupCreateAcceptanceSmoke.capture();
+        require(Boolean.TRUE.equals(smoke.get("serviceCodeExecuted")),
+                "native world setup create acceptance smoke must execute service code");
+        require(Boolean.TRUE.equals(smoke.get("passed")),
+                "native world setup create acceptance smoke must pass owned world preparation checks");
+        require("EchoNativeAgent5WorldSetupCreateAcceptanceSmoke".equals(
+                        smoke.get("worldSetupCreateAcceptanceSmokeClass")),
+                "native world setup create acceptance smoke must identify its executable class");
+        require(Boolean.TRUE.equals(smoke.get("productWorldMarkerWritten")),
+                "native world setup create acceptance smoke must write the product world marker");
+        require(Boolean.TRUE.equals(smoke.get("productWorldOpenDispatchWritten")),
+                "native world setup create acceptance smoke must write the product world open dispatch marker");
+        require(Boolean.TRUE.equals(smoke.get("stagedDatapackReady")),
+                "native world setup create acceptance smoke must stage a valid product datapack");
+        require(Boolean.TRUE.equals(smoke.get("nativeLoaderOwnedWorldPolicy"))
+                        && Boolean.FALSE.equals(smoke.get("vanillaWorldCreationFallbackAllowed"))
+                        && NativeLoaderAshfallWorldStartupService.WORLD_PRESET_ID.equals(smoke.get("forcedWorldPreset")),
+                "native world setup create acceptance smoke must preserve Native Loader-owned world policy");
+        Map<String, Object> route = object(smoke.get("route"));
+        require(Boolean.TRUE.equals(route.get("worldSetupPrepared"))
+                        && Boolean.TRUE.equals(route.get("nativeProductWorldOpenDispatchRecorded"))
+                        && "CREATE_NEW".equals(route.get("worldSetupStartupAction"))
+                        && "MISSION_LOG".equals(route.get("destinationMode")),
+                "native world setup create route must carry create/open preparation evidence");
+    }
+
     private static void requireNativeHudOverlaySmokeExecutes() {
         Map<String, Object> smoke = EchoNativeAgent5HudOverlaySmoke.capture(
                 true,
@@ -5000,6 +5029,15 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "native theme application smoke must render the theme through terminal output");
         require(object(smoke.get("tokens")).get("terminal.prompt").equals("ECHO>"),
                 "native theme application smoke must preserve native loader prompt token");
+        Map<String, Object> resolverScenarios = object(smoke.get("resolverScenarios"));
+        require(Boolean.TRUE.equals(resolverScenarios.get("invalidThemeIdFallsBack")),
+                "native theme resolver must fall back to built-in theme for invalid loader_default theme ids");
+        require(Boolean.TRUE.equals(resolverScenarios.get("systemPropertiesOverrideProfile")),
+                "native theme resolver system properties must override profile defaults");
+        require(Boolean.TRUE.equals(resolverScenarios.get("loaderDefaultIgnoresThemeCoreResource")),
+                "native theme resolver loader_default mode must ignore ThemeCore-compatible resource themes");
+        require(Boolean.TRUE.equals(resolverScenarios.get("modpackUsesThemeCoreResource")),
+                "native theme resolver modpack mode must use ThemeCore-compatible resource theme data");
     }
 
     @SuppressWarnings("unchecked")
@@ -5695,6 +5733,9 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "generated screen must route mission log updates");
         require(source.contains("EchoNativeAgent5UiActionRouter.routeMainMenuOption"),
                 "generated screen must route main-menu option activation");
+        require(source.contains("EchoNativeAgent5UiActionRouter.routeWorldSetupCreate")
+                        && source.contains("EchoNativeBootstrapMain.openOrCreateProductWorldFromUi"),
+                "generated screen must route world setup create into the native product world open flow");
         require(source.contains("EchoNativeAgent5UiActionRouter.routeInitialFocus"),
                 "generated screen must route initial keyboard focus");
         require(source.contains("EchoNativeAgent5UiActionRouter.routeHudUpdate"),

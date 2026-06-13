@@ -2206,11 +2206,33 @@ public final class NativeLoaderClientUiHost {
             next.put("createRequested", true);
             next.put("createCount", intValue(previous.get("createCount")) + 1);
             putIfPresent(next, "createSource", metadata.get("source"));
+            copyWorldSetupEvidence(next, metadata);
         }
         if ("back".equals(command)) {
             next.put("backRequested", true);
         }
         next.put("renderModel", worldSetupRenderModel(next));
+    }
+
+    private static void copyWorldSetupEvidence(Map<String, Object> next, Map<String, Object> metadata) {
+        for (String key : List.of(
+                "worldSetupPrepared",
+                "worldSetupBlocked",
+                "worldSetupStartupAction",
+                "worldSetupFailureKind",
+                "worldSetupFailureMessage",
+                "worldSetupSummary",
+                "worldSetupGameDir",
+                "worldSetupSaveDir",
+                "worldSetupStagedDatapack",
+                "worldSetupProductWorldMarker",
+                "nativeProductWorldOpenDispatchRecorded",
+                "nativeProductWorldOpenDispatchMarker",
+                "worldSetupPlan",
+                "worldSetupLiveProductWorldEvidence"
+        )) {
+            putIfPresent(next, key, metadata.get(key));
+        }
     }
 
     private static Map<String, Object> menuRenderModel(Map<String, Object> state) {
@@ -2272,6 +2294,20 @@ public final class NativeLoaderClientUiHost {
         model.put("nativeLoaderOwnedWorldPolicy", Boolean.TRUE.equals(state.get("nativeLoaderOwnedWorldPolicy")));
         model.put("vanillaWorldCreationFallbackAllowed",
                 Boolean.TRUE.equals(state.get("vanillaWorldCreationFallbackAllowed")));
+        model.put("worldSetupPrepared", Boolean.TRUE.equals(state.get("worldSetupPrepared")));
+        model.put("worldSetupBlocked", Boolean.TRUE.equals(state.get("worldSetupBlocked")));
+        model.put("worldSetupStartupAction", text(state.get("worldSetupStartupAction")));
+        model.put("worldSetupFailureKind", text(state.get("worldSetupFailureKind")));
+        model.put("worldSetupSummary", text(state.get("worldSetupSummary")));
+        model.put("worldSetupGameDir", text(state.get("worldSetupGameDir")));
+        model.put("worldSetupSaveDir", text(state.get("worldSetupSaveDir")));
+        model.put("worldSetupStagedDatapack", text(state.get("worldSetupStagedDatapack")));
+        model.put("worldSetupProductWorldMarker", text(state.get("worldSetupProductWorldMarker")));
+        model.put("nativeProductWorldOpenDispatchRecorded",
+                Boolean.TRUE.equals(state.get("nativeProductWorldOpenDispatchRecorded")));
+        model.put("nativeProductWorldOpenDispatchMarker", text(state.get("nativeProductWorldOpenDispatchMarker")));
+        putIfPresent(model, "worldSetupPlan", state.get("worldSetupPlan"));
+        putIfPresent(model, "worldSetupLiveProductWorldEvidence", state.get("worldSetupLiveProductWorldEvidence"));
         model.putAll(theme.evidence());
         return Map.copyOf(model);
     }

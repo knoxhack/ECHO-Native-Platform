@@ -361,6 +361,27 @@ public final class NativeLoaderGeneratedUiSources {
                                     return false;
                                 }
                                 this.worldSetupOutput = String.valueOf(worldSetup.get("worldSetupOutput"));
+                                if (Boolean.TRUE.equals(worldSetup.get("nativeProductWorldOpenDispatchRecorded"))) {
+                                    Map<String, Object> liveOpen =
+                                            EchoNativeBootstrapMain.openOrCreateProductWorldFromUi(
+                                                    Minecraft.getInstance(),
+                                                    this
+                                            );
+                                    if (Boolean.TRUE.equals(liveOpen.get("worldSetupLiveOpenDispatched"))) {
+                                        this.worldSetupOutput =
+                                                String.valueOf(liveOpen.get("worldSetupLiveOpenSummary"));
+                                        return true;
+                                    }
+                                    this.worldSetupOutput = this.worldSetupOutput
+                                            + " | live open pending: "
+                                            + String.valueOf(liveOpen.getOrDefault(
+                                                    "worldSetupLiveOpenFailureMessage",
+                                                    liveOpen.getOrDefault(
+                                                            "worldSetupLiveOpenSummary",
+                                                            "dispatcher unavailable"
+                                                    )
+                                            ));
+                                }
                                 if (!openNativeDashboardScreen(
                                         String.valueOf(worldSetup.get("destinationMode")),
                                         String.valueOf(worldSetup.get("destinationPreviousMode")),

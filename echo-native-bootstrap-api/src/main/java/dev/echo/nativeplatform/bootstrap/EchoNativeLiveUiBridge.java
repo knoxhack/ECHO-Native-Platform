@@ -710,6 +710,49 @@ final class EchoNativeLiveUiBridge {
         return false;
     }
 
+    static Map<String, Object> openOrCreateProductWorldFromUi(Object minecraft, Object parentScreen) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("worldSetupLiveOpenAttempted", true);
+        result.put("worldSetupLiveOpenOwner", "NativeLoaderAshfallWorldStartupService");
+        result.put("worldSetupLiveOpenInvoker", "EchoNativeDashboardScreen");
+        if (minecraft == null) {
+            result.put("worldSetupLiveOpenDispatched", false);
+            result.put("worldSetupLiveOpenFailureKind", "missing_minecraft");
+            result.put("worldSetupLiveOpenFailureMessage", "Minecraft instance was not available.");
+            return Map.copyOf(result);
+        }
+        try {
+            Class<?> minecraftClass = minecraft.getClass();
+            Class<?> dispatcherClass = Class.forName(
+                    "com.knoxhack.echoashfallprotocol.client.screen.EchoNativeAshfallWorldOpenDispatcher",
+                    true,
+                    EchoNativeBootstrapMain.nativeClientModuleClassLoader()
+            );
+            Class<?> vanillaScreenClass = Class.forName(runtimeClass("client.gui.screens.Screen"));
+            Object safeParent = vanillaScreenClass.isInstance(parentScreen) ? parentScreen : null;
+            Object dispatched = dispatcherClass.getMethod(
+                    "openOrCreateProductWorldFromNativeLoader",
+                    minecraftClass,
+                    vanillaScreenClass
+            ).invoke(null, minecraft, safeParent);
+            boolean accepted = Boolean.TRUE.equals(dispatched);
+            result.put("worldSetupLiveOpenDispatched", accepted);
+            result.put("worldSetupLiveOpenDispatcherClass", dispatcherClass.getName());
+            result.put("worldSetupLiveOpenParentScreenClass",
+                    safeParent == null ? "" : safeParent.getClass().getName());
+            result.put("worldSetupLiveOpenSummary", accepted
+                    ? "Native Loader dispatched the product world open/create flow from WORLD_SETUP."
+                    : "Native Loader product world dispatcher declined the WORLD_SETUP request.");
+        } catch (Throwable exception) {
+            result.put("worldSetupLiveOpenDispatched", false);
+            result.put("worldSetupLiveOpenFailureKind", exception.getClass().getSimpleName());
+            result.put("worldSetupLiveOpenFailureMessage", failureMessage(exception));
+            result.put("worldSetupLiveOpenSummary",
+                    "Native Loader could not dispatch product world open/create from WORLD_SETUP.");
+        }
+        return Map.copyOf(result);
+    }
+
     private static void run(
             Path markerPath,
             String packId,
@@ -1279,7 +1322,8 @@ final class EchoNativeLiveUiBridge {
         bridge.put("nativeLoadingRendererClasses", EchoNativeBootstrapMain.nativeClientLoadingRendererClassNames());
         bridge.put("nativeLoadingOverlayUsesBuiltInFallbackRenderer",
                 EchoNativeBootstrapMain.nativeClientLoadingRendererClassNames().isEmpty());
-        bridge.putAll(NativeLoaderThemeResolver.refresh().evidence());
+        NativeLoaderThemeResolver.useEarlyLoadingTheme();
+        bridge.putAll(NativeLoaderThemeResolver.activeThemeEvidence());
         try {
             Object currentOverlay = minecraft.getClass().getMethod("getOverlay").invoke(minecraft);
             if (currentOverlay != null && LOADING_OVERLAY_CLASS_NAME.equals(currentOverlay.getClass().getName())) {
