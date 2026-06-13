@@ -985,6 +985,15 @@ tasks.register('runNativeMutationTruthGate', JavaExec) {
     workingDir = rootProject.projectDir
 }
 
+tasks.register('runNativeLoaderClientEntrypointGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies the public Minecraft Launcher main class shim exists, redacts secrets, and delegates to the real client main.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeLoaderClientEntrypointGateMain'
+    workingDir = rootProject.projectDir
+}
+
 tasks.register('prepareNativeCoreModuleLoadStateClasses', Exec) {
     group = 'verification'
     description = 'Compiles the real repo core module classes consumed as Native Loader nativeClasspath entries.'
@@ -1186,6 +1195,7 @@ tasks.named('check') {
     dependsOn 'runNativeDependencyResolutionGate'
     dependsOn 'runNativeServiceCollisionGate'
     dependsOn 'runNativeMutationTruthGate'
+    dependsOn 'runNativeLoaderClientEntrypointGate'
     dependsOn 'runNativeCoreModuleLoadStateSmoke'
     dependsOn 'runNativeAllBridgeableModuleLoadStateSmoke'
     dependsOn 'runNativeAllBridgeableModuleArtifactLoadStateSmoke'

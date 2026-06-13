@@ -12,6 +12,12 @@ This document locks the Native SDK package boundary for addon authors and runtim
 | `echo-native-testkit` | Test-only fake hosts, parity assertions, module fixtures | Allowed in test/QA source sets only |
 | `echo-native-loader` | Native Loader implementation | Not allowed as an addon dependency |
 
+## Runtime Launch Shim
+
+Native pack launcher metadata may use `com.echo.NativeLoaderClient` as the Minecraft Launcher `mainClass` for the Native Loader handoff. That class is a runtime launch shim, not an addon API. Addons must not import it, compile against `echo-native-loader`, or call loader implementation classes directly.
+
+The shim is stable for the `1.0.0-RC1` launcher handoff contract and delegates to `net.minecraft.client.main.Main` by default. It redacts launcher secrets such as access tokens, UUIDs, usernames, XUIDs, client IDs, and user properties from startup logs while passing the original arguments unchanged to the Minecraft client.
+
 ## Stability Markers
 
 Native SDK types use `@EchoNativeApiStatus` with `EchoNativeApiStability`.
