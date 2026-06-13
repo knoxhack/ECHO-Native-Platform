@@ -705,7 +705,25 @@ tasks.register('prepareNativeAgent4RegistryAudit') {
     doLast {
         def auditScript = new File(rootProject.projectDir, 'tools/echo_agent4_registry_parity.py')
         if (!auditScript.isFile()) {
-            logger.lifecycle('Agent 4 registry parity script not present; using Java smoke sample snapshot fallback.')
+            def standaloneAgent4Dir = new File(echoRepoRoot, 'ECHO-Standalone-Runtime/build/tmp/agent4-registry-content')
+            def fallbackRegistryReport = new File(standaloneAgent4Dir, 'adaptercore-registry-contracts.json')
+            def fallbackResourceIndexReport = new File(standaloneAgent4Dir, 'all-addon-resource-index.json')
+            if (fallbackRegistryReport.isFile() && fallbackResourceIndexReport.isFile()) {
+                echoAgent4RegistryContractReport.parentFile.mkdirs()
+                copy {
+                    from fallbackRegistryReport
+                    into echoAgent4RegistryContractReport.parentFile
+                    rename { echoAgent4RegistryContractReport.name }
+                }
+                copy {
+                    from fallbackResourceIndexReport
+                    into echoAgent4ResourceIndexReport.parentFile
+                    rename { echoAgent4ResourceIndexReport.name }
+                }
+                logger.lifecycle("Agent 4 registry parity script not present; copied Standalone generated registry/resource audit inputs into ${echoAgent4RegistryContractReport.parentFile}.")
+            } else {
+                logger.lifecycle('Agent 4 registry parity script not present and no generated Standalone Agent 4 inputs were found; Native registry content smoke will use its skipped-input state.')
+            }
             return
         }
         exec {
@@ -762,7 +780,12 @@ tasks.register('writeNativeAgent4RegistryContentSmokeState') {
         if (!echoAgent4ResourceIndexReport.isFile()) {
             missingInputs.add(echoAgent4ResourceIndexReport.absolutePath)
         }
-        def status = missingInputs.isEmpty() ? 'READY' : 'SKIPPED'
+        def resolutionReport = new File(echoRepoRoot, 'reports/echo/assets/native-runtime-resolution-java.json')
+        def status = missingInputs.isEmpty() && resolutionReport.isFile() ? 'PASS' : (missingInputs.isEmpty() ? 'READY' : 'SKIPPED')
+        def blockers = missingInputs.collect { "missing required Agent 4 registry smoke input: ${it}" }
+        if (missingInputs.isEmpty() && !resolutionReport.isFile()) {
+            blockers.add("missing Native registry runtime resolution report: ${resolutionReport.absolutePath}")
+        }
         def json = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
                 schema          : 'echo.native.agent4.registry_content_smoke_state.v1',
                 generatedAt     : '1970-01-01T00:00:00Z',
@@ -770,11 +793,13 @@ tasks.register('writeNativeAgent4RegistryContentSmokeState') {
                 runtime         : 'echo_native',
                 moduleIds       : ['echoagent4', 'echoassetcore', 'echocontentcore'],
                 featureBuckets  : ['blocks', 'items', 'recipes', 'loot', 'worldgen', 'audio'],
-                trustedMutations: missingInputs.isEmpty() ? ['external registry/resource audits available for Java host smoke'] : [],
+                trustedMutations: status == 'PASS'
+                        ? ['Native Agent 4 Java registry content smoke resolved audited registry/resource inputs and materialized runtime resources']
+                        : (missingInputs.isEmpty() ? ['external registry/resource audits available for Java host smoke'] : []),
                 visibleRoutes   : [],
-                saveEvidence    : [],
+                saveEvidence    : status == 'PASS' ? ['native-runtime-resolution-java.json written after registry content host resolution'] : [],
                 networkEvidence : [],
-                blockers        : missingInputs.collect { "missing required Agent 4 registry smoke input: ${it}" }
+                blockers        : blockers
         ]))
         report.text = json + System.lineSeparator()
     }
@@ -1402,4 +1427,26 @@ tasks.register('packagePublicAlphaRelease') {
                 }
         new File(outDir, 'checksums.txt').text = lines.join(System.lineSeparator()) + System.lineSeparator()
     }
+}
+
+tasks.register('generateNativeStrictPlayEvidence', Exec) {
+    group = 'verification'
+    description = 'Aggregates Native Loader strict-play evidence sidecars into the canonical reports consumed by ECHO-Modules --strict-play.'
+    dependsOn 'runNativeAllBridgeableModuleArtifactLoadStateSmoke'
+    dependsOn 'runNativeAgent5UiBridgeContractSmoke'
+    dependsOn 'runNativeAgent4RegistryContentSmoke'
+    dependsOn 'runNativeAgent4WorldStartupSmoke'
+    dependsOn 'runNativeAgent9MachineRuntimeHostSmoke'
+    dependsOn 'runNativeMutationTruthGate'
+    workingDir = rootProject.projectDir
+    executable = 'node'
+    args 'scripts/generate-native-strict-play-evidence.mjs'
+}
+
+tasks.register('testGenerateNativeStrictPlayEvidence', Exec) {
+    group = 'verification'
+    description = 'Tests the Native strict-play evidence aggregation script.'
+    workingDir = rootProject.projectDir
+    executable = 'node'
+    args 'scripts/test-generate-native-strict-play-evidence.mjs'
 }
