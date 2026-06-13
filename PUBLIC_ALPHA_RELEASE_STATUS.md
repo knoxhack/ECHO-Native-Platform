@@ -10,9 +10,12 @@ Current local artifacts:
 
 - `build/public-alpha/echo-native-platform-1.0.0-RC1.zip`
 - `build/public-alpha/echo-native-loader-1.0.0.jar`
+- `build/public-alpha/native-loader-direct-install.json`
 - SHA-256 values are recorded in `build/public-alpha/checksums.txt` for the current local build.
 
 The ZIP is a Native Platform loader/runtime package only. It must not include pack profiles, modpack manifests, `modules/`, or pack-owned module jars.
+
+The jar is the direct Native Loader library for developers and users who do not install through ECHO Launcher. It must not be published as a pack module, listed under `modules/`, or bundled into pack-owned content. `native-loader-direct-install.json` records that artifact role and the manual-install coordinates.
 
 Canonical gate document:
 

@@ -41,6 +41,13 @@ Run commands from the repository root.
 
 Native platform runtime binaries and platform metadata belong here. Native pack releases belong to `ECHO-Ashfall-Native-Edition`.
 
+The Native Platform release owns two runtime-facing artifacts for RC1:
+
+- `echo-native-platform-1.0.0-RC1.zip` is the launcher-facing platform package.
+- `echo-native-loader-1.0.0.jar` is the direct Native Loader library for developers and users who do not use ECHO Launcher.
+
+`native-loader-direct-install.json` declares the direct jar as `artifactRole: native-loader-library` with `manualInstall: true`. The jar is not a `.echo-addon`, not pack content, and not a module dependency. Pack/module files still ship from pack or module releases.
+
 ## Release Index Product Routing
 
 Runtime update metadata is routed through the canonical Release Index product entry `echo-native-platform`. Run `node scripts/verify-release-index-product.mjs` to audit the indexed product record, add `--check-urls` to prove indexed GitHub artifact URLs are reachable, or add `--strict` in release gates once the entry has approved artifacts. The Gradle gate accepts `-PechoReleaseIndexCheckUrls=true` or `ECHO_RELEASE_INDEX_CHECK_URLS=true` for the same live URL check.

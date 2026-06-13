@@ -10,6 +10,7 @@ This checklist is the release-candidate contract for promoting ECHO Native towar
 | Stable target | `1.0.0` after all gates pass |
 | Runtime artifact | `echo-native-platform-1.0.0-RC1.zip` loader/runtime archive only |
 | Native Loader launcher library | `echo-native-loader-1.0.0.jar` |
+| Native Loader direct-install descriptor | `native-loader-direct-install.json` |
 | Addon artifact | `<module>-<version>.echo-addon` |
 | Descriptor | `META-INF/echo.mod.json` |
 | Launcher channel | RC/pre-release until stable gates pass |
@@ -38,6 +39,9 @@ Addon authors may compile against:
 - Release Index marks player installs locked while pack readiness is `warning` or `blocked`.
 - RC1 artifact has checksums, source jars, Javadocs, provenance or attestation, release notes, and rollback instructions.
 - Native Platform runtime archive contains no `echo.pack.json`, no `echo-native-product-package.json`, no `modules/`, and no pack-owned module jars.
+- Native Loader direct jar contains `com/echo/NativeLoaderClient.class` and `dev/echo/nativeplatform/loader/NativeLoaderCoreServiceRegistrar.class`.
+- `native-loader-direct-install.json` marks `echo-native-loader-1.0.0.jar` as `artifactRole: native-loader-library`, `manualInstall: true`, `developerDirectDownload: true`, `moduleArtifact: false`, and `packContent: false`.
+- Release Index and launcher catalogs must not list `echo-native-loader-1.0.0.jar` under pack modules, module dependencies, or pack content requirements.
 
 ## Stable Release Blockers
 

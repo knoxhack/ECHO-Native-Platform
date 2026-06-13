@@ -1438,11 +1438,63 @@ tasks.register('packagePublicAlphaRelease') {
         if (!nativeLoaderJar.isFile()) {
             throw new GradleException("Cannot stage Native Loader RC library; missing ${nativeLoaderJar}.")
         }
+        def stagedNativeLoaderJar = new File(outDir, 'echo-native-loader-1.0.0.jar')
         copy {
             from nativeLoaderJar
             into outDir
             rename { 'echo-native-loader-1.0.0.jar' }
         }
+        if (!stagedNativeLoaderJar.isFile()) {
+            throw new GradleException("Cannot verify staged Native Loader RC library; missing ${stagedNativeLoaderJar}.")
+        }
+        def requiredLoaderEntries = [
+                'com/echo/NativeLoaderClient.class',
+                'dev/echo/nativeplatform/loader/NativeLoaderCoreServiceRegistrar.class'
+        ]
+        def missingLoaderEntries = []
+        def jar = new java.util.jar.JarFile(stagedNativeLoaderJar)
+        try {
+            requiredLoaderEntries.each { entryName ->
+                if (jar.getEntry(entryName) == null) missingLoaderEntries.add(entryName)
+            }
+        } finally {
+            jar.close()
+        }
+        if (!missingLoaderEntries.isEmpty()) {
+            throw new GradleException("Native Loader direct jar is missing required entrypoint classes: ${missingLoaderEntries.join(', ')}")
+        }
+
+        writeJson('native-loader-direct-install.json', [
+                schemaVersion          : 'echo.native.loader_direct_install.v1',
+                artifactRole           : 'native-loader-library',
+                id                     : 'echo-native-loader',
+                name                   : 'ECHO Native Loader',
+                version                : '1.0.0',
+                releaseLine            : '1.0.0-RC1',
+                file                   : stagedNativeLoaderJar.name,
+                url                    : releaseAssetUrl(stagedNativeLoaderJar.name),
+                sha256                 : sha256(stagedNativeLoaderJar),
+                size                   : stagedNativeLoaderJar.length(),
+                manualInstall          : true,
+                developerDirectDownload: true,
+                launcherFacing         : false,
+                moduleArtifact         : false,
+                packContent            : false,
+                expectedJava           : [
+                        minimumMajorVersion: 25,
+                        testedMajorVersion : 25
+                ],
+                minecraftLibrary       : [
+                        name: 'com.echo:native-loader:1.0.0',
+                        path: 'com/echo/native-loader/1.0.0/native-loader-1.0.0.jar'
+                ],
+                mainClass              : 'com.echo.NativeLoaderClient',
+                packContentOwner       : 'pack/module releases',
+                modulePlacement        : [
+                        nativeAddons: 'addons/',
+                        note        : 'Native Platform release assets do not include pack modules. Download modules from pack or module releases.'
+                ]
+        ])
 
         writeJson('native-live-proof-gate.json', [
                 status : 'PASS_WITH_WARNINGS',
@@ -1470,14 +1522,37 @@ tasks.register('packagePublicAlphaRelease') {
                 .findAll { it.isFile() && it.name != 'checksums.txt' && it.name != 'echo-release.json' }
                 .sort { it.name }
         def releaseArtifacts = assetFiles.collectEntries { file ->
-            [(file.name.replaceAll('[^A-Za-z0-9]+(.)') { all, c -> c.toUpperCase() }
-                    .replaceAll('^[^A-Za-z0-9]+', '')
-                    .uncapitalize()): [
+            def artifact = [
                     file  : file.name,
                     url   : releaseAssetUrl(file.name),
                     sha256: sha256(file),
                     size  : file.length()
-            ]]
+            ]
+            if (file.name == 'echo-native-platform-1.0.0-RC1.zip') {
+                artifact.artifactRole = 'native-platform-package'
+                artifact.launcherFacing = true
+                artifact.moduleArtifact = false
+                artifact.packContent = false
+            }
+            if (file.name == 'echo-native-loader-1.0.0.jar') {
+                artifact.artifactRole = 'native-loader-library'
+                artifact.manualInstall = true
+                artifact.developerDirectDownload = true
+                artifact.launcherFacing = false
+                artifact.moduleArtifact = false
+                artifact.packContent = false
+            }
+            if (file.name == 'native-loader-direct-install.json') {
+                artifact.artifactRole = 'native-loader-direct-install-descriptor'
+                artifact.manualInstall = true
+                artifact.developerDirectDownload = true
+                artifact.launcherFacing = false
+                artifact.moduleArtifact = false
+                artifact.packContent = false
+            }
+            [(file.name.replaceAll('[^A-Za-z0-9]+(.)') { all, c -> c.toUpperCase() }
+                    .replaceAll('^[^A-Za-z0-9]+', '')
+                    .uncapitalize()): artifact]
         }
         new File(outDir, 'echo-release.json').text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
                 schemaVersion   : 'echo.release.index.entry.v1',
