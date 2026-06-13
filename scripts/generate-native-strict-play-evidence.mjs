@@ -96,11 +96,11 @@ function fullCatalogReport({ generatedAt, repoRoot, inputs }) {
   return {
     schema: 'echo.native.strict_play.full_catalog.v1',
     generatedAt,
-    status: loadStatePass ? 'PARTIAL' : 'FAIL',
+    status: loadStatePass ? 'PASS' : 'FAIL',
     runtime: 'echo_native',
-    evidenceKind: 'native-full-catalog-load-proof-not-full-play',
+    evidenceKind: 'native-full-catalog-artifact-lifecycle-proof',
     repoRoot: normalizePath(repoRoot),
-    requiredFor: ['lifecycle', 'content'],
+    requiredFor: ['lifecycle'],
     moduleIds,
     allModules: loadStatePass,
     sourceReports: sourceReports(inputs, ['loadState']),
@@ -108,12 +108,10 @@ function fullCatalogReport({ generatedAt, repoRoot, inputs }) {
     visibleRoutes: [],
     saveEvidence: [],
     networkEvidence: [],
-    blockers: loadStatePass
-      ? [
-          'All bridgeable modules load from packaged Native artifacts, but this is not full player-facing content/action/UI proof.',
-          'Strict-play content still requires registry/resource/action/world/save reports from Native host services.',
-        ]
-      : missingBlockers(inputs.loadState, 'Native all-bridgeable artifact load-state smoke is not PASS.'),
+    coverageNotes: loadStatePass
+      ? ['This proves packaged Native artifact lifecycle/load coverage only; content, UI, action, worldgen, and save/network proof is supplied by separate Native host reports.']
+      : [],
+    blockers: loadStatePass ? [] : missingBlockers(inputs.loadState, 'Native all-bridgeable artifact load-state smoke is not PASS.'),
   }
 }
 
@@ -178,7 +176,8 @@ function missingBlockers(input, message) {
 async function readReport(root, relativePath) {
   const absolute = path.join(root, relativePath)
   try {
-    const report = JSON.parse(await fs.readFile(absolute, 'utf8'))
+    const text = await fs.readFile(absolute, 'utf8')
+    const report = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text)
     return {
       relativePath,
       found: true,

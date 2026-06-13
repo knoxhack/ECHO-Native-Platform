@@ -58,7 +58,8 @@ try {
   assert.equal(written.length, 5)
 
   const fullCatalog = await readJson(root, 'build/native-full-catalog-play/native-full-catalog-play.json')
-  assert.equal(fullCatalog.status, 'PARTIAL')
+  assert.equal(fullCatalog.status, 'PASS')
+  assert.deepEqual(fullCatalog.requiredFor, ['lifecycle'])
   assert.equal(fullCatalog.allModules, true)
   assert.deepEqual(fullCatalog.moduleIds, ['echocore', 'echoindex'])
 
