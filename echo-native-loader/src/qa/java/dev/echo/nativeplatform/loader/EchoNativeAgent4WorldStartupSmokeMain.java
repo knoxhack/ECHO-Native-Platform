@@ -43,6 +43,7 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
             if (args.length > 0) {
                 requirePackagedAshfallDatapackStartupPlan(Path.of(args[0]));
             }
+            writeJsonReportIfRequested(args.length > 0);
             System.out.println("agent4 native ashfall world startup smoke PASS");
         } finally {
             restore("echo.native.productWorldFolder", previousFolder);
@@ -51,6 +52,35 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
             restore("echo.native.productWorldGameMode", previousGameMode);
             restore("echo.native.moduleClasspath", previousModuleClasspath);
         }
+    }
+
+    private static void writeJsonReportIfRequested(boolean packagedDatapackVerified) throws Exception {
+        String configured = System.getProperty("echo.native.agent4.worldStartupReport");
+        if (configured == null || configured.isBlank()) {
+            return;
+        }
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("schema", "echo.native.agent4.world_startup_smoke.v1");
+        report.put("generatedAt", "1970-01-01T00:00:00Z");
+        report.put("status", "PASS");
+        report.put("runtime", "echo_native");
+        report.put("moduleIds", List.of("echoashfallprotocol", "echobiomecore", "echoworldcore", "echoblockworks"));
+        report.put("featureBuckets", List.of("worldgen", "blocks", "items", "save_data"));
+        report.put("trustedMutations", List.of(
+                "fresh product world plan creates Ashfall world",
+                "marked product world plan reopens product save",
+                "unsafe vanilla fallback and unsafe registry datapack paths are rejected",
+                "pre-world datapack/resource-pack mounts require existing files",
+                "stale save-local datapack is restaged from clean Native source"
+        ));
+        report.put("visibleRoutes", List.of("NativeLoaderAshfallWorldStartupService.prepare"));
+        report.put("saveEvidence", List.of(
+                "product world open marker, staged datapack, level.dat, player, and level evidence verified"
+        ));
+        report.put("networkEvidence", List.of());
+        report.put("packagedDatapackVerified", packagedDatapackVerified);
+        report.put("blockers", List.of());
+        NativeLoaderJsonSupport.writeAtomically(Path.of(configured), report);
     }
 
     private static void requireFreshProductWorldPlan() throws Exception {

@@ -749,6 +749,41 @@ tasks.register('runNativeAgent4RegistryContentSmoke', JavaExec) {
     jvmArgs "-Decho.native.registry.resourcePackRoot=${layout.buildDirectory.dir("agent4/native-materialized-resource-pack-${System.currentTimeMillis()}").get().asFile.absolutePath}"
 }
 
+tasks.register('writeNativeAgent4RegistryContentSmokeState') {
+    group = 'verification'
+    description = 'Writes durable Agent 4 registry content smoke availability state, including skipped-input reasons.'
+    doLast {
+        def report = layout.buildDirectory.file('agent4/registry-content/native-agent4-registry-content-state.json').get().asFile
+        report.parentFile.mkdirs()
+        def missingInputs = []
+        if (!echoAgent4RegistryContractReport.isFile()) {
+            missingInputs.add(echoAgent4RegistryContractReport.absolutePath)
+        }
+        if (!echoAgent4ResourceIndexReport.isFile()) {
+            missingInputs.add(echoAgent4ResourceIndexReport.absolutePath)
+        }
+        def status = missingInputs.isEmpty() ? 'READY' : 'SKIPPED'
+        def json = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+                schema          : 'echo.native.agent4.registry_content_smoke_state.v1',
+                generatedAt     : '1970-01-01T00:00:00Z',
+                status          : status,
+                runtime         : 'echo_native',
+                moduleIds       : ['echoagent4', 'echoassetcore', 'echocontentcore'],
+                featureBuckets  : ['blocks', 'items', 'recipes', 'loot', 'worldgen', 'audio'],
+                trustedMutations: missingInputs.isEmpty() ? ['external registry/resource audits available for Java host smoke'] : [],
+                visibleRoutes   : [],
+                saveEvidence    : [],
+                networkEvidence : [],
+                blockers        : missingInputs.collect { "missing required Agent 4 registry smoke input: ${it}" }
+        ]))
+        report.text = json + System.lineSeparator()
+    }
+}
+
+tasks.named('runNativeAgent4RegistryContentSmoke') {
+    finalizedBy 'writeNativeAgent4RegistryContentSmokeState'
+}
+
 tasks.register('runNativeAgent4WorldStartupSmoke', JavaExec) {
     group = 'verification'
     description = 'Runs Agent 4 Native Loader Ashfall datapack/world startup ownership smoke.'
@@ -756,6 +791,8 @@ tasks.register('runNativeAgent4WorldStartupSmoke', JavaExec) {
     classpath = nativeLoaderQaRuntimeClasspath()
     mainClass = 'dev.echo.nativeplatform.loader.EchoNativeAgent4WorldStartupSmokeMain'
     workingDir = rootProject.projectDir
+    systemProperty 'echo.native.agent4.worldStartupReport',
+            layout.buildDirectory.file('agent4/world-startup/native-agent4-world-startup.json').get().asFile.absolutePath
     doFirst {
         def packagedAshfallDatapack = providers.gradleProperty('echoNativeAgent4WorldStartupDatapack')
                 .orElse('')
@@ -842,6 +879,8 @@ tasks.register('runNativeAgent5UiBridgeContractSmoke', JavaExec) {
     classpath = nativeBootstrapQaRuntimeClasspath() + nativeAgent5AdapterCoreSmokeClasspath
     mainClass = 'dev.echo.nativeplatform.bootstrap.EchoNativeAgent5UiBridgeContractVerifier'
     workingDir = rootProject.projectDir
+    systemProperty 'echo.native.agent5.uiBridgeContractReport',
+            layout.buildDirectory.file('agent5/ui-bridge-contract/agent5-ui-bridge-contract.json').get().asFile.absolutePath
 }
 
 tasks.register('runNativeAgent5RuntimeTruthGate', JavaExec) {
@@ -880,6 +919,8 @@ tasks.register('runNativeAgent9MachineRuntimeHostSmoke', JavaExec) {
     mainClass = 'dev.echo.nativeplatform.bootstrap.EchoNativeAgent9MachineRuntimeHostVerifier'
     workingDir = rootProject.projectDir
     args echoRepoRoot.absolutePath
+    systemProperty 'echo.native.agent9.machineRuntimeReport',
+            layout.buildDirectory.file('agent9/machine-runtime-host/agent9-machine-runtime-host.json').get().asFile.absolutePath
 }
 
 tasks.register('runNativeAgent3RuntimeCoreSmoke', JavaExec) {
@@ -983,6 +1024,8 @@ tasks.register('runNativeMutationTruthGate', JavaExec) {
     classpath = nativeLoaderQaRuntimeClasspath()
     mainClass = 'dev.echo.nativeplatform.loader.EchoNativeMutationTruthGateMain'
     workingDir = rootProject.projectDir
+    systemProperty 'echo.native.mutationTruthGateReport',
+            layout.buildDirectory.file('mutation-truth-gate/native-mutation-truth-gate.json').get().asFile.absolutePath
 }
 
 tasks.register('runNativeLoaderClientEntrypointGate', JavaExec) {

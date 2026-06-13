@@ -1,9 +1,13 @@
 package dev.echo.nativeplatform.bootstrap;
 
+import dev.echo.nativeplatform.loader.NativeLoaderJsonSupport;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class EchoNativeAgent9MachineRuntimeHostVerifier {
     private static final List<String> PROCESSOR_ENTITIES = List.of(
@@ -314,6 +318,7 @@ public final class EchoNativeAgent9MachineRuntimeHostVerifier {
         requireNotContains(blockExecutorSource, "ore_grinder_cycle",
                 "native processor path must not duplicate ore grinder recipe cycles");
 
+        writeJsonReportIfRequested();
         System.out.println("agent9 machine runtime host verifier PASS processors=" + PROCESSOR_ENTITIES.size()
                 + " generators=" + GENERATOR_ENTITIES.size()
                 + " grid=" + GRID_ENTITIES.size()
@@ -323,6 +328,45 @@ public final class EchoNativeAgent9MachineRuntimeHostVerifier {
                 + " canonicalExtract=capabilities.extract_item"
                 + " canonicalEnergy=capabilities.receive_energy/capabilities.extract_energy"
                 + " canonicalOutput=machine.output_created");
+    }
+
+    private static void writeJsonReportIfRequested() throws IOException {
+        String configured = System.getProperty("echo.native.agent9.machineRuntimeReport");
+        if (configured == null || configured.isBlank()) {
+            return;
+        }
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("schema", "echo.native.agent9.machine_runtime_host_smoke.v1");
+        report.put("generatedAt", "1970-01-01T00:00:00Z");
+        report.put("status", "PASS");
+        report.put("runtime", "echo_native");
+        report.put("moduleIds", List.of("echoashfallprotocol", "echomachinecore", "echopowercore", "echowatercore"));
+        report.put("featureBuckets", List.of("blocks", "items", "block_actions", "machines", "save_data", "networking"));
+        report.put("trustedMutations", List.of(
+                "block_entities.tick",
+                "capabilities.insert_item",
+                "capabilities.extract_item",
+                "capabilities.receive_energy",
+                "capabilities.extract_energy",
+                "machine.output_created",
+                "machine.use_block"
+        ));
+        report.put("visibleRoutes", List.of(
+                "ADAPTER_CORE_FLOW::useBlock",
+                "ADAPTER_CORE_FLOW::machineTick",
+                "ADAPTER_CORE_FLOW::insertItem",
+                "ADAPTER_CORE_FLOW::extractItem",
+                "ADAPTER_CORE_FLOW::receiveEnergy",
+                "ADAPTER_CORE_FLOW::extractEnergy"
+        ));
+        report.put("saveEvidence", List.of(
+                "processor, generator, grid, water, and hazard block entities expose saveAdditional/loadAdditional checks"
+        ));
+        report.put("networkEvidence", List.of(
+                "Research Lab packet analysis and shared AdapterCore exploration runtime are verified"
+        ));
+        report.put("blockers", List.of());
+        NativeLoaderJsonSupport.writeAtomically(Path.of(configured), report);
     }
 
     private static String read(Path path) throws IOException {
