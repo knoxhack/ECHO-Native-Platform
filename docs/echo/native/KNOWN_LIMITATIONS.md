@@ -1,6 +1,6 @@
 # Known Limitations
 
-The public beta is native-first, but not yet a stable 1.0 API.
+The `1.0.0-RC1` release line is native-first, but not yet a stable 1.0 API.
 
 - Java 25 is the only supported Java target.
 - Windows desktop is the locally verified launch lane in this workspace; Linux and macOS need CI evidence before public support.

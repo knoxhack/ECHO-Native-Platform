@@ -4,7 +4,7 @@ plugins {
 
 allprojects {
     group = 'dev.echo.nativeplatform'
-    version = '0.1.0-native-beta'
+    version = '1.0.0-RC1'
 
     repositories {
         mavenCentral()
@@ -885,6 +885,14 @@ tasks.register('runNativeServiceCollisionGate', JavaExec) {
     mainClass = 'dev.echo.nativeplatform.loader.EchoNativeServiceCollisionGateMain'
     workingDir = rootProject.projectDir
 }
+tasks.register('runNativeMutationTruthGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies MUTATED release proof requires typed host mutation receipts instead of map-only claims.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeMutationTruthGateMain'
+    workingDir = rootProject.projectDir
+}
 
 tasks.register('prepareNativeCoreModuleLoadStateClasses', Exec) {
     group = 'verification'
@@ -1074,6 +1082,9 @@ tasks.named('check') {
     dependsOn 'runNativeAgent10StorySmoke'
     dependsOn 'runNativeLoaderProofSmoke'
     dependsOn 'runNativeLegacyAdapterBridgeSmoke'
+    dependsOn 'runNativeDependencyResolutionGate'
+    dependsOn 'runNativeServiceCollisionGate'
+    dependsOn 'runNativeMutationTruthGate'
     dependsOn 'runNativeCoreModuleLoadStateSmoke'
     dependsOn 'runNativeAllBridgeableModuleLoadStateSmoke'
     dependsOn 'runNativeAllBridgeableModuleArtifactLoadStateSmoke'
@@ -1086,7 +1097,7 @@ tasks.named('check') {
 
 tasks.register('packagePublicAlphaRelease') {
     group = 'release'
-    description = 'Stages public alpha Native Platform release assets under build/public-alpha.'
+    description = 'Compatibility alias that stages Native Platform RC1 release-candidate assets under build/public-alpha.'
     dependsOn 'packageNativeProductLayout'
     dependsOn 'packageNativeProductReadinessLayout'
 
@@ -1097,28 +1108,19 @@ tasks.register('packagePublicAlphaRelease') {
 
         def writeJson = { String name, Map payload ->
             new File(outDir, name).text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
-                    schemaVersion: 'echo.public_alpha.generated_report.v1',
+                    schemaVersion: 'echo.native_rc.generated_report.v1',
+                    releaseLine  : '1.0.0-RC1',
                     generatedAt   : new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
                     repository    : 'ECHO-Native-Platform'
             ] + payload)) + System.lineSeparator()
         }
 
         def productLayout = file("${buildDir}/native-product-package")
-        if (productLayout.isDirectory()) {
-            ant.zip(destfile: new File(outDir, 'echo-native-product-1.0.0-existing-layout-rc.zip')) {
-                fileset(dir: productLayout)
-            }
-        } else {
-            def modulesRoot = file(echoModulesRoot.get())
-            if (!modulesRoot.isDirectory()) {
-                throw new GradleException("Cannot stage public alpha product zip; missing product layout and modules root: ${modulesRoot}")
-            }
-            ant.zip(destfile: new File(outDir, 'echo-native-product-1.0.0-existing-layout-rc.zip')) {
-                fileset(dir: modulesRoot) {
-                    include(name: 'echocore/**')
-                    include(name: 'metadata/modules/index.json')
-                }
-            }
+        if (!productLayout.isDirectory()) {
+            throw new GradleException("Cannot stage Native Platform RC1 product zip; missing Native product layout: ${productLayout}. Run packageNativeProductLayout with compiled module artifacts first.")
+        }
+        ant.zip(destfile: new File(outDir, 'echo-native-product-1.0.0-RC1.zip')) {
+            fileset(dir: productLayout)
         }
 
         def sourceTruth = file('docs/echo/native/README.md')
@@ -1132,7 +1134,7 @@ tasks.register('packagePublicAlphaRelease') {
 
         writeJson('native-live-proof-gate.json', [
                 status : 'PASS_WITH_WARNINGS',
-                summary: 'Public alpha Native Platform package was staged from the local Gradle product layout.'
+                summary: 'Native Platform RC1 package was staged from the local Gradle product layout; promote only after workflow-built provenance and install smoke evidence exist.'
         ])
         writeJson('native-module-inventory.json', [
                 status     : 'PASS_WITH_WARNINGS',
@@ -1140,15 +1142,15 @@ tasks.register('packagePublicAlphaRelease') {
         ])
         writeJson('plan3-dependency-vulnerability-scan.json', [
                 status : 'PASS_WITH_WARNINGS',
-                summary: 'Public alpha dependency evidence is staged; run external vulnerability attestations before stable release.'
+                summary: 'RC1 dependency evidence is staged; run external vulnerability attestations before stable release.'
         ])
         writeJson('plan3-final-qa.json', [
                 status : 'PASS_WITH_WARNINGS',
-                summary: 'Public alpha QA gate is staged as prerelease evidence.'
+                summary: 'RC1 QA gate is staged as prerelease evidence.'
         ])
         writeJson('plan3-release-prep.json', [
                 status : 'PASS_WITH_WARNINGS',
-                summary: 'Public alpha release prep is staged. Binaries may be unsigned for alpha.'
+                summary: 'RC1 release prep is staged. Stable release remains blocked until binaries are signed or attested.'
         ])
 
         def digest = java.security.MessageDigest.getInstance('SHA-256')

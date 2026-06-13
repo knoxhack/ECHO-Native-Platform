@@ -2,6 +2,7 @@ package dev.echo.nativeplatform.loader;
 
 import dev.echo.nativeplatform.contracts.EchoNativeLifecycleRecord;
 import dev.echo.nativeplatform.contracts.EchoNativeLoadStatus;
+import dev.echo.nativeplatform.contracts.EchoNativeMutationReceipt;
 import dev.echo.nativeplatform.contracts.EchoNativeModuleLoadResult;
 import dev.echo.nativeplatform.contracts.EchoNativeRegisteredService;
 
@@ -17,8 +18,8 @@ import java.util.Map;
  * <ul>
  *   <li>LOADED: loadedClassName is non-empty and loadedByModuleClassLoader is true</li>
  *   <li>REGISTERED: at least one service registered with non-empty surfaces</li>
- *   <li>MUTATED: at least one mutation record with status MUTATED, or registry host has entries, or runtime host has persisted state</li>
- *   <li>No module may claim MUTATED solely from lifecycle phase history without real evidence</li>
+ *   <li>MUTATED: at least one typed host mutation receipt has status MUTATED</li>
+ *   <li>No module may claim MUTATED solely from lifecycle phase history, descriptor metadata, or diagnostic maps</li>
  * </ul>
  */
 public final class EchoNativeModuleLoadTruthGate {
@@ -77,25 +78,34 @@ public final class EchoNativeModuleLoadTruthGate {
     }
 
     private boolean verifyMutated(EchoNativeModuleLoadResult result, List<String> failures, List<String> warnings) {
-        List<Map<String, Object>> mutations = result.mutations();
-        if (mutations == null || mutations.isEmpty()) {
-            failures.add("MUTATED gate failed: no mutations recorded");
+        List<EchoNativeMutationReceipt> receipts = result.mutationReceipts();
+        if (receipts == null || receipts.isEmpty()) {
+            if (hasMapOnlyMutationClaim(result)) {
+                warnings.add("MUTATED map claims were ignored; typed host mutation receipts are required");
+            }
+            failures.add("MUTATED gate failed: no typed mutation receipts recorded");
             return false;
         }
-        boolean hasRealMutation = mutations.stream()
-                .anyMatch(m -> EchoNativeLoadStatus.MUTATED.name().equals(String.valueOf(m.get("status"))));
+        boolean hasRealMutation = receipts.stream()
+                .anyMatch(EchoNativeMutationReceipt::mutated);
         if (!hasRealMutation) {
-            failures.add("MUTATED gate failed: mutation records exist but none have status MUTATED");
+            failures.add("MUTATED gate failed: typed mutation receipts exist but none have status MUTATED");
             return false;
         }
-        long mutationCount = mutations.stream()
-                .filter(m -> EchoNativeLoadStatus.MUTATED.name().equals(String.valueOf(m.get("status"))))
+        long mutationCount = receipts.stream()
+                .filter(EchoNativeMutationReceipt::mutated)
                 .count();
         if (mutationCount < 1) {
-            failures.add("MUTATED gate failed: expected at least 1 MUTATED record");
+            failures.add("MUTATED gate failed: expected at least 1 typed MUTATED receipt");
             return false;
         }
         return true;
+    }
+
+    private boolean hasMapOnlyMutationClaim(EchoNativeModuleLoadResult result) {
+        return result.mutations() != null
+                && result.mutations().stream()
+                .anyMatch(m -> EchoNativeLoadStatus.MUTATED.name().equals(String.valueOf(m.get("status"))));
     }
 
     private EchoNativeLoadStatus honestStatus(EchoNativeModuleLoadResult result, boolean loaded, boolean registered, boolean mutated) {
@@ -125,6 +135,14 @@ public final class EchoNativeModuleLoadTruthGate {
                 .map(m -> String.valueOf(m.get("status")))
                 .distinct()
                 .toList());
+        evidence.put("typedMutationReceiptCount", result.mutationReceipts().size());
+        evidence.put("typedMutationReceiptStatuses", result.mutationReceipts().stream()
+                .map(EchoNativeMutationReceipt::status)
+                .map(Enum::name)
+                .distinct()
+                .toList());
+        evidence.put("mapOnlyMutationClaimRejected", hasMapOnlyMutationClaim(result)
+                && result.mutationReceipts().stream().noneMatch(EchoNativeMutationReceipt::mutated));
         evidence.put("phasesReached", result.lifecyclePhaseHistory().stream()
                 .map(EchoNativeLifecycleRecord::phase)
                 .map(Enum::name)

@@ -48,6 +48,7 @@ Runtime update metadata is routed through the canonical Release Index product en
 - [docs/echo/native/KNOWN_LIMITATIONS.md](docs/echo/native/KNOWN_LIMITATIONS.md)
 - [docs/echo/native/MOD_AUTHOR_GUIDE.md](docs/echo/native/MOD_AUTHOR_GUIDE.md)
 - [docs/echo/native/NATIVE_ADDON_QUICKSTART.md](docs/echo/native/NATIVE_ADDON_QUICKSTART.md)
+- [docs/echo/native/RELEASE_CANDIDATE_CHECKLIST.md](docs/echo/native/RELEASE_CANDIDATE_CHECKLIST.md)
 - [PUBLIC_ALPHA_RELEASE_STATUS.md](PUBLIC_ALPHA_RELEASE_STATUS.md)
 
 ## Related Repos
