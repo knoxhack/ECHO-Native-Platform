@@ -8,7 +8,7 @@ This checklist is the release-candidate contract for promoting ECHO Native towar
 | --- | --- |
 | Release line | `1.0.0-RC1` |
 | Stable target | `1.0.0` after all gates pass |
-| Runtime artifact | `echo-native-product-1.0.0-RC1.zip` |
+| Runtime artifact | `echo-native-platform-1.0.0-RC1.zip` loader/runtime archive only |
 | Native Loader launcher library | `native-loader-1.0.0.jar` |
 | Addon artifact | `<module>-<version>.echo-addon` |
 | Descriptor | `META-INF/echo.mod.json` |
@@ -37,6 +37,7 @@ Addon authors may compile against:
 - ECHO Modules native compatibility matrix has no `ready` module backed by local build output fallback.
 - Release Index marks player installs locked while pack readiness is `warning` or `blocked`.
 - RC1 artifact has checksums, source jars, Javadocs, provenance or attestation, release notes, and rollback instructions.
+- Native Platform runtime archive contains no `echo.pack.json`, no `echo-native-product-package.json`, no `modules/`, and no pack-owned module jars.
 
 ## Stable Release Blockers
 

@@ -6,7 +6,7 @@ This matrix describes the `1.0.0-RC1` lane. It is a release-candidate lane, not 
 |---|---|
 | Java | Java 25 |
 | Minecraft/runtime | `26.1.2` workspace target |
-| Native Loader | `1.0.0-RC1` local product ZIP built and checksum-indexed |
+| Native Loader | `1.0.0-RC1` local platform runtime ZIP built and checksum-indexed |
 | SDK | `1.0.0-RC1` public SDK artifacts published to local Maven for proof runs |
 | Windows | Supported local verification lane |
 | Linux | Not public-supported until CI/runtime evidence is attached |

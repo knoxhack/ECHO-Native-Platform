@@ -373,6 +373,9 @@ def nativeProductSourceRoot = providers.gradleProperty('echoNativeSourceRoot')
 def nativeProductPackageOutput = providers.gradleProperty('echoNativePackageOutput')
         .orElse(providers.environmentVariable('ECHO_NATIVE_PACKAGE_OUTPUT'))
         .orElse(layout.buildDirectory.dir('native-product-package').map { it.asFile.absolutePath })
+def nativePlatformPackageOutput = providers.gradleProperty('echoNativePlatformPackageOutput')
+        .orElse(providers.environmentVariable('ECHO_NATIVE_PLATFORM_PACKAGE_OUTPUT'))
+        .orElse(layout.buildDirectory.dir('native-platform-package').map { it.asFile.absolutePath })
 def nativeProductReadinessPackageOutput = providers.gradleProperty('echoNativeReadinessPackageOutput')
         .orElse(providers.environmentVariable('ECHO_NATIVE_READINESS_PACKAGE_OUTPUT'))
         .orElse(layout.buildDirectory.dir('native-product-readiness-package').map { it.asFile.absolutePath })
@@ -464,6 +467,76 @@ tasks.register('packageNativeProductLayout', JavaExec) {
             packageArgs.addAll(['--pack-profile', nativeProductPackProfileRoot.get()])
         }
         setArgs(packageArgs)
+    }
+}
+
+tasks.register('packageNativePlatformLayout') {
+    group = 'release'
+    description = 'Packages the Native Platform loader/runtime layout without product, modpack, or module content.'
+
+    outputs.dir nativePlatformPackageOutput
+
+    doLast {
+        def outputRoot = file(nativePlatformPackageOutput.get())
+        delete outputRoot
+        outputRoot.mkdirs()
+
+        def generatedAt = new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+        def writeJson = { String relativePath, Map payload ->
+            def target = new File(outputRoot, relativePath)
+            target.parentFile?.mkdirs()
+            target.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(payload)) + System.lineSeparator()
+        }
+
+        writeJson('echo-native-platform-package.json', [
+                schemaVersion          : 'echo.native.platform_package.v1',
+                id                     : 'echo-native-platform',
+                name                   : 'ECHO Native Platform',
+                kind                   : 'loader_runtime',
+                version                : '1.0.0-RC1',
+                releaseLine            : '1.0.0-RC1',
+                generatedAt            : generatedAt,
+                containsModpack        : false,
+                containsPackProfile    : false,
+                containsProductModules : false,
+                moduleCount            : 0,
+                moduleDirectoryIncluded: false,
+                packagedPackFiles      : [],
+                launcherArtifacts      : [
+                        nativeLoader: 'native-loader-1.0.0.jar'
+                ],
+                releaseIndex           : [
+                        productId : 'echo-native-platform',
+                        channel   : 'beta',
+                        sourceRepo: 'knoxhack/ECHO-Native-Platform',
+                        releaseTag: 'v1.0.0-RC1'
+                ],
+                loaderTheme            : [
+                        defaultThemeId     : 'echo_native:loader_blue_console',
+                        defaultThemeMode   : 'loader_default',
+                        themeCoreDependency: 'optional-runtime-discovered'
+                ]
+        ])
+        writeJson('runtime/native-loader-runtime.json', [
+                schemaVersion          : 'echo.native.loader_runtime.v1',
+                runtimeId              : 'echo-native-loader',
+                version                : '1.0.0-RC1',
+                owner                  : 'ECHO Native Platform',
+                generatedAt            : generatedAt,
+                zeroModuleStartup      : true,
+                requiresPackProfile    : false,
+                acceptsExternalPack    : true,
+                builtInTheme           : 'echo_native:loader_blue_console',
+                forbiddenPackFiles     : [
+                        'echo.pack.json',
+                        'echo-native-product-package.json',
+                        'modules/'
+                ],
+                handoff                : [
+                        packContentOwner: 'pack release',
+                        launcherSource  : 'Release Index product echo-native-platform'
+                ]
+        ])
     }
 }
 
@@ -1278,8 +1351,7 @@ tasks.register('packagePublicAlphaRelease') {
     group = 'release'
     description = 'Compatibility alias that stages Native Platform RC1 release-candidate assets under build/public-alpha.'
     dependsOn ':echo-native-loader:jar'
-    dependsOn 'packageNativeProductLayout'
-    dependsOn 'packageNativeProductReadinessLayout'
+    dependsOn 'packageNativePlatformLayout'
 
     doLast {
         def outDir = file("${buildDir}/public-alpha")
@@ -1321,12 +1393,36 @@ tasks.register('packagePublicAlphaRelease') {
             }
         }()
 
-        def productLayout = file("${buildDir}/native-product-package")
-        if (!productLayout.isDirectory()) {
-            throw new GradleException("Cannot stage Native Platform RC1 product zip; missing Native product layout: ${productLayout}. Run packageNativeProductLayout with compiled module artifacts first.")
+        def platformLayout = file(nativePlatformPackageOutput.get())
+        if (!platformLayout.isDirectory()) {
+            throw new GradleException("Cannot stage Native Platform RC1 runtime zip; missing Native platform layout: ${platformLayout}. Run packageNativePlatformLayout first.")
         }
-        ant.zip(destfile: new File(outDir, 'echo-native-product-1.0.0-RC1.zip')) {
-            fileset(dir: productLayout)
+        def platformArchive = new File(outDir, 'echo-native-platform-1.0.0-RC1.zip')
+        ant.zip(destfile: platformArchive) {
+            fileset(dir: platformLayout)
+        }
+        def forbiddenPlatformEntries = []
+        def zip = new java.util.zip.ZipFile(platformArchive)
+        try {
+            zip.entries().each { entry ->
+                def entryName = entry.name.replace('\\', '/')
+                def normalized = entryName.toLowerCase(java.util.Locale.ROOT)
+                if (normalized == 'echo.pack.json'
+                        || normalized.endsWith('/echo.pack.json')
+                        || normalized == 'echo-native-product-package.json'
+                        || normalized.endsWith('/echo-native-product-package.json')
+                        || normalized.startsWith('modules/')
+                        || normalized.contains('/modules/')
+                        || normalized.endsWith('.jar')
+                        || normalized.contains('ashfall')) {
+                    forbiddenPlatformEntries.add(entryName)
+                }
+            }
+        } finally {
+            zip.close()
+        }
+        if (!forbiddenPlatformEntries.isEmpty()) {
+            throw new GradleException("Native Platform RC1 archive must be loader/runtime-only. Forbidden entries: ${forbiddenPlatformEntries.join(', ')}")
         }
 
         def sourceTruth = file('docs/echo/native/README.md')
@@ -1350,11 +1446,12 @@ tasks.register('packagePublicAlphaRelease') {
 
         writeJson('native-live-proof-gate.json', [
                 status : 'PASS_WITH_WARNINGS',
-                summary: 'Native Platform RC1 package was staged from the local Gradle product layout; promote only after workflow-built provenance and install smoke evidence exist.'
+                summary: 'Native Platform RC1 loader/runtime package was staged without product, modpack, or module content; promote only after workflow-built provenance and install smoke evidence exist.'
         ])
         writeJson('native-module-inventory.json', [
                 status     : 'PASS_WITH_WARNINGS',
-                modulesRoot: '../ECHO-Modules/addons'
+                modulesRoot: 'not-packaged-in-native-platform-release',
+                summary    : 'Native Platform release assets intentionally exclude pack modules. Pack modules must ship from their owning pack release.'
         ])
         writeJson('plan3-dependency-vulnerability-scan.json', [
                 status : 'PASS_WITH_WARNINGS',
@@ -1394,15 +1491,15 @@ tasks.register('packagePublicAlphaRelease') {
                 commitSha       : gitCommit,
                 trust           : 'source-linked',
                 validation      : 'warning',
-                validationReason: 'RC1 assets were staged from the Native Platform Gradle release task; promote only after GitHub upload/download-back, attestation, launcher handoff, rollback, and gameplay evidence are current.',
+                validationReason: 'RC1 loader/runtime assets were staged from the Native Platform Gradle release task without product or modpack content; promote only after GitHub upload/download-back, attestation, launcher handoff, rollback, and gameplay evidence are current.',
                 artifacts       : releaseArtifacts,
                 dependencies    : [],
-                compatibility   : ['ashfall-native-edition'],
+                compatibility   : ['native-loader-runtime'],
                 provenance      : [
                         status                 : 'local-rc1-built',
                         nativePlatformCommitSha: gitCommit,
-                        buildCommand           : '.\\gradlew.bat runNativeLoaderClientEntrypointGate packageNativeProductLayout packagePublicAlphaRelease --no-daemon --no-parallel --max-workers=1',
-                        artifactPath           : new File(outDir, 'echo-native-product-1.0.0-RC1.zip').absolutePath.replace('\\', '/'),
+                        buildCommand           : '.\\gradlew.bat runNativeLoaderClientEntrypointGate packageNativePlatformLayout packagePublicAlphaRelease --no-daemon --no-parallel --max-workers=1',
+                        artifactPath           : platformArchive.absolutePath.replace('\\', '/'),
                         nativeLoaderPath       : new File(outDir, 'native-loader-1.0.0.jar').absolutePath.replace('\\', '/'),
                         releaseAssetGeneratedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
                         attestation            : [

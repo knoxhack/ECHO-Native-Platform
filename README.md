@@ -16,7 +16,7 @@ Owns native platform runtime releases consumed by Native Edition and developer t
 
 ## Current Release Line
 
-The active release line is `1.0.0-RC1`. Local build/check and external addon proof are green, and the product ZIP is checksum-indexed in the Release Index as a warning-gated RC asset. It is not a stable `1.0.0` or launcher-approved full release until GitHub upload/download-back, signing or attestation, launcher install/rollback/diagnostics, and real pack gameplay evidence pass.
+The active release line is `1.0.0-RC1`. Local build/check and external addon proof are green, and the loader/runtime ZIP is checksum-indexed in the Release Index as a warning-gated RC asset. It is not a stable `1.0.0` or launcher-approved full release until GitHub upload/download-back, signing or attestation, launcher install/rollback/diagnostics, and real pack gameplay evidence pass.
 
 Use `docs/echo/native/RELEASE_CANDIDATE_CHECKLIST.md` as the promotion contract.
 
@@ -35,7 +35,7 @@ Run commands from the repository root.
 - `node scripts/test-generate-ashfall-native-public-beta-evidence.mjs`
 - `node scripts/generate-ashfall-gameplay-qa-evidence.mjs`
 - `node scripts/test-generate-ashfall-gameplay-qa-evidence.mjs`
-- `.\gradlew.bat check packageNativeProductLayout packagePublicAlphaRelease`
+- `.\gradlew.bat check packageNativePlatformLayout packagePublicAlphaRelease`
 
 ## Artifact Ownership
 
@@ -51,7 +51,7 @@ Runtime update metadata is routed through the canonical Release Index product en
 
 `scripts/generate-ashfall-native-public-beta-evidence.mjs` writes the Phase 7 Ashfall Native public beta reports consumed by the Release Index readiness gate: `native-loader-beta-session-proof-matrix.json`, `native-loader-beta-crash-intake.json`, and `public-beta-tester-package-readiness.json`. It fails closed unless `fixtures/ashfall/native-public-beta/manual-evidence.json` cites three clean internal beta sessions with logs and notes, no-crash crash review evidence, a checksum-verified tester package, support runbook, rollback plan, and published limitations.
 
-`packagePublicAlphaRelease` currently emits the RC1 product ZIP under `build/public-alpha/`. Despite the historical task name, the current artifact is `echo-native-product-1.0.0-RC1.zip` and must stay warning-gated until public download and launcher evidence exists.
+`packagePublicAlphaRelease` emits the RC1 Native Platform loader/runtime ZIP under `build/public-alpha/echo-native-platform-1.0.0-RC1.zip`. The archive must not contain `echo.pack.json`, `echo-native-product-package.json`, `modules/`, pack-specific metadata, or embedded module jars. Pack content ships from pack-owned releases such as `ECHO-Ashfall-Native-Edition`.
 
 Use `fixtures/ashfall/RELEASE_EVIDENCE_RUNBOOK.md` plus the `manual-evidence.template.json` files under `fixtures/ashfall/native-public-beta/` and `fixtures/ashfall/gameplay-qa/` when collecting real Phase 7/8 evidence. The templates are intentionally report-only placeholders and must not be treated as passing evidence.
 
