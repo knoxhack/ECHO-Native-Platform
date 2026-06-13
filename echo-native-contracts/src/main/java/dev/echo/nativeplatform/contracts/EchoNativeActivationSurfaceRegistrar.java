@@ -18,6 +18,8 @@ public final class EchoNativeActivationSurfaceRegistrar {
     private static final String NETWORK_HOST_SERVICE_ID = "echo.native.network_host";
     private static final String CONFIG_HOST_SERVICE_ID = "echo.native.config_host";
     private static final String COMMAND_HOST_SERVICE_ID = "echo.native.command_host";
+    private static final String TYPED_REGISTRY_SERVICE_ID = "echo.native.registry";
+    private static final String TYPED_CAPABILITY_SERVICE_ID = "echo.native.capabilities";
     private static final List<String> ADAPTER_DOMAIN_HOST_SERVICE_IDS = List.of(
             RESOURCE_HOST_SERVICE_ID,
             NETWORK_HOST_SERVICE_ID,
@@ -105,6 +107,20 @@ public final class EchoNativeActivationSurfaceRegistrar {
             );
         }
         int featureContractCount = registerFeatureContracts(context, activation);
+        if (Boolean.TRUE.equals(activation.get("adapterCoreUsed"))
+                || !list(activation.get("registeredFeatureContracts")).isEmpty()) {
+            recordTypedCapabilityMutation(
+                    context,
+                    "adaptercore",
+                    "register_adaptercore_contract",
+                    "adaptercore." + normalized(context.descriptor().id()) + ".contract",
+                    Map.of(
+                            "source", "activation.adaptercore.contract",
+                            "adapterCoreUsed", Boolean.TRUE.equals(activation.get("adapterCoreUsed")),
+                            "featureContractCount", featureContractCount
+                    )
+            );
+        }
         registerEventHooks(context, activation);
         registerLifecyclePhases(context, activation);
         int adapterDomainCount = registerAdapterDomains(context, activation);
@@ -177,6 +193,13 @@ public final class EchoNativeActivationSurfaceRegistrar {
                         "native_registry_host_registered",
                         registry + ":" + id,
                     EchoNativeLoadStatus.MUTATED
+                );
+                recordTypedRegistryMutation(
+                        context,
+                        "registry",
+                        "native_registry_host_registered",
+                        declaredContentId(context.descriptor().id(), id),
+                        evidence
                 );
             }
             EchoNativeLoadStatus nativeCommandStatus = registerNativeCommandRegistration(
@@ -380,10 +403,21 @@ public final class EchoNativeActivationSurfaceRegistrar {
             String id = string(contract);
             if (!id.isBlank()) {
                 context.registerService(
-                        "feature." + normalized(id),
+                        "feature." + normalized(context.descriptor().id()) + "." + normalized(id),
                         Map.of("kind", "feature_contract", "id", id),
                         "features",
                         "contracts"
+                );
+                recordTypedRegistryMutation(
+                        context,
+                        "features",
+                        "register_feature_contract",
+                        id,
+                        Map.of(
+                                "source", "activation.registeredFeatureContracts",
+                                "contractId", id,
+                                "moduleId", context.descriptor().id()
+                        )
                 );
                 registered++;
             }
@@ -950,8 +984,86 @@ public final class EchoNativeActivationSurfaceRegistrar {
                     domain,
                     status
             );
+            if (status == EchoNativeLoadStatus.MUTATED) {
+                Map<String, Object> typedEvidence = new LinkedHashMap<>(evidence);
+                typedEvidence.put("source", "activation.adapterDomains.native_host_projection");
+                typedEvidence.put("serviceId", serviceId);
+                typedEvidence.put("hostClass", host.getClass().getName());
+                recordTypedCapabilityMutation(
+                        context,
+                        "adaptercore",
+                        "native_adapter_domain_projected",
+                        domain + "@" + serviceId,
+                        typedEvidence
+                );
+            }
         }
         return List.copyOf(projections);
+    }
+
+    private static void recordTypedRegistryMutation(
+            EchoNativeModuleLoadContext context,
+            String surface,
+            String action,
+            String target,
+            Map<String, Object> evidence
+    ) {
+        Object host = nativeHost(context, TYPED_REGISTRY_SERVICE_ID);
+        if (!(host instanceof EchoNativeRegistryService registryService)) {
+            return;
+        }
+        try {
+            recordTypedReceipt(context, registryService.register(serviceMutation(context, surface, action, target, evidence)));
+        } catch (RuntimeException exception) {
+            context.attribute("typedRegistryMutationReceiptError",
+                    exception.getClass().getSimpleName() + ": " + exception.getMessage());
+        }
+    }
+
+    private static void recordTypedCapabilityMutation(
+            EchoNativeModuleLoadContext context,
+            String surface,
+            String action,
+            String target,
+            Map<String, Object> evidence
+    ) {
+        Object host = nativeHost(context, TYPED_CAPABILITY_SERVICE_ID);
+        if (!(host instanceof EchoNativeCapabilityService capabilityService)) {
+            return;
+        }
+        try {
+            recordTypedReceipt(context, capabilityService.registerIntegration(
+                    serviceMutation(context, surface, action, target, evidence)));
+        } catch (RuntimeException exception) {
+            context.attribute("typedCapabilityMutationReceiptError",
+                    exception.getClass().getSimpleName() + ": " + exception.getMessage());
+        }
+    }
+
+    private static EchoNativeServiceMutation serviceMutation(
+            EchoNativeModuleLoadContext context,
+            String surface,
+            String action,
+            String target,
+            Map<String, Object> evidence
+    ) {
+        Map<String, Object> typedEvidence = new LinkedHashMap<>(evidence == null ? Map.of() : evidence);
+        typedEvidence.putIfAbsent("moduleId", context.descriptor().id());
+        typedEvidence.put("typedMutationProof", true);
+        return new EchoNativeServiceMutation(
+                context.descriptor().id(),
+                normalized(surface).isBlank() ? "native" : surface,
+                normalized(action).isBlank() ? "mutate" : action,
+                target,
+                context.descriptor().side(),
+                typedEvidence
+        );
+    }
+
+    private static void recordTypedReceipt(EchoNativeModuleLoadContext context, EchoNativeMutationReceipt receipt) {
+        if (receipt != null) {
+            context.recordMutation(receipt);
+        }
     }
 
     private static EchoNativeLoadStatus registerDescriptorDomain(

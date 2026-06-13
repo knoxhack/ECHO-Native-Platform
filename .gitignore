@@ -2,5 +2,10 @@
 build/
 **/build/
 reports/
-fixtures/ashfall/
-
+fixtures/ashfall/**
+!fixtures/ashfall/
+!fixtures/ashfall/RELEASE_EVIDENCE_RUNBOOK.md
+!fixtures/ashfall/native-public-beta/
+!fixtures/ashfall/native-public-beta/manual-evidence.template.json
+!fixtures/ashfall/gameplay-qa/
+!fixtures/ashfall/gameplay-qa/manual-evidence.template.json

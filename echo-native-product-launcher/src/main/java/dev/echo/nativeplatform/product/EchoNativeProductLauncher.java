@@ -176,11 +176,9 @@ public final class EchoNativeProductLauncher {
         int failed = 0;
 
         for (EchoNativeAddonDescriptor descriptor : availableModules.values()) {
-            EchoNativeModuleLoadResult result = moduleLoader.load(
-                    descriptor,
-                    nativeHostServices.serviceRegistry(),
-                    availableModules
-            );
+            EchoNativeModuleLoadResult result = releaseMode
+                    ? moduleLoader.loadRelease(descriptor, nativeHostServices.serviceRegistry(), availableModules)
+                    : moduleLoader.load(descriptor, nativeHostServices.serviceRegistry(), availableModules);
             moduleResults.add(result);
             nativeHostServices.lifecycleEventHost().recordModuleLoad(result);
             EchoNativeModuleLoadTruthGate.TruthReport truth = truthGate.verify(result);
@@ -2049,9 +2047,7 @@ public final class EchoNativeProductLauncher {
     }
 
     private static boolean hasNativeEntrypoint(EchoNativeAddonDescriptor descriptor) {
-        return descriptor != null
-                && descriptor.access() != null
-                && !text(descriptor.access().get("nativeEntrypoint")).isBlank();
+        return descriptor != null && EchoNativeModuleDescriptor.fromAddon(descriptor).hasEntrypoint();
     }
 
     private static String text(Object value) {

@@ -54,15 +54,40 @@ public final class NativeLoaderLifecycleEventHost {
         if (record == null) {
             throw new IllegalArgumentException("record is required");
         }
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        String phaseId = record.phase().name();
+        clearLiveDispatchProof(evidence);
+        String liveRuntimeDispatchId = beginLiveRuntimeDispatch(
+                LIFECYCLE_SERVICE_ID,
+                "lifecycle_phases",
+                value(moduleId) + ":" + phaseId,
+                evidence
+        );
+        EchoNativeLoadStatus liveStatus = dispatchLifecycle(moduleId, phaseId, evidence);
+        boolean liveDispatchProofSatisfied = liveDispatchProofSatisfied(
+                liveStatus,
+                evidence,
+                liveRuntimeDispatchId,
+                "lifecycle_phases"
+        );
+        if (liveDispatchProofSatisfied) {
+            liveRuntimeMutationCount++;
+        }
+        Map<String, Object> enrichedEvidence = new LinkedHashMap<>(evidence);
+        enrichedEvidence.put("liveRuntimeBridgeStatus", liveStatus.name());
+        enrichedEvidence.put("subsystemLiveRuntimeDispatchProofSatisfied", liveDispatchProofSatisfied);
+        enrichedEvidence.put("liveRuntimeAccessed", liveRuntimeBridge.liveRuntimeAccessed());
+        enrichedEvidence.put("minecraftRuntimeAccessed", liveDispatchProofSatisfied);
+        enrichedEvidence.put("liveMinecraftMutation", liveDispatchProofSatisfied);
         LifecycleEvent event = new LifecycleEvent(
                 lifecycleEvents.size() + 1,
                 value(moduleId),
-                record.phase().name(),
+                phaseId,
                 record.status().name(),
                 record.detail(),
                 record.failed(),
                 record.failures() == null ? List.of() : List.copyOf(record.failures()),
-                Map.of()
+                Map.copyOf(enrichedEvidence)
         );
         lifecycleEvents.add(event);
         return event;

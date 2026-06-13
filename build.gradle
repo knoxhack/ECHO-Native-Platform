@@ -2,6 +2,11 @@ plugins {
     id 'java-library'
 }
 
+def publicNativeSdkProjects = [
+        'echo-native-contracts',
+        'echo-native-testkit',
+] as Set
+
 allprojects {
     group = 'dev.echo.nativeplatform'
     version = '1.0.0-RC1'
@@ -17,6 +22,48 @@ subprojects {
     java {
         toolchain {
             languageVersion = JavaLanguageVersion.of(25)
+        }
+    }
+
+    if (project.name in publicNativeSdkProjects) {
+        apply plugin: 'maven-publish'
+
+        java {
+            withSourcesJar()
+            withJavadocJar()
+        }
+
+        tasks.withType(Javadoc).configureEach {
+            options.addStringOption('Xdoclint:none', '-quiet')
+        }
+
+        if (project.name == 'echo-native-testkit') {
+            tasks.withType(org.gradle.api.publish.tasks.GenerateModuleMetadata).configureEach {
+                if (name == 'generateMetadataFileForMavenJavaPublication') {
+                    enabled = false
+                }
+            }
+        }
+
+        publishing {
+            publications {
+                register('mavenJava', MavenPublication) {
+                    from components.java
+                    groupId = 'dev.echo.native'
+                    artifactId = project.name
+                    version = project.version
+                    if (project.name == 'echo-native-testkit') {
+                        pom.withXml {
+                            def dependenciesNode = asNode().dependencies
+                            dependenciesNode?.dependency?.findAll { dependencyNode ->
+                                dependencyNode.groupId.text() == 'dev.echo.nativeplatform'
+                            }?.each { dependencyNode ->
+                                dependenciesNode[0].remove(dependencyNode)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -231,6 +278,21 @@ def nativeCliQaRuntimeClasspath = {
     project(':echo-native-cli').sourceSets.qa.runtimeClasspath
 }
 
+tasks.register('runNativeQaCli', JavaExec) {
+    group = 'verification'
+    description = 'Runs the internal Native Platform QA CLI sidecar.'
+    dependsOn nativeCliQaClassesTask
+    classpath = nativeCliQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.cli.EchoNativeQaCli'
+    workingDir = rootProject.projectDir
+    doFirst {
+        def configuredGeneratedAt = providers.environmentVariable('ECHO_NATIVE_GENERATED_AT')
+                .orElse(providers.gradleProperty('echoNativeGeneratedAt'))
+                .getOrElse(java.time.Instant.now().toString())
+        systemProperty 'echo.native.generatedAt', configuredGeneratedAt
+    }
+}
+
 project(':echo-native-testkit') {
     sourceSets.named('qa') {
         compileClasspath += project(':echo-native-cli').sourceSets.qa.output
@@ -314,10 +376,14 @@ def nativeProductPackageOutput = providers.gradleProperty('echoNativePackageOutp
 def nativeProductReadinessPackageOutput = providers.gradleProperty('echoNativeReadinessPackageOutput')
         .orElse(providers.environmentVariable('ECHO_NATIVE_READINESS_PACKAGE_OUTPUT'))
         .orElse(layout.buildDirectory.dir('native-product-readiness-package').map { it.asFile.absolutePath })
+def defaultNativeProductPackProfileRoot = providers.provider {
+    file('fixtures/ashfall').absolutePath
+}
 def nativeProductPackProfileRoot = providers.gradleProperty('echoNativePackProfileRoot')
         .orElse(providers.gradleProperty('echoNativePackProfile'))
         .orElse(providers.environmentVariable('ECHO_NATIVE_PACK_PROFILE_ROOT'))
         .orElse(providers.environmentVariable('ECHO_NATIVE_PACK_PROFILE'))
+        .orElse(defaultNativeProductPackProfileRoot)
 def nativeProductAddonSet = providers.gradleProperty('echoNativeAddonSet')
         .orElse(providers.gradleProperty('echoAddonSet'))
         .orElse('ashfall-runtime')
@@ -519,7 +585,7 @@ tasks.register('runNativeTransformPolicy', JavaExec) {
 
 def echoPythonExecutable = providers.environmentVariable('PYTHON').orElse('python').get()
 def echoRootGradleBuildDirectory = new File(System.getProperty('user.home'), 'AppData/Local/EchoGradleBuild/Echo')
-def echoNativeCoreModuleAuditReport = new File(echoRepoRoot, 'reports/echo-native/core-module-integration-audit.json')
+def echoNativeCoreModuleAuditReport = new File(echoModulesRepoRoot.get(), 'reports/echo-native/core-module-integration-audit.json')
 def echoAgent4RegistryContractReport = new File(echoRepoRoot, 'reports/echo/assets/adaptercore-registry-contracts.json')
 def echoAgent4ResourceIndexReport = new File(echoRepoRoot, 'reports/echo/assets/all-addon-resource-index.json')
 def nativeCoreModuleLoadStateProjectPaths = [
@@ -563,10 +629,34 @@ def nativeAllBridgeableAuditModules = []
 def nativeAllBridgeableModuleProjectPaths = []
 if (echoNativeCoreModuleAuditReport.isFile()) {
     def audit = new groovy.json.JsonSlurper().parse(echoNativeCoreModuleAuditReport)
-    nativeAllBridgeableAuditModules = audit.modules
+    def auditModules = audit.modules instanceof List ? audit.modules : []
+    def modulesById = auditModules.collectEntries { module ->
+        [(String.valueOf(module.moduleId)): module]
+    }
+    def selectedModules = new LinkedHashMap<String, Object>()
+    Closure includeWithRequiredDependencies
+    includeWithRequiredDependencies = { module ->
+        if (module == null) {
+            return
+        }
+        def moduleId = String.valueOf(module.moduleId)
+        if (selectedModules.containsKey(moduleId)) {
+            return
+        }
+        selectedModules[moduleId] = module
+        if (module.requires instanceof List) {
+            module.requires.each { requiredModuleId ->
+                includeWithRequiredDependencies(modulesById[String.valueOf(requiredModuleId)])
+            }
+        }
+    }
+    auditModules
             .findAll { it.nativeIntegrationStatus == 'LEGACY_ADAPTER_BRIDGEABLE' }
-    nativeAllBridgeableModuleProjectPaths = nativeAllBridgeableAuditModules
+            .each { includeWithRequiredDependencies(it) }
+    nativeAllBridgeableAuditModules = selectedModules.values()
             .findAll { it.hasBuildGradle }
+            .sort { String.valueOf(it.moduleId) }
+    nativeAllBridgeableModuleProjectPaths = nativeAllBridgeableAuditModules
             .collect { ':' + new File(String.valueOf(it.directory).replace('\\', '/')).name }
             .unique()
             .sort()
@@ -885,6 +975,7 @@ tasks.register('runNativeServiceCollisionGate', JavaExec) {
     mainClass = 'dev.echo.nativeplatform.loader.EchoNativeServiceCollisionGateMain'
     workingDir = rootProject.projectDir
 }
+
 tasks.register('runNativeMutationTruthGate', JavaExec) {
     group = 'verification'
     description = 'Verifies MUTATED release proof requires typed host mutation receipts instead of map-only claims.'
@@ -901,6 +992,7 @@ tasks.register('prepareNativeCoreModuleLoadStateClasses', Exec) {
     doFirst {
         workingDir = echoModulesRepoRoot.get()
         commandLine(([echoModulesGradleExecutable().absolutePath]
+                + ['--no-daemon', '--no-parallel', '--max-workers=1']
                 + nativeCoreModuleLoadStateProjectPaths.collect { "${it}:classes" }
                 + ['-PechoAddonSet=beta']) as List)
     }
@@ -927,6 +1019,7 @@ tasks.register('prepareNativeAllBridgeableModuleLoadStateClasses', Exec) {
     doFirst {
         workingDir = echoModulesRepoRoot.get()
         commandLine(([echoModulesGradleExecutable().absolutePath]
+                + ['--no-daemon', '--no-parallel', '--max-workers=1']
                 + nativeAllBridgeableModuleProjectPaths.collect { "${it}:classes" }
                 + [':compileEchoNativeM17LooseEntrypoints', '-PechoAddonSet=all']) as List)
     }
@@ -967,15 +1060,23 @@ tasks.register('packageNativeAllBridgeableModuleArtifacts') {
             def directory = String.valueOf(module.directory).replace('\\', '/')
             def sourceRoot = new File(echoModulesRepoRoot.get(), directory)
             def buildDirectoryName = new File(directory).name
-            def classesDir = new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/classes/java/main")
-            def resourcesDir = new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/resources/main")
-            if (!classesDir.exists()) {
-                throw new GradleException("Missing native module classes for ${moduleId}: ${classesDir}")
+            def classOutputCandidates = [
+                    new File(sourceRoot, 'build/classes/java/main'),
+                    new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/classes/java/main")
+            ]
+            def resourceOutputCandidates = [
+                    new File(sourceRoot, 'build/resources/main'),
+                    new File(echoRootGradleBuildDirectory, "${buildDirectoryName}/resources/main")
+            ]
+            def classesDir = classOutputCandidates.find { it.isDirectory() }
+            def resourcesDir = resourceOutputCandidates.find { it.isDirectory() }
+            if (classesDir == null) {
+                throw new GradleException("Missing native module classes for ${moduleId}; checked ${classOutputCandidates}")
             }
             def artifact = new File(artifactDirectory, "${moduleId}.jar")
             ant.jar(destfile: artifact) {
                 fileset(dir: classesDir)
-                if (resourcesDir.isDirectory()) {
+                if (resourcesDir != null) {
                     fileset(dir: resourcesDir)
                 }
             }

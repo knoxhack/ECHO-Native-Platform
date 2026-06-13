@@ -23,6 +23,12 @@ Public is recommended once native addon developers or testers need source, schem
 Run commands from the repository root.
 
 - `.\gradlew.bat build`
+- `node scripts/generate-ashfall-native-code-gate.mjs`
+- `node scripts/test-generate-ashfall-native-code-gate.mjs`
+- `node scripts/generate-ashfall-native-public-beta-evidence.mjs`
+- `node scripts/test-generate-ashfall-native-public-beta-evidence.mjs`
+- `node scripts/generate-ashfall-gameplay-qa-evidence.mjs`
+- `node scripts/test-generate-ashfall-gameplay-qa-evidence.mjs`
 
 ## Artifact Ownership
 
@@ -31,6 +37,14 @@ Native platform runtime binaries and platform metadata belong here. Native pack 
 ## Release Index Product Routing
 
 Runtime update metadata is routed through the canonical Release Index product entry `echo-native-platform`. Run `node scripts/verify-release-index-product.mjs` to audit the indexed product record, add `--check-urls` to prove indexed GitHub artifact URLs are reachable, or add `--strict` in release gates once the entry has approved artifacts. The Gradle gate accepts `-PechoReleaseIndexCheckUrls=true` or `ECHO_RELEASE_INDEX_CHECK_URLS=true` for the same live URL check.
+
+`scripts/generate-ashfall-native-code-gate.mjs` writes the Phase 5 Ashfall Native code gate evidence consumed by the Release Index readiness gate. It runs `gradlew check`, records the command output tail, and only passes when the command exits successfully. After Gradle finishes, it refreshes the Phase 7/8 reducer outputs so older Gradle-generated placeholder reports do not overwrite the Release Index-facing evidence files.
+
+`scripts/generate-ashfall-gameplay-qa-evidence.mjs` writes the Phase 8 Ashfall gameplay QA evidence consumed by the Release Index readiness gate. It fails closed unless upstream Native tester reports are current, non-dry-run, and passing, and unless `fixtures/ashfall/gameplay-qa/manual-evidence.json` proves first-hour client play, fresh world creation, save/reload, route, dedicated server, server/client export, ending, and no-crash checks with supporting files.
+
+`scripts/generate-ashfall-native-public-beta-evidence.mjs` writes the Phase 7 Ashfall Native public beta reports consumed by the Release Index readiness gate: `native-loader-beta-session-proof-matrix.json`, `native-loader-beta-crash-intake.json`, and `public-beta-tester-package-readiness.json`. It fails closed unless `fixtures/ashfall/native-public-beta/manual-evidence.json` cites three clean internal beta sessions with logs and notes, no-crash crash review evidence, a checksum-verified tester package, support runbook, rollback plan, and published limitations.
+
+Use `fixtures/ashfall/RELEASE_EVIDENCE_RUNBOOK.md` plus the `manual-evidence.template.json` files under `fixtures/ashfall/native-public-beta/` and `fixtures/ashfall/gameplay-qa/` when collecting real Phase 7/8 evidence. The templates are intentionally report-only placeholders and must not be treated as passing evidence.
 
 ## Docs Index
 

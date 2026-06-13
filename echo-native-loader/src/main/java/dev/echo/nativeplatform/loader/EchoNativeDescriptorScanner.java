@@ -26,7 +26,12 @@ public final class EchoNativeDescriptorScanner {
     private final EchoNativePackProfileLoader profileLoader = new EchoNativePackProfileLoader();
 
     public EchoNativeScanResult scan(Path fixtureRoot) {
-        LegacyFixtureAlias alias = legacyFixtureAlias(fixtureRoot);
+        LegacyFixtureAlias alias;
+        try {
+            alias = legacyFixtureAlias(fixtureRoot);
+        } catch (RuntimeException | IOException ex) {
+            return scan(fixtureRoot, true);
+        }
         if (alias != null) {
             return requiredClosure(scan(alias.sourceRoot(), true, alias.packProfile()));
         }
@@ -135,10 +140,22 @@ public final class EchoNativeDescriptorScanner {
     private static List<Path> findDescriptors(Path modulesRoot) throws IOException {
         try (Stream<Path> stream = Files.walk(modulesRoot)) {
             return stream
+                    .filter(path -> !isGeneratedPath(modulesRoot, path))
                     .filter(path -> path.getFileName().toString().equals("echo.mod.json"))
                     .sorted()
                     .toList();
         }
+    }
+
+    private static boolean isGeneratedPath(Path root, Path path) {
+        Path relative = root.toAbsolutePath().normalize().relativize(path.toAbsolutePath().normalize());
+        for (Path part : relative) {
+            String name = part.toString();
+            if ("build".equals(name) || ".gradle".equals(name) || "out".equals(name) || "target".equals(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static EchoNativeAddonDescriptor readDescriptor(Path descriptorPath) throws IOException {
@@ -227,7 +244,7 @@ public final class EchoNativeDescriptorScanner {
         }
     }
 
-    private static LegacyFixtureAlias legacyFixtureAlias(Path fixtureRoot) {
+    private LegacyFixtureAlias legacyFixtureAlias(Path fixtureRoot) throws IOException {
         Path requested = fixtureRoot.toAbsolutePath().normalize();
         if (Files.isDirectory(requested.resolve("modules"))
                 || Files.isRegularFile(requested.resolve("src/main/resources/META-INF/echo.mod.json"))) {
@@ -246,7 +263,14 @@ public final class EchoNativeDescriptorScanner {
         if (!Files.isRegularFile(sourceRoot.resolve("addons/echoashfallprotocol/src/main/resources/META-INF/echo.mod.json"))) {
             return null;
         }
-        EchoNativePackProfile profile = new EchoNativePackProfile(
+        EchoNativePackProfile profile = Files.isRegularFile(requested.resolve("echo.pack.json"))
+                ? profileLoader.load(requested)
+                : legacyAshfallProfile(requested);
+        return new LegacyFixtureAlias(sourceRoot, profile);
+    }
+
+    private static EchoNativePackProfile legacyAshfallProfile(Path requested) {
+        return new EchoNativePackProfile(
                 "echo.pack.synthetic.v1",
                 "ashfall",
                 "ashfall",
@@ -260,7 +284,6 @@ public final class EchoNativeDescriptorScanner {
                 List.of(),
                 requested.resolve("echo.pack.json").normalize()
         );
-        return new LegacyFixtureAlias(sourceRoot, profile);
     }
 
     private static Path echoModulesRoot() {

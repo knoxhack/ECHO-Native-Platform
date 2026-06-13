@@ -80,17 +80,11 @@ public final class EchoNativeCoreModuleLoadStateSmokeMain {
         String classpathMode = args.length > 4 ? args[4] : "classes";
 
         List<TargetModule> targets = targets(repoRoot, scope);
-        List<TargetModule> classpathModules = new ArrayList<>(targets);
-        if ("focused-core".equals(scope)) {
-            classpathModules.addAll(SUPPORT_MODULES);
-        }
-        List<String> classpath = sharedNativeClasspath(repoRoot, classpathRoot, classpathModules, classpathMode);
+        List<TargetModule> descriptorModules = descriptorModules(repoRoot, scope, targets);
+        List<String> classpath = sharedNativeClasspath(repoRoot, classpathRoot, descriptorModules, classpathMode);
         Map<String, EchoNativeAddonDescriptor> descriptors = new LinkedHashMap<>();
-        for (TargetModule target : targets) {
-            descriptors.put(target.moduleId(), readDescriptor(repoRoot, target, classpath));
-        }
-        for (TargetModule supportModule : SUPPORT_MODULES) {
-            descriptors.put(supportModule.moduleId(), readDescriptor(repoRoot, supportModule, classpath));
+        for (TargetModule module : descriptorModules) {
+            descriptors.put(module.moduleId(), readDescriptor(repoRoot, module, classpath));
         }
 
         EchoNativeServiceRegistry serviceRegistry = new EchoNativeServiceRegistry();
@@ -170,9 +164,8 @@ public final class EchoNativeCoreModuleLoadStateSmokeMain {
     private static void verifyTarget(TargetModule target, EchoNativeModuleLoadResult result) {
         require(result.loaded(), target.moduleId() + " did not load.");
         require(result.registered(), target.moduleId() + " did not register services/content.");
-        if (requiresMutationEvidence(target)) {
-            require(result.mutated(), target.moduleId() + " did not record native entrypoint mutation evidence.");
-        }
+        require(hasLifecycleMutationEvidence(result),
+                target.moduleId() + " did not record native entrypoint lifecycle evidence.");
         require(target.nativeEntrypoint().equals(result.loadedClassName()),
                 target.moduleId() + " loaded class drifted: " + result.loadedClassName());
         require(target.nativeEntrypoint().equals(result.constructedEntrypointClassName()),
@@ -181,26 +174,20 @@ public final class EchoNativeCoreModuleLoadStateSmokeMain {
                 target.moduleId() + " must load from descriptor nativeClasspath, not the app classpath.");
         require(result.diagnostics().stream().noneMatch(item -> item.contains("legacy activateNative(Map) lifecycle bridge")),
                 target.moduleId() + " must not use the legacy lifecycle bridge.");
-        Set<String> serviceIds = result.registeredServices().stream()
+        Set<String> moduleServiceIds = result.registeredServices().stream()
+                .filter(service -> target.moduleId().equals(service.moduleId()))
                 .map(EchoNativeRegisteredService::serviceId)
                 .collect(Collectors.toSet());
-        require(serviceIds.stream().anyMatch(serviceId -> serviceId.startsWith("module." + target.moduleId() + ".")),
-                target.moduleId() + " did not register a module-owned native entrypoint service.");
-        if (requiresMutationEvidence(target)) {
-            require(result.mutations().stream()
-                            .map(item -> String.valueOf(item.get("status")))
-                            .anyMatch(EchoNativeLoadStatus.MUTATED.name()::equals),
-                    target.moduleId() + " lifecycle records must include MUTATED evidence.");
-        } else {
-            require(result.mutations().stream()
-                            .map(item -> String.valueOf(item.get("status")))
-                            .noneMatch(EchoNativeLoadStatus.MUTATED.name()::equals),
-                    target.moduleId() + " registered-only entrypoint must not claim mutation evidence.");
-        }
+        require(moduleServiceIds.stream().anyMatch(serviceId -> !serviceId.startsWith("content.")),
+                target.moduleId() + " did not register a module-owned native service.");
+        require(hasLifecycleMutationEvidence(result),
+                target.moduleId() + " lifecycle records must include MUTATED evidence.");
     }
 
-    private static boolean requiresMutationEvidence(TargetModule target) {
-        return !"echoindex".equals(target.moduleId());
+    private static boolean hasLifecycleMutationEvidence(EchoNativeModuleLoadResult result) {
+        return result.mutations().stream()
+                .map(item -> String.valueOf(item.get("status")))
+                .anyMatch(EchoNativeLoadStatus.MUTATED.name()::equals);
     }
 
     private static EchoNativeAddonDescriptor readDescriptor(
@@ -240,6 +227,80 @@ public final class EchoNativeCoreModuleLoadStateSmokeMain {
     }
 
     private static List<TargetModule> targets(Path repoRoot, String scope) throws Exception {
+        List<AuditModule> modules = auditModules(repoRoot);
+        List<TargetModule> targets = new ArrayList<>();
+        for (AuditModule module : modules) {
+            if (!includedInScope(module.metadata(), scope)) {
+                continue;
+            }
+            if (!module.moduleId().isBlank() && !module.directory().isBlank() && !module.nativeEntrypoint().isBlank()) {
+                targets.add(module.toTargetModule());
+            }
+        }
+        targets.sort(java.util.Comparator.comparing(TargetModuleLoadStateSmokeMainOrder::orderKey));
+        if ("focused-core".equals(scope) && targets.size() < TARGET_ORDER.size()) {
+            throw new IllegalStateException("Expected at least " + TARGET_ORDER.size()
+                    + " focused core modules but found " + targets.size() + ".");
+        }
+        if ("all-bridgeable".equals(scope) && targets.size() < 90) {
+            throw new IllegalStateException("Expected at least 90 bridgeable modules but found " + targets.size() + ".");
+        }
+        return List.copyOf(targets);
+    }
+
+    private static List<TargetModule> descriptorModules(
+            Path repoRoot,
+            String scope,
+            List<TargetModule> targets
+    ) throws Exception {
+        List<TargetModule> seeds = new ArrayList<>(targets);
+        if ("focused-core".equals(scope)) {
+            seeds.addAll(SUPPORT_MODULES);
+        }
+        if (!"all-bridgeable".equals(scope)) {
+            return uniqueModules(seeds);
+        }
+        Map<String, TargetModule> allModulesById = auditModules(repoRoot).stream()
+                .filter(module -> !module.moduleId().isBlank() && !module.directory().isBlank())
+                .collect(Collectors.toMap(
+                        AuditModule::moduleId,
+                        AuditModule::toTargetModule,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+        LinkedHashMap<String, TargetModule> selected = new LinkedHashMap<>();
+        for (TargetModule seed : seeds) {
+            includeWithRequiredDependencies(allModulesById.getOrDefault(seed.moduleId(), seed), allModulesById, selected);
+        }
+        return List.copyOf(selected.values());
+    }
+
+    private static List<TargetModule> uniqueModules(List<TargetModule> modules) {
+        LinkedHashMap<String, TargetModule> selected = new LinkedHashMap<>();
+        for (TargetModule module : modules) {
+            selected.putIfAbsent(module.moduleId(), module);
+        }
+        return List.copyOf(selected.values());
+    }
+
+    private static void includeWithRequiredDependencies(
+            TargetModule module,
+            Map<String, TargetModule> allModulesById,
+            LinkedHashMap<String, TargetModule> selected
+    ) {
+        if (selected.containsKey(module.moduleId())) {
+            return;
+        }
+        selected.put(module.moduleId(), module);
+        for (String requiredModuleId : module.requires()) {
+            TargetModule dependency = allModulesById.get(requiredModuleId);
+            if (dependency != null) {
+                includeWithRequiredDependencies(dependency, allModulesById, selected);
+            }
+        }
+    }
+
+    private static List<AuditModule> auditModules(Path repoRoot) throws Exception {
         Path auditPath = repoRoot.resolve("reports/echo-native/core-module-integration-audit.json")
                 .toAbsolutePath()
                 .normalize();
@@ -252,26 +313,19 @@ public final class EchoNativeCoreModuleLoadStateSmokeMain {
         for (int index = 0; index < TARGET_ORDER.size(); index++) {
             order.put(TARGET_ORDER.get(index), index);
         }
-        List<TargetModule> targets = new ArrayList<>();
+        List<AuditModule> targets = new ArrayList<>();
         for (Object item : modules) {
             Map<String, Object> module = EchoNativeJson.asObject(item);
-            if (!includedInScope(module, scope)) {
-                continue;
-            }
             String moduleId = string(module.get("moduleId"));
             String directory = string(module.get("directory"));
             String nativeEntrypoint = string(module.get("nativeEntrypoint"));
-            if (!moduleId.isBlank() && !directory.isBlank() && !nativeEntrypoint.isBlank()) {
-                targets.add(new TargetModule(moduleId, directory, nativeEntrypoint));
-            }
-        }
-        targets.sort(java.util.Comparator.comparing(TargetModuleLoadStateSmokeMainOrder::orderKey));
-        if ("focused-core".equals(scope) && targets.size() < TARGET_ORDER.size()) {
-            throw new IllegalStateException("Expected at least " + TARGET_ORDER.size()
-                    + " focused core modules but found " + targets.size() + ".");
-        }
-        if ("all-bridgeable".equals(scope) && targets.size() < 90) {
-            throw new IllegalStateException("Expected at least 90 bridgeable modules but found " + targets.size() + ".");
+            targets.add(new AuditModule(
+                    module,
+                    moduleId,
+                    directory,
+                    nativeEntrypoint,
+                    cleanList(EchoNativeJson.stringList(module.get("requires")))
+            ));
         }
         return List.copyOf(targets);
     }
@@ -298,7 +352,12 @@ public final class EchoNativeCoreModuleLoadStateSmokeMain {
         }
         List<String> classpath = new ArrayList<>();
         for (TargetModule target : targets) {
-            addRequiredClasspath(classpath, classpathRoot.resolve(target.buildDirectoryName()).resolve("classes/java/main"));
+            Path sourceRoot = repoRoot.resolve(target.modulePath()).toAbsolutePath().normalize();
+            addRequiredClasspath(classpath, List.of(
+                    sourceRoot.resolve("build/classes/java/main"),
+                    classpathRoot.resolve(target.buildDirectoryName()).resolve("classes/java/main")
+            ));
+            addOptionalClasspath(classpath, sourceRoot.resolve("build/resources/main"));
             addOptionalClasspath(classpath, classpathRoot.resolve(target.buildDirectoryName()).resolve("resources/main"));
         }
         return List.copyOf(classpath);
@@ -317,12 +376,30 @@ public final class EchoNativeCoreModuleLoadStateSmokeMain {
             throw new IllegalStateException("Missing required native classpath entry " + path
                     + ". Run root Gradle classes for the core native modules first.");
         }
-        classpath.add(path.toString());
+        addClasspathEntry(classpath, path);
+    }
+
+    private static void addRequiredClasspath(List<String> classpath, List<Path> candidates) {
+        for (Path candidate : candidates) {
+            if (Files.exists(candidate)) {
+                addClasspathEntry(classpath, candidate);
+                return;
+            }
+        }
+        throw new IllegalStateException("Missing required native classpath entry; checked " + candidates
+                + ". Run root Gradle classes for the core native modules first.");
     }
 
     private static void addOptionalClasspath(List<String> classpath, Path path) {
         if (Files.isDirectory(path)) {
-            classpath.add(path.toString());
+            addClasspathEntry(classpath, path);
+        }
+    }
+
+    private static void addClasspathEntry(List<String> classpath, Path path) {
+        String item = path.toString();
+        if (!classpath.contains(item)) {
+            classpath.add(item);
         }
     }
 
@@ -365,13 +442,33 @@ public final class EchoNativeCoreModuleLoadStateSmokeMain {
         }
     }
 
-    private record TargetModule(String moduleId, String modulePath, String nativeEntrypoint) {
+    private record TargetModule(String moduleId, String modulePath, String nativeEntrypoint, List<String> requires) {
+        private TargetModule(String moduleId, String modulePath, String nativeEntrypoint) {
+            this(moduleId, modulePath, nativeEntrypoint, List.of());
+        }
+
+        private TargetModule {
+            requires = requires == null ? List.of() : List.copyOf(requires);
+        }
+
         private String buildDirectoryName() {
             return sourceRoot().getFileName().toString();
         }
 
         private Path sourceRoot() {
             return Path.of(modulePath.replace('\\', '/'));
+        }
+    }
+
+    private record AuditModule(
+            Map<String, Object> metadata,
+            String moduleId,
+            String directory,
+            String nativeEntrypoint,
+            List<String> requires
+    ) {
+        private TargetModule toTargetModule() {
+            return new TargetModule(moduleId, directory, nativeEntrypoint, requires);
         }
     }
 

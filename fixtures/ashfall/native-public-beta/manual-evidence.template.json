@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "echo.ashfall.native-public-beta.manual-evidence.v1",
+  "packId": "ashfall",
+  "generatedAt": "1970-01-01T00:00:00Z",
+  "reportOnly": true,
+  "releaseCandidate": {
+    "buildId": "ashfall-native-public-beta-rc-fill-me",
+    "artifactSha256": "fill-with-64-character-sha256",
+    "releaseManifestPath": "fixtures/ashfall/native-public-beta/evidence/echo-release.json"
+  },
+  "sessions": [
+    {
+      "id": "ashfall-beta-session-001",
+      "tester": "fill-me",
+      "startedAt": "1970-01-01T00:00:00Z",
+      "endedAt": "1970-01-01T00:00:00Z",
+      "durationMinutes": 0,
+      "buildId": "ashfall-native-public-beta-rc-fill-me",
+      "artifactSha256": "fill-with-64-character-sha256",
+      "logPath": "fixtures/ashfall/native-public-beta/evidence/session-001/latest.log",
+      "notesPath": "fixtures/ashfall/native-public-beta/evidence/session-001/notes.md",
+      "supportBundlePath": "fixtures/ashfall/native-public-beta/evidence/session-001/support-bundle.zip",
+      "launchedViaNativeLoader": false,
+      "minecraftReachedTitle": false,
+      "worldLoaded": false,
+      "supportBundleExported": false,
+      "noCrash": false
+    },
+    {
+      "id": "ashfall-beta-session-002",
+      "tester": "fill-me",
+      "startedAt": "1970-01-01T00:00:00Z",
+      "endedAt": "1970-01-01T00:00:00Z",
+      "durationMinutes": 0,
+      "buildId": "ashfall-native-public-beta-rc-fill-me",
+      "artifactSha256": "fill-with-64-character-sha256",
+      "logPath": "fixtures/ashfall/native-public-beta/evidence/session-002/latest.log",
+      "notesPath": "fixtures/ashfall/native-public-beta/evidence/session-002/notes.md",
+      "supportBundlePath": "fixtures/ashfall/native-public-beta/evidence/session-002/support-bundle.zip",
+      "launchedViaNativeLoader": false,
+      "minecraftReachedTitle": false,
+      "worldLoaded": false,
+      "supportBundleExported": false,
+      "noCrash": false
+    },
+    {
+      "id": "ashfall-beta-session-003",
+      "tester": "fill-me",
+      "startedAt": "1970-01-01T00:00:00Z",
+      "endedAt": "1970-01-01T00:00:00Z",
+      "durationMinutes": 0,
+      "buildId": "ashfall-native-public-beta-rc-fill-me",
+      "artifactSha256": "fill-with-64-character-sha256",
+      "logPath": "fixtures/ashfall/native-public-beta/evidence/session-003/latest.log",
+      "notesPath": "fixtures/ashfall/native-public-beta/evidence/session-003/notes.md",
+      "supportBundlePath": "fixtures/ashfall/native-public-beta/evidence/session-003/support-bundle.zip",
+      "launchedViaNativeLoader": false,
+      "minecraftReachedTitle": false,
+      "worldLoaded": false,
+      "supportBundleExported": false,
+      "noCrash": false
+    }
+  ],
+  "crashReview": {
+    "reviewedAt": "1970-01-01T00:00:00Z",
+    "latestLogPath": "fixtures/ashfall/native-public-beta/evidence/crash-review/latest.log",
+    "reviewPath": "fixtures/ashfall/native-public-beta/evidence/crash-review/review.md",
+    "noCrashEvidence": false,
+    "crashSignalInLatestLog": true,
+    "crashReportCount": -1
+  },
+  "publicBeta": {
+    "candidatePackageId": "ashfall-native-public-beta-rc-fill-me",
+    "publicBetaOpen": false,
+    "publicBetaReady": false,
+    "testerPackageReady": false,
+    "supportBundleExportReady": false,
+    "rollbackReady": false,
+    "knownLimitationsPublished": false,
+    "packagePath": "fixtures/ashfall/native-public-beta/evidence/ashfall-native-edition-fill-me.zip",
+    "packageSha256": "fill-with-64-character-sha256",
+    "supportRunbookPath": "fixtures/ashfall/native-public-beta/evidence/support-runbook.md",
+    "rollbackPlanPath": "fixtures/ashfall/native-public-beta/evidence/rollback-plan.md",
+    "knownLimitationsPath": "fixtures/ashfall/native-public-beta/evidence/known-limitations.md"
+  }
+}

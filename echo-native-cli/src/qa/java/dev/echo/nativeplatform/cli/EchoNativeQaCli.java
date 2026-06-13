@@ -2297,8 +2297,8 @@ public final class EchoNativeQaCli {
     }
 
     private void writeTesterEvidenceReports(Path fixture, EchoNativeScanResult result, EchoNativeTesterEvidenceOutcome outcome) throws IOException {
-        writeSimple(fixture, result, "tester-playable-evidence.json", "echo.native.tester_playable_evidence.v1", outcome.diagnostics(), outcome.testerPlayableEvidence());
-        writeSimple(fixture, result, "minecraft-baseline-playability.json", "echo.native.minecraft_baseline_playability.v1", outcome.diagnostics(), outcome.minecraftBaselinePlayability());
+        writeTesterEvidenceSimple(fixture, result, "tester-playable-evidence.json", "echo.native.tester_playable_evidence.v1", outcome.diagnostics(), outcome.testerPlayableEvidence());
+        writeTesterEvidenceSimple(fixture, result, "minecraft-baseline-playability.json", "echo.native.minecraft_baseline_playability.v1", outcome.diagnostics(), outcome.minecraftBaselinePlayability());
         writeSimple(fixture, result, "native-product-playable-gap.json", "echo.native.product_playable_gap.v1", outcome.diagnostics(), outcome.nativeProductPlayableGap());
         writeSimple(fixture, result, "phase13-m20-completion.json", "echo.native.phase13_m20_completion.v1", outcome.diagnostics(), outcome.phase13M20Completion());
         writeSimple(fixture, result, "phase13-m21-readiness.json", "echo.native.phase13_m21_readiness.v1", outcome.diagnostics(), outcome.phase13M21Readiness());
@@ -2439,6 +2439,10 @@ public final class EchoNativeQaCli {
         EchoNativeReportWriter.writeReport(reportPath(fixture, result, fileName), schema, "echo-native-cli", packId(result), status(diagnostics), summary(result, diagnostics), diagnostics, data);
     }
 
+    private void writeTesterEvidenceSimple(Path fixture, EchoNativeScanResult result, String fileName, String schema, List<EchoNativeDiagnostic> diagnostics, Map<String, Object> data) throws IOException {
+        EchoNativeReportWriter.writeReport(reportPath(fixture, result, fileName), schema, "echo-native-cli", packId(result), status(diagnostics), testerEvidenceSummary(result, diagnostics, data), diagnostics, data);
+    }
+
     private void writeRuntimeAwareSimple(Path fixture, EchoNativeScanResult result, String fileName, String schema, List<EchoNativeDiagnostic> diagnostics, Map<String, Object> data) throws IOException {
         EchoNativeReportWriter.writeReport(reportPath(fixture, result, fileName), schema, "echo-native-cli", packId(result), status(diagnostics), runtimeAwareSummary(result, diagnostics, data), diagnostics, data);
     }
@@ -2474,6 +2478,29 @@ public final class EchoNativeQaCli {
                 || Boolean.TRUE.equals(data.get("liveClientProbeExecuted"));
         summary.put("dryRunOnly", !processEvidence);
         return summary;
+    }
+
+    private static Map<String, Object> testerEvidenceSummary(EchoNativeScanResult result, List<EchoNativeDiagnostic> diagnostics, Map<String, Object> data) {
+        Map<String, Object> summary = summary(result, diagnostics);
+        summary.put("dryRunOnly", !hasTesterRuntimeEvidence(data));
+        summary.put("evidenceIntakeExecuted", true);
+        return summary;
+    }
+
+    private static boolean hasTesterRuntimeEvidence(Map<String, Object> data) {
+        return Boolean.TRUE.equals(data.get("latestLogPresent"))
+                || Boolean.TRUE.equals(data.get("playerJoinObserved"))
+                || Boolean.TRUE.equals(data.get("playerJoinedWorld"))
+                || Boolean.TRUE.equals(data.get("worldSavePresent"))
+                || Boolean.TRUE.equals(data.get("crashSignalInLatestLog"))
+                || positiveNumber(data.get("worldSaveCount"))
+                || positiveNumber(data.get("crashReportCount"))
+                || positiveNumber(data.get("activeCrashReportCount"))
+                || positiveNumber(data.get("screenshotCount"));
+    }
+
+    private static boolean positiveNumber(Object value) {
+        return value instanceof Number number && number.longValue() > 0;
     }
 
     private static EchoNativeReportStatus status(List<EchoNativeDiagnostic> diagnostics) {
