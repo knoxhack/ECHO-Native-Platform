@@ -14,6 +14,12 @@ Gradle platform code, runtime loader code, platform docs, release workflow notes
 
 Owns native platform runtime releases consumed by Native Edition and developer tooling.
 
+## Current Release Line
+
+The active release line is `1.0.0-RC1`. Local build/check and external addon proof are green, and the product ZIP is checksum-indexed in the Release Index as a warning-gated RC asset. It is not a stable `1.0.0` or launcher-approved full release until GitHub upload/download-back, signing or attestation, launcher install/rollback/diagnostics, and real pack gameplay evidence pass.
+
+Use `docs/echo/native/RELEASE_CANDIDATE_CHECKLIST.md` as the promotion contract.
+
 ## Public Or Private
 
 Public is recommended once native addon developers or testers need source, schemas, and runtime docs. Keep signing/private release keys outside the repo.
@@ -29,6 +35,7 @@ Run commands from the repository root.
 - `node scripts/test-generate-ashfall-native-public-beta-evidence.mjs`
 - `node scripts/generate-ashfall-gameplay-qa-evidence.mjs`
 - `node scripts/test-generate-ashfall-gameplay-qa-evidence.mjs`
+- `.\gradlew.bat check packageNativeProductLayout packagePublicAlphaRelease`
 
 ## Artifact Ownership
 
@@ -43,6 +50,8 @@ Runtime update metadata is routed through the canonical Release Index product en
 `scripts/generate-ashfall-gameplay-qa-evidence.mjs` writes the Phase 8 Ashfall gameplay QA evidence consumed by the Release Index readiness gate. It fails closed unless upstream Native tester reports are current, non-dry-run, and passing, and unless `fixtures/ashfall/gameplay-qa/manual-evidence.json` proves first-hour client play, fresh world creation, save/reload, route, dedicated server, server/client export, ending, and no-crash checks with supporting files.
 
 `scripts/generate-ashfall-native-public-beta-evidence.mjs` writes the Phase 7 Ashfall Native public beta reports consumed by the Release Index readiness gate: `native-loader-beta-session-proof-matrix.json`, `native-loader-beta-crash-intake.json`, and `public-beta-tester-package-readiness.json`. It fails closed unless `fixtures/ashfall/native-public-beta/manual-evidence.json` cites three clean internal beta sessions with logs and notes, no-crash crash review evidence, a checksum-verified tester package, support runbook, rollback plan, and published limitations.
+
+`packagePublicAlphaRelease` currently emits the RC1 product ZIP under `build/public-alpha/`. Despite the historical task name, the current artifact is `echo-native-product-1.0.0-RC1.zip` and must stay warning-gated until public download and launcher evidence exists.
 
 Use `fixtures/ashfall/RELEASE_EVIDENCE_RUNBOOK.md` plus the `manual-evidence.template.json` files under `fixtures/ashfall/native-public-beta/` and `fixtures/ashfall/gameplay-qa/` when collecting real Phase 7/8 evidence. The templates are intentionally report-only placeholders and must not be treated as passing evidence.
 

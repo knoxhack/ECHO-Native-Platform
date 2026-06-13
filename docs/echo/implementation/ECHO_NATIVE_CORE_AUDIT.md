@@ -1,5 +1,7 @@
 # ECHO Native Core Hard Runtime Audit
 
+> Current status note, 2026-06-13: this file is historical audit evidence from an earlier runtime lane. It must not be used as the current RC1 release contract. The current `1.0.0-RC1` rule is stricter: a module is `MUTATED` only when a typed host service returns an `EchoNativeMutationReceipt` with status `MUTATED`. Legacy `activateNative(Map)`, descriptor metadata, diagnostic maps, and report-only mutation claims cannot prove mutation in release mode. Use `docs/echo/native/RELEASE_CANDIDATE_CHECKLIST.md`, `docs/echo/native/PUBLIC_CONTRACT.md`, and `docs/echo/native/TROUBLESHOOTING.md` for current release gates.
+
 **Version:** phase-13-runtime-audit-v1  
 **Date:** 2026-06-03  
 **Auditor:** ECHO Native CLI (`native discover`, `native resolve`, `native load`, `native prove-live`)  
