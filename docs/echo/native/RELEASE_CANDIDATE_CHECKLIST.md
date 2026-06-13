@@ -9,6 +9,7 @@ This checklist is the release-candidate contract for promoting ECHO Native towar
 | Release line | `1.0.0-RC1` |
 | Stable target | `1.0.0` after all gates pass |
 | Runtime artifact | `echo-native-product-1.0.0-RC1.zip` |
+| Native Loader launcher library | `native-loader-1.0.0.jar` |
 | Addon artifact | `<module>-<version>.echo-addon` |
 | Descriptor | `META-INF/echo.mod.json` |
 | Launcher channel | RC/pre-release until stable gates pass |

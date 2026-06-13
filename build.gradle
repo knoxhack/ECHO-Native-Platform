@@ -1209,6 +1209,7 @@ tasks.named('check') {
 tasks.register('packagePublicAlphaRelease') {
     group = 'release'
     description = 'Compatibility alias that stages Native Platform RC1 release-candidate assets under build/public-alpha.'
+    dependsOn ':echo-native-loader:jar'
     dependsOn 'packageNativeProductLayout'
     dependsOn 'packageNativeProductReadinessLayout'
 
@@ -1222,9 +1223,38 @@ tasks.register('packagePublicAlphaRelease') {
                     schemaVersion: 'echo.native_rc.generated_report.v1',
                     releaseLine  : '1.0.0-RC1',
                     generatedAt   : new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
-                    repository    : 'ECHO-Native-Platform'
+                repository    : 'ECHO-Native-Platform'
             ] + payload)) + System.lineSeparator()
         }
+        def sha256 = { File file ->
+            def digest = java.security.MessageDigest.getInstance('SHA-256')
+            file.withInputStream { input ->
+                byte[] buffer = new byte[8192]
+                int read
+                while ((read = input.read(buffer)) > 0) {
+                    digest.update(buffer, 0, read)
+                }
+            }
+            digest.digest().encodeHex().toString()
+        }
+        def releaseAssetUrl = { String fileName ->
+            "https://github.com/knoxhack/ECHO-Native-Platform/releases/download/v1.0.0-RC1/${fileName}"
+        }
+        def gitCommit = {
+            try {
+                def stdout = new ByteArrayOutputStream()
+                exec {
+                    commandLine 'git', 'rev-parse', 'HEAD'
+                    standardOutput = stdout
+                    errorOutput = new ByteArrayOutputStream()
+                    ignoreExitValue = true
+                }
+                def value = stdout.toString('UTF-8').trim()
+                return value.isEmpty() ? 'unknown' : value
+            } catch (Exception ignored) {
+                return 'unknown'
+            }
+        }()
 
         def productLayout = file("${buildDir}/native-product-package")
         if (!productLayout.isDirectory()) {
@@ -1241,6 +1271,16 @@ tasks.register('packagePublicAlphaRelease') {
                 into outDir
                 rename { 'native-addon-source-truth.md' }
             }
+        }
+
+        def nativeLoaderJar = project(':echo-native-loader').tasks.named('jar').get().archiveFile.get().asFile
+        if (!nativeLoaderJar.isFile()) {
+            throw new GradleException("Cannot stage Native Loader RC library; missing ${nativeLoaderJar}.")
+        }
+        copy {
+            from nativeLoaderJar
+            into outDir
+            rename { 'native-loader-1.0.0.jar' }
         }
 
         writeJson('native-live-proof-gate.json', [
@@ -1264,20 +1304,61 @@ tasks.register('packagePublicAlphaRelease') {
                 summary: 'RC1 release prep is staged. Stable release remains blocked until binaries are signed or attested.'
         ])
 
-        def digest = java.security.MessageDigest.getInstance('SHA-256')
+        def assetFiles = outDir.listFiles()
+                .findAll { it.isFile() && it.name != 'checksums.txt' && it.name != 'echo-release.json' }
+                .sort { it.name }
+        def releaseArtifacts = assetFiles.collectEntries { file ->
+            [(file.name.replaceAll('[^A-Za-z0-9]+(.)') { all, c -> c.toUpperCase() }
+                    .replaceAll('^[^A-Za-z0-9]+', '')
+                    .uncapitalize()): [
+                    file  : file.name,
+                    url   : releaseAssetUrl(file.name),
+                    sha256: sha256(file),
+                    size  : file.length()
+            ]]
+        }
+        new File(outDir, 'echo-release.json').text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+                schemaVersion   : 'echo.release.index.entry.v1',
+                id              : 'echo-native-platform',
+                kind            : 'runtime',
+                version         : '1.0.0-RC1',
+                channel         : 'beta',
+                publisher       : 'knoxhack',
+                sourceRepo      : 'knoxhack/ECHO-Native-Platform',
+                releaseTag      : 'v1.0.0-RC1',
+                commitSha       : gitCommit,
+                trust           : 'source-linked',
+                validation      : 'warning',
+                validationReason: 'RC1 assets were staged from the Native Platform Gradle release task; promote only after GitHub upload/download-back, attestation, launcher handoff, rollback, and gameplay evidence are current.',
+                artifacts       : releaseArtifacts,
+                dependencies    : [],
+                compatibility   : ['ashfall-native-edition'],
+                provenance      : [
+                        status                 : 'local-rc1-built',
+                        nativePlatformCommitSha: gitCommit,
+                        buildCommand           : '.\\gradlew.bat runNativeLoaderClientEntrypointGate packageNativeProductLayout packagePublicAlphaRelease --no-daemon --no-parallel --max-workers=1',
+                        artifactPath           : new File(outDir, 'echo-native-product-1.0.0-RC1.zip').absolutePath.replace('\\', '/'),
+                        nativeLoaderPath       : new File(outDir, 'native-loader-1.0.0.jar').absolutePath.replace('\\', '/'),
+                        releaseAssetGeneratedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
+                        attestation            : [
+                                status: 'not-attested',
+                                reason: 'Local RC1 assets have not been signed or attested yet.'
+                        ]
+                ],
+                stableReleaseBlockedUntil: [
+                        'GitHub v1.0.0-RC1 assets are uploaded and checksum/download-smoked',
+                        'workflow provenance, signing, or attestation policy is satisfied',
+                        'launcher install, rollback, and diagnostics smoke evidence are attached',
+                        'pack gameplay evidence is real-run and green',
+                        'all stable-target catalog metadata is approved rather than warning or blocked'
+                ]
+        ])) + System.lineSeparator()
+
         def lines = outDir.listFiles()
                 .findAll { it.isFile() && it.name != 'checksums.txt' }
                 .sort { it.name }
                 .collect { file ->
-                    digest.reset()
-                    file.withInputStream { input ->
-                        byte[] buffer = new byte[8192]
-                        int read
-                        while ((read = input.read(buffer)) > 0) {
-                            digest.update(buffer, 0, read)
-                        }
-                    }
-                    "${digest.digest().encodeHex().toString()}  ${file.name}"
+                    "${sha256(file)}  ${file.name}"
                 }
         new File(outDir, 'checksums.txt').text = lines.join(System.lineSeparator()) + System.lineSeparator()
     }
