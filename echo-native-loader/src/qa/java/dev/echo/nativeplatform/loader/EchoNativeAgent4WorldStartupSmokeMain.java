@@ -40,6 +40,7 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
             requireStaleSaveDatapackIsRestagedFromCleanSource();
             requireResourceHostPreWorldMountsRequireRealFiles();
             requireBundledProductDatapackMaterializationSanitizesAdaptNoise();
+            requireBundledProductDatapackMaterializationSanitizesUserLogRegistryRefs();
             if (args.length > 0) {
                 requirePackagedAshfallDatapackStartupPlan(Path.of(args[0]));
             }
@@ -483,11 +484,28 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
         requirePackagedAshfallDatapackContents(plan.stagedDatapack());
     }
 
+    private static void requireBundledProductDatapackMaterializationSanitizesUserLogRegistryRefs() throws Exception {
+        Path gameDir = Files.createTempDirectory("echo-agent4-world-startup-bundled-user-log");
+        Path moduleRoot = Files.createTempDirectory("echo-agent4-world-startup-bundled-user-log-module");
+        configure("agent4_bundled_user_log_materialized", "Agent 4 Bundled User Log Ashfall",
+                "agent4-bundled-user-log-materialized.zip", "survival");
+        System.setProperty("echo.native.moduleClasspath", moduleRoot.toString());
+        writeBundledProductDatapackResources(moduleRoot);
+
+        StartupPlan plan = NativeLoaderAshfallWorldStartupService.prepare(gameDir);
+        require(plan.action() == StartupAction.CREATE_NEW,
+                "bundled user-log product datapack should create a fresh product world plan");
+        require(NativeLoaderAshfallWorldStartupService.isValidProductDatapack(plan.stagedDatapack()),
+                "bundled user-log materialized datapack should validate after registry-safe sanitization");
+        requirePackagedAshfallDatapackContents(plan.stagedDatapack());
+    }
+
     private static void requirePackagedAshfallDatapackContents(Path datapack) throws Exception {
         Set<String> names = new HashSet<>();
         String packMcmeta = "";
         boolean structureTemplatePresent = false;
         boolean unsafeRegistryIdsPresent = false;
+        boolean unsafeUserLogRegistryRefsPresent = false;
         boolean legacyUnboundMinecraftWorldgenIdsPresent = false;
         boolean adaptNoisePresent = false;
         boolean structureReadmePresent = false;
@@ -517,6 +535,14 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
                     adaptNoisePresent |= text.contains("\"adapt_noise\"");
                     unsafeRegistryIdsPresent |= text.contains("echoblockworks:")
                             || text.contains("\"minecraft:chain\"");
+                    unsafeUserLogRegistryRefsPresent |= text.contains("minecraft:iron_bars_command_block")
+                            || text.contains("minecraft:iron_barss")
+                            || text.contains("\"echoashfallprotocol:wasteland_stone\"")
+                            || text.contains("\"echoashfallprotocol:debris_block\"")
+                            || text.contains("\"echoashfallprotocol:toxic_puddle\"")
+                            || text.contains("\"echoashfallprotocol:toxic_moss\"")
+                            || text.contains("\"#echoashfallprotocol:toxic_puddle\"")
+                            || text.contains("\"#echoashfallprotocol:toxic_moss\"");
                     legacyUnboundMinecraftWorldgenIdsPresent |= NativeLoaderAshfallWorldStartupService
                             .LEGACY_UNBOUND_MINECRAFT_WORLDGEN_FEATURE_IDS.stream()
                             .anyMatch(id -> text.contains("\"" + id + "\""));
@@ -539,6 +565,8 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
                 "packaged Ashfall datapack should remove adapt_noise from staged worldgen JSON");
         require(!unsafeRegistryIdsPresent,
                 "packaged Ashfall datapack should sanitize native-unregistered registry ids from JSON output");
+        require(!unsafeUserLogRegistryRefsPresent,
+                "packaged Ashfall datapack should sanitize user-log missing registry refs from JSON output");
         require(!legacyUnboundMinecraftWorldgenIdsPresent,
                 "packaged Ashfall datapack should not reference unbound legacy minecraft worldgen feature ids");
     }
@@ -610,6 +638,45 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
                         }
                       ]
                     }
+                  ]
+                }
+                """);
+        entries.put("data/echoashfallprotocol/worldgen/configured_feature/user_log_bad_blocks.json", """
+                {
+                  "type": "minecraft:simple_block",
+                  "config": {
+                    "to_place": {
+                      "type": "minecraft:simple_state_provider",
+                      "state": {"Name": "echoashfallprotocol:wasteland_stone"}
+                    }
+                  },
+                  "blocks": [
+                    "echoashfallprotocol:debris_block"
+                  ]
+                }
+                """);
+        entries.put("data/minecraft/tags/block/dragon_immune.json", """
+                {
+                  "replace": false,
+                  "values": [
+                    "minecraft:iron_bars_command_block"
+                  ]
+                }
+                """);
+        entries.put("data/minecraft/tags/block/mineable/pickaxe.json", """
+                {
+                  "replace": false,
+                  "values": [
+                    "#minecraft:iron_barss"
+                  ]
+                }
+                """);
+        entries.put("data/echoashfallprotocol/tags/block/toxic_air_sources.json", """
+                {
+                  "replace": false,
+                  "values": [
+                    "echoashfallprotocol:toxic_puddle",
+                    "echoashfallprotocol:toxic_moss"
                   ]
                 }
                 """);

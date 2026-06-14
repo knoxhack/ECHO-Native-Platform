@@ -27,11 +27,13 @@ public final class NativeLoaderResourceSanitizer {
         }
         String safeNamespace = namespace == null ? "" : namespace;
         if (name.startsWith("data/" + safeNamespace + "/worldgen/")
+                || name.startsWith("data/" + safeNamespace + "/tags/block/")
                 || name.startsWith("data/minecraft/worldgen/")
                 || name.startsWith("data/minecraft/tags/block/")) {
             json = sanitizeAshfallNativeWorldgenFeatureReferences(sanitizeNativeRegistryUnsafeJson(json));
         }
-        if (name.startsWith("data/minecraft/tags/block/")) {
+        if (name.startsWith("data/" + safeNamespace + "/tags/block/")
+                || name.startsWith("data/minecraft/tags/block/")) {
             json = sanitizeMinecraftBlockTagJson(name, json);
         }
         return json.getBytes(StandardCharsets.UTF_8);
@@ -133,7 +135,10 @@ public final class NativeLoaderResourceSanitizer {
                 .replace("echoblockworks:ashstone_debris", "minecraft:gravel")
                 .replace("echoblockworks:ashstone_brick", "minecraft:stone_bricks")
                 .replace("echoblockworks:ashstone_smooth", "minecraft:smooth_stone")
-                .replace("echoblockworks:ashstone_raw", "minecraft:stone");
+                .replace("echoblockworks:ashstone_raw", "minecraft:stone")
+                .replace("#minecraft:iron_barss", "minecraft:iron_bars")
+                .replace("minecraft:iron_barss", "minecraft:iron_bars")
+                .replace("minecraft:iron_bars_command_block", "minecraft:iron_bars");
         return sanitizeAshfallNativeWorldgenBlockReferences(sanitized);
     }
 
@@ -143,6 +148,7 @@ public final class NativeLoaderResourceSanitizer {
                 .sorted((left, right) -> Integer.compare(right.length(), left.length()))
                 .toList()) {
             sanitized = replaceAshfallBlockStateField(sanitized, blockId, ashfallWorldgenStandIn(blockId));
+            sanitized = replaceAshfallBlockStringReference(sanitized, blockId, ashfallWorldgenStandIn(blockId));
         }
         return sanitized.replace("minecraft:dead_bush_block", "minecraft:dead_bush");
     }
@@ -155,12 +161,19 @@ public final class NativeLoaderResourceSanitizer {
         return matcher.replaceAll("$1" + Matcher.quoteReplacement(standIn) + "$2");
     }
 
+    private static String replaceAshfallBlockStringReference(String json, String blockId, String standIn) {
+        return json
+                .replace("\"echoashfallprotocol:" + blockId + "\"", "\"" + standIn + "\"")
+                .replace("\"#echoashfallprotocol:" + blockId + "\"", "\"" + standIn + "\"");
+    }
+
     private static String ashfallWorldgenStandIn(String blockId) {
         return switch (blockId) {
             case "acid_mud", "toxic_puddle", "radioactive_sludge", "acidic_sludge" -> "minecraft:mud";
             case "ash_bush", "burnt_fern", "burnt_grass", "dry_grass", "toxic_grass",
                     "nuclear_grass", "wasteland_grass", "wasteland_reed", "mutated_sapling",
-                    "irradiated_cactus", "nuclear_fungus", "thorn_scrub", "rusty_wheat" -> "minecraft:dead_bush";
+                    "irradiated_cactus", "nuclear_fungus", "thorn_scrub", "rusty_wheat",
+                    "mutated_bush", "toxic_moss" -> "minecraft:dead_bush";
             case "burnt_tall_grass", "dry_tall_grass", "toxic_tall_grass", "nuclear_tall_grass",
                     "wasteland_tall_grass" -> "minecraft:tall_grass";
             case "ash_layer", "fallout_dust" -> "minecraft:snow";

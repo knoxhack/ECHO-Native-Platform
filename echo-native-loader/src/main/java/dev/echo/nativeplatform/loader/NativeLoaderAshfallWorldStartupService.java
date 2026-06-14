@@ -531,6 +531,7 @@ public final class NativeLoaderAshfallWorldStartupService {
     private static boolean isJsonProductWorldgenEntry(String name) {
         return name != null
                 && (name.startsWith("data/echoashfallprotocol/worldgen/")
+                || name.startsWith("data/echoashfallprotocol/tags/block/")
                 || name.startsWith("data/minecraft/worldgen/")
                 || name.startsWith("data/minecraft/tags/worldgen/")
                 || name.startsWith("data/minecraft/tags/block/"))
