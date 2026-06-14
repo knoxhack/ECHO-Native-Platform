@@ -1,5 +1,6 @@
 package dev.echo.nativeplatform.bootstrap;
 
+import dev.echo.nativeplatform.loader.NativeLoaderClasspathSupport;
 import dev.echo.nativeplatform.loader.NativeLoaderClientReflectionSupport;
 
 final class EchoNativeBootstrapMinecraftRuntimeFlow {
@@ -63,7 +64,7 @@ final class EchoNativeBootstrapMinecraftRuntimeFlow {
 
     ClassLoader nativeModuleClassLoader() {
         return EchoNativeBootstrapActivationEnvironment.moduleClassLoader(
-                System.getProperty(moduleClasspathProperty, ""),
+                NativeLoaderClasspathSupport.nativeModuleClasspath(moduleClasspathProperty),
                 bootstrapClass.getClassLoader()
         );
     }

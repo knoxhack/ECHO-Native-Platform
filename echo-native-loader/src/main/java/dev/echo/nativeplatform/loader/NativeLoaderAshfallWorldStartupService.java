@@ -569,7 +569,7 @@ public final class NativeLoaderAshfallWorldStartupService {
 
     private static List<Path> productDatapackResourceRoots() {
         Set<Path> roots = new LinkedHashSet<>();
-        addClasspathRoots(roots, System.getProperty("echo.native.moduleClasspath", ""));
+        addClasspathRoots(roots, NativeLoaderClasspathSupport.nativeModuleClasspath("echo.native.moduleClasspath"));
         addClasspathRoots(roots, System.getProperty("java.class.path", ""));
         return List.copyOf(roots);
     }

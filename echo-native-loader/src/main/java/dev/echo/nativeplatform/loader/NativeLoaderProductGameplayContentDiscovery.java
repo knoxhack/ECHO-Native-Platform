@@ -36,7 +36,9 @@ public final class NativeLoaderProductGameplayContentDiscovery {
         Set<String> progressionAdvancements = new TreeSet<>();
         Set<String> hazardBiomeTags = new TreeSet<>();
         discoverClasspath(System.getProperty("java.class.path", ""), missions, worldRegions, progressionAdvancements, hazardBiomeTags);
-        discoverClasspath(System.getProperty(nativeModuleClasspathProperty, ""), missions, worldRegions, progressionAdvancements, hazardBiomeTags);
+        for (String item : NativeLoaderClasspathSupport.nativeModuleClasspathEntries(nativeModuleClasspathProperty)) {
+            discoverPath(item, missions, worldRegions, progressionAdvancements, hazardBiomeTags);
+        }
 
         Map<String, List<String>> content = new LinkedHashMap<>();
         content.put("missions", List.copyOf(missions));
@@ -54,15 +56,25 @@ public final class NativeLoaderProductGameplayContentDiscovery {
             Set<String> hazardBiomeTags
     ) {
         for (String item : classpath.split(java.util.regex.Pattern.quote(File.pathSeparator))) {
+            discoverPath(item, missions, worldRegions, progressionAdvancements, hazardBiomeTags);
+        }
+    }
+
+    private void discoverPath(
+            String item,
+            Set<String> missions,
+            Set<String> worldRegions,
+            Set<String> progressionAdvancements,
+            Set<String> hazardBiomeTags
+    ) {
             if (item.isBlank()) {
-                continue;
+                return;
             }
             Path path = Path.of(item);
             if (!isNativeContentClasspathCandidate(path) || !Files.isRegularFile(path)) {
-                continue;
+                return;
             }
             discoverIfReadable(path, missions, worldRegions, progressionAdvancements, hazardBiomeTags);
-        }
     }
 
     private void discover(

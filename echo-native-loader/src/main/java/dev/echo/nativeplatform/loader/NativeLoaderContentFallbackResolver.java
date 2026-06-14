@@ -378,14 +378,7 @@ public final class NativeLoaderContentFallbackResolver {
                 entries.add(item);
             }
         }
-        String moduleClasspath = moduleClasspathProperty.isBlank()
-                ? ""
-                : System.getProperty(moduleClasspathProperty, "");
-        for (String item : moduleClasspath.split(java.util.regex.Pattern.quote(File.pathSeparator))) {
-            if (!item.isBlank()) {
-                entries.add(item);
-            }
-        }
+        entries.addAll(NativeLoaderClasspathSupport.nativeModuleClasspathEntries(moduleClasspathProperty));
         return entries.stream().distinct().toList();
     }
 

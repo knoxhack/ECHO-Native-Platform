@@ -2,6 +2,7 @@ package dev.echo.nativeplatform.bootstrap;
 
 import dev.echo.nativeplatform.contracts.EchoNativeBootstrapProductProfile;
 import dev.echo.nativeplatform.loader.NativeLoaderActivationReports;
+import dev.echo.nativeplatform.loader.NativeLoaderClasspathSupport;
 import dev.echo.nativeplatform.loader.NativeLoaderDeclarationPromotionService;
 import dev.echo.nativeplatform.loader.NativeLoaderRuntimeBridgeEnricher;
 import dev.echo.nativeplatform.loader.NativeLoaderJsonSupport;
@@ -171,9 +172,7 @@ final class EchoNativeBootstrapActivationFlow {
                                 markerPath,
                                 System.getProperty(nativeGameDirProperty, "")
                         ),
-                        EchoNativeBootstrapActivationEnvironment.runtimeClasspath(
-                                System.getProperty(nativeModuleClasspathProperty, "")
-                        ),
+                        NativeLoaderClasspathSupport.nativeModuleClasspathEntries(nativeModuleClasspathProperty),
                         context.nativeModuleClassLoader().get(),
                         profile.nativeLoaderAdapterCoreServiceId(),
                         (runnerPackId, result, lifecycleEventHost) ->

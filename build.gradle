@@ -7,8 +7,8 @@ def publicNativeSdkProjects = [
         'echo-native-testkit',
 ] as Set
 
-def nativeLoaderReleaseVersion = '1.0.1'
-def nativeLoaderReleaseTag = 'v1.0.1'
+def nativeLoaderReleaseVersion = '1.0.2'
+def nativeLoaderReleaseTag = 'v1.0.2'
 def nativePlatformReleaseArchiveName = "echo-native-platform-${nativeLoaderReleaseVersion}.zip"
 def nativeLoaderClientLibraryName = "echo-native-loader-${nativeLoaderReleaseVersion}.jar"
 
