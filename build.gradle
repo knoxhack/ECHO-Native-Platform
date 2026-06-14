@@ -7,9 +7,14 @@ def publicNativeSdkProjects = [
         'echo-native-testkit',
 ] as Set
 
+def nativeLoaderReleaseVersion = '1.0.1'
+def nativeLoaderReleaseTag = 'v1.0.1'
+def nativePlatformReleaseArchiveName = "echo-native-platform-${nativeLoaderReleaseVersion}.zip"
+def nativeLoaderClientLibraryName = "echo-native-loader-${nativeLoaderReleaseVersion}.jar"
+
 allprojects {
     group = 'dev.echo.nativeplatform'
-    version = '1.0.0-RC1'
+    version = '1.0.1'
 
     repositories {
         mavenCentral()
@@ -219,6 +224,62 @@ project(':echo-native-bootstrap-api') {
 def nativeBootstrapQaClassesTask = ':echo-native-bootstrap-api:qaClasses'
 def nativeBootstrapQaRuntimeClasspath = {
     project(':echo-native-bootstrap-api').sourceSets.qa.runtimeClasspath
+}
+
+tasks.register('packageNativeLoaderClientLibrary', Jar) {
+    group = 'release'
+    description = 'Builds the launcher-facing Native Loader client library with bootstrap handoff classes.'
+    dependsOn ':echo-native-contracts:classes'
+    dependsOn ':echo-native-diagnostics:classes'
+    dependsOn ':echo-native-packos:classes'
+    dependsOn ':echo-native-loader:classes'
+    dependsOn ':echo-native-bootstrap-api:classes'
+    archiveFileName = nativeLoaderClientLibraryName
+    destinationDirectory = layout.buildDirectory.dir('native-loader-client-library')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(project(':echo-native-contracts').sourceSets.main.output)
+    from(project(':echo-native-diagnostics').sourceSets.main.output)
+    from(project(':echo-native-packos').sourceSets.main.output)
+    from(project(':echo-native-loader').sourceSets.main.output)
+    from(project(':echo-native-bootstrap-api').sourceSets.main.output)
+    manifest {
+        attributes(
+                'Main-Class': 'com.echo.NativeLoaderClient',
+                'Implementation-Title': 'ECHO Native Loader',
+                'Implementation-Version': nativeLoaderReleaseVersion
+        )
+    }
+}
+
+tasks.register('verifyNativeLoaderClientLibrary') {
+    group = 'verification'
+    description = 'Verifies the launcher-facing Native Loader client library contains bootstrap handoff classes.'
+    dependsOn 'packageNativeLoaderClientLibrary'
+    doLast {
+        def library = tasks.named('packageNativeLoaderClientLibrary').get().archiveFile.get().asFile
+        if (!library.isFile()) {
+            throw new GradleException("Native Loader client library is missing: ${library}.")
+        }
+        def requiredEntries = [
+                'com/echo/NativeLoaderClient.class',
+                'dev/echo/nativeplatform/bootstrap/EchoNativeBootstrapMain.class',
+                'dev/echo/nativeplatform/bootstrap/EchoNativeBootstrapEntrypointRunner.class',
+                'dev/echo/nativeplatform/bootstrap/EchoNativeBootstrapActivationRunner.class',
+                'dev/echo/nativeplatform/loader/NativeLoaderCoreServiceRegistrar.class'
+        ]
+        def missingEntries = []
+        def jar = new java.util.jar.JarFile(library)
+        try {
+            requiredEntries.each { entryName ->
+                if (jar.getEntry(entryName) == null) missingEntries.add(entryName)
+            }
+        } finally {
+            jar.close()
+        }
+        if (!missingEntries.isEmpty()) {
+            throw new GradleException("Native Loader client library is missing required bootstrap classes: ${missingEntries.join(', ')}")
+        }
+    }
 }
 
 project(':echo-native-testkit') {
@@ -493,8 +554,8 @@ tasks.register('packageNativePlatformLayout') {
                 id                     : 'echo-native-platform',
                 name                   : 'ECHO Native Platform',
                 kind                   : 'loader_runtime',
-                version                : '1.0.0-RC1',
-                releaseLine            : '1.0.0-RC1',
+                version                : nativeLoaderReleaseVersion,
+                releaseLine            : nativeLoaderReleaseTag,
                 generatedAt            : generatedAt,
                 containsModpack        : false,
                 containsPackProfile    : false,
@@ -503,13 +564,13 @@ tasks.register('packageNativePlatformLayout') {
                 moduleDirectoryIncluded: false,
                 packagedPackFiles      : [],
                 launcherArtifacts      : [
-                        nativeLoader: 'echo-native-loader-1.0.0.jar'
+                        nativeLoader: nativeLoaderClientLibraryName
                 ],
                 releaseIndex           : [
                         productId : 'echo-native-platform',
                         channel   : 'beta',
                         sourceRepo: 'knoxhack/ECHO-Native-Platform',
-                        releaseTag: 'v1.0.0-RC1'
+                        releaseTag: nativeLoaderReleaseTag
                 ],
                 loaderTheme            : [
                         defaultThemeId     : 'echo_native:loader_blue_console',
@@ -520,7 +581,7 @@ tasks.register('packageNativePlatformLayout') {
         writeJson('runtime/native-loader-runtime.json', [
                 schemaVersion          : 'echo.native.loader_runtime.v1',
                 runtimeId              : 'echo-native-loader',
-                version                : '1.0.0-RC1',
+                version                : nativeLoaderReleaseVersion,
                 owner                  : 'ECHO Native Platform',
                 generatedAt            : generatedAt,
                 zeroModuleStartup      : true,
@@ -949,6 +1010,19 @@ tasks.register('runNativeAgent3AshfallCreativeTabWiringGate', JavaExec) {
     workingDir = rootProject.projectDir
 }
 
+tasks.register('runNativeAllModuleCreativeTabVisibilitySmoke', Exec) {
+    group = 'verification'
+    description = 'Fails unless every first-party content module has registry-backed, visible, searchable, selectable, playable Native creative-tab evidence.'
+    executable = 'node'
+    workingDir = echoModulesRepoRoot.get()
+    args 'scripts/generate-all-module-creative-tab-visibility.mjs',
+            '--runtime', 'echo_native',
+            '--modules-root', echoModulesRepoRoot.get().absolutePath,
+            '--runtime-root', rootProject.projectDir.absolutePath,
+            '--out', 'build/native-all-module-creative-tab-visibility/native-all-module-creative-tab-visibility.json',
+            '--strict'
+}
+
 def nativeAgent5AdapterCoreSmokeClasses = layout.buildDirectory.dir('agent5/adaptercore-smoke-api/classes')
 def nativeAgent5AdapterCoreSmokeClasspath = files(nativeAgent5AdapterCoreSmokeClasses.map { it.asFile })
 
@@ -1313,6 +1387,7 @@ tasks.register('echoPackageNativeAddon', Zip) {
 }
 
 tasks.named('check') {
+    dependsOn 'verifyNativeLoaderClientLibrary'
     dependsOn 'verifyReleaseIndexProductRouting'
     dependsOn 'verifyNativeProductLauncherReadiness'
     dependsOn 'verifyNativeReportSnapshots'
@@ -1324,6 +1399,7 @@ tasks.named('check') {
     dependsOn 'runNativeAgent3RegistryParityGate'
     dependsOn 'runNativeAgent3CreativeTabPlanGate'
     dependsOn 'runNativeAgent3AshfallCreativeTabWiringGate'
+    dependsOn 'runNativeAllModuleCreativeTabVisibilitySmoke'
     dependsOn 'runNativeAgent3ProductLauncherRegistryGate'
     dependsOn 'runNativeAgent8EntityCombatSmoke'
     dependsOn 'runNativeAgent5UiBridgeContractSmoke'
@@ -1349,8 +1425,9 @@ tasks.named('check') {
 
 tasks.register('packagePublicAlphaRelease') {
     group = 'release'
-    description = 'Compatibility alias that stages Native Platform RC1 release-candidate assets under build/public-alpha.'
-    dependsOn ':echo-native-loader:jar'
+    description = 'Stages Native Platform release assets under build/public-alpha.'
+    dependsOn 'packageNativeLoaderClientLibrary'
+    dependsOn 'verifyNativeLoaderClientLibrary'
     dependsOn 'packageNativePlatformLayout'
 
     doLast {
@@ -1361,7 +1438,7 @@ tasks.register('packagePublicAlphaRelease') {
         def writeJson = { String name, Map payload ->
             new File(outDir, name).text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
                     schemaVersion: 'echo.native_rc.generated_report.v1',
-                    releaseLine  : '1.0.0-RC1',
+                    releaseLine  : nativeLoaderReleaseTag,
                     generatedAt   : new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
                     repository    : 'ECHO-Native-Platform'
             ] + payload)) + System.lineSeparator()
@@ -1378,7 +1455,7 @@ tasks.register('packagePublicAlphaRelease') {
             digest.digest().encodeHex().toString()
         }
         def releaseAssetUrl = { String fileName ->
-            "https://github.com/knoxhack/ECHO-Native-Platform/releases/download/v1.0.0-RC1/${fileName}"
+            "https://github.com/knoxhack/ECHO-Native-Platform/releases/download/${nativeLoaderReleaseTag}/${fileName}"
         }
         def gitCommit = {
             try {
@@ -1395,9 +1472,9 @@ tasks.register('packagePublicAlphaRelease') {
 
         def platformLayout = file(nativePlatformPackageOutput.get())
         if (!platformLayout.isDirectory()) {
-            throw new GradleException("Cannot stage Native Platform RC1 runtime zip; missing Native platform layout: ${platformLayout}. Run packageNativePlatformLayout first.")
+            throw new GradleException("Cannot stage Native Platform runtime zip; missing Native platform layout: ${platformLayout}. Run packageNativePlatformLayout first.")
         }
-        def platformArchive = new File(outDir, 'echo-native-platform-1.0.0-RC1.zip')
+        def platformArchive = new File(outDir, nativePlatformReleaseArchiveName)
         ant.zip(destfile: platformArchive) {
             fileset(dir: platformLayout)
         }
@@ -1422,7 +1499,7 @@ tasks.register('packagePublicAlphaRelease') {
             zip.close()
         }
         if (!forbiddenPlatformEntries.isEmpty()) {
-            throw new GradleException("Native Platform RC1 archive must be loader/runtime-only. Forbidden entries: ${forbiddenPlatformEntries.join(', ')}")
+            throw new GradleException("Native Platform archive must be loader/runtime-only. Forbidden entries: ${forbiddenPlatformEntries.join(', ')}")
         }
 
         def sourceTruth = file('docs/echo/native/README.md')
@@ -1434,21 +1511,24 @@ tasks.register('packagePublicAlphaRelease') {
             }
         }
 
-        def nativeLoaderJar = project(':echo-native-loader').tasks.named('jar').get().archiveFile.get().asFile
+        def nativeLoaderJar = tasks.named('packageNativeLoaderClientLibrary').get().archiveFile.get().asFile
         if (!nativeLoaderJar.isFile()) {
-            throw new GradleException("Cannot stage Native Loader RC library; missing ${nativeLoaderJar}.")
+            throw new GradleException("Cannot stage Native Loader library; missing ${nativeLoaderJar}.")
         }
-        def stagedNativeLoaderJar = new File(outDir, 'echo-native-loader-1.0.0.jar')
+        def stagedNativeLoaderJar = new File(outDir, nativeLoaderClientLibraryName)
         copy {
             from nativeLoaderJar
             into outDir
-            rename { 'echo-native-loader-1.0.0.jar' }
+            rename { nativeLoaderClientLibraryName }
         }
         if (!stagedNativeLoaderJar.isFile()) {
-            throw new GradleException("Cannot verify staged Native Loader RC library; missing ${stagedNativeLoaderJar}.")
+            throw new GradleException("Cannot verify staged Native Loader library; missing ${stagedNativeLoaderJar}.")
         }
         def requiredLoaderEntries = [
                 'com/echo/NativeLoaderClient.class',
+                'dev/echo/nativeplatform/bootstrap/EchoNativeBootstrapMain.class',
+                'dev/echo/nativeplatform/bootstrap/EchoNativeBootstrapEntrypointRunner.class',
+                'dev/echo/nativeplatform/bootstrap/EchoNativeBootstrapActivationRunner.class',
                 'dev/echo/nativeplatform/loader/NativeLoaderCoreServiceRegistrar.class'
         ]
         def missingLoaderEntries = []
@@ -1469,8 +1549,8 @@ tasks.register('packagePublicAlphaRelease') {
                 artifactRole           : 'native-loader-library',
                 id                     : 'echo-native-loader',
                 name                   : 'ECHO Native Loader',
-                version                : '1.0.0',
-                releaseLine            : '1.0.0-RC1',
+                version                : nativeLoaderReleaseVersion,
+                releaseLine            : nativeLoaderReleaseTag,
                 file                   : stagedNativeLoaderJar.name,
                 url                    : releaseAssetUrl(stagedNativeLoaderJar.name),
                 sha256                 : sha256(stagedNativeLoaderJar),
@@ -1485,10 +1565,11 @@ tasks.register('packagePublicAlphaRelease') {
                         testedMajorVersion : 25
                 ],
                 minecraftLibrary       : [
-                        name: 'com.echo:native-loader:1.0.0',
-                        path: 'com/echo/native-loader/1.0.0/native-loader-1.0.0.jar'
+                        name: "com.echo:native-loader:${nativeLoaderReleaseVersion}",
+                        path: "com/echo/native-loader/${nativeLoaderReleaseVersion}/native-loader-${nativeLoaderReleaseVersion}.jar"
                 ],
                 mainClass              : 'com.echo.NativeLoaderClient',
+                bootstrapMainClass     : 'dev.echo.nativeplatform.bootstrap.EchoNativeBootstrapMain',
                 packContentOwner       : 'pack/module releases',
                 modulePlacement        : [
                         nativeAddons: 'addons/',
@@ -1498,7 +1579,7 @@ tasks.register('packagePublicAlphaRelease') {
 
         writeJson('native-live-proof-gate.json', [
                 status : 'PASS_WITH_WARNINGS',
-                summary: 'Native Platform RC1 loader/runtime package was staged without product, modpack, or module content; promote only after workflow-built provenance and install smoke evidence exist.'
+                summary: "Native Platform ${nativeLoaderReleaseTag} loader/runtime package was staged without product, modpack, or module content; promote only after workflow-built provenance and install smoke evidence exist."
         ])
         writeJson('native-module-inventory.json', [
                 status     : 'PASS_WITH_WARNINGS',
@@ -1507,15 +1588,15 @@ tasks.register('packagePublicAlphaRelease') {
         ])
         writeJson('plan3-dependency-vulnerability-scan.json', [
                 status : 'PASS_WITH_WARNINGS',
-                summary: 'RC1 dependency evidence is staged; run external vulnerability attestations before stable release.'
+                summary: "${nativeLoaderReleaseTag} dependency evidence is staged; run external vulnerability attestations before stable release."
         ])
         writeJson('plan3-final-qa.json', [
                 status : 'PASS_WITH_WARNINGS',
-                summary: 'RC1 QA gate is staged as prerelease evidence.'
+                summary: "${nativeLoaderReleaseTag} QA gate is staged as prerelease evidence."
         ])
         writeJson('plan3-release-prep.json', [
                 status : 'PASS_WITH_WARNINGS',
-                summary: 'RC1 release prep is staged. Stable release remains blocked until binaries are signed or attested.'
+                summary: "${nativeLoaderReleaseTag} release prep is staged. Stable release remains blocked until binaries are signed or attested."
         ])
 
         def assetFiles = outDir.listFiles()
@@ -1528,13 +1609,13 @@ tasks.register('packagePublicAlphaRelease') {
                     sha256: sha256(file),
                     size  : file.length()
             ]
-            if (file.name == 'echo-native-platform-1.0.0-RC1.zip') {
+            if (file.name == nativePlatformReleaseArchiveName) {
                 artifact.artifactRole = 'native-platform-package'
                 artifact.launcherFacing = true
                 artifact.moduleArtifact = false
                 artifact.packContent = false
             }
-            if (file.name == 'echo-native-loader-1.0.0.jar') {
+            if (file.name == nativeLoaderClientLibraryName) {
                 artifact.artifactRole = 'native-loader-library'
                 artifact.manualInstall = true
                 artifact.developerDirectDownload = true
@@ -1558,32 +1639,32 @@ tasks.register('packagePublicAlphaRelease') {
                 schemaVersion   : 'echo.release.index.entry.v1',
                 id              : 'echo-native-platform',
                 kind            : 'runtime',
-                version         : '1.0.0-RC1',
+                version         : nativeLoaderReleaseVersion,
                 channel         : 'beta',
                 publisher       : 'knoxhack',
                 sourceRepo      : 'knoxhack/ECHO-Native-Platform',
-                releaseTag      : 'v1.0.0-RC1',
+                releaseTag      : nativeLoaderReleaseTag,
                 commitSha       : gitCommit,
                 trust           : 'source-linked',
                 validation      : 'warning',
-                validationReason: 'RC1 loader/runtime assets were staged from the Native Platform Gradle release task without product or modpack content; promote only after GitHub upload/download-back, attestation, launcher handoff, rollback, and gameplay evidence are current.',
+                validationReason: "${nativeLoaderReleaseTag} loader/runtime assets were staged from the Native Platform Gradle release task without product or modpack content; promote only after GitHub upload/download-back, attestation, launcher handoff, rollback, and gameplay evidence are current.",
                 artifacts       : releaseArtifacts,
                 dependencies    : [],
                 compatibility   : ['native-loader-runtime'],
                 provenance      : [
-                        status                 : 'local-rc1-built',
+                        status                 : "local-${nativeLoaderReleaseTag}-built",
                         nativePlatformCommitSha: gitCommit,
                         buildCommand           : '.\\gradlew.bat runNativeLoaderClientEntrypointGate packageNativePlatformLayout packagePublicAlphaRelease --no-daemon --no-parallel --max-workers=1',
                         artifactPath           : platformArchive.absolutePath.replace('\\', '/'),
-                        nativeLoaderPath       : new File(outDir, 'echo-native-loader-1.0.0.jar').absolutePath.replace('\\', '/'),
+                        nativeLoaderPath       : stagedNativeLoaderJar.absolutePath.replace('\\', '/'),
                         releaseAssetGeneratedAt: new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
                         attestation            : [
                                 status: 'not-attested',
-                                reason: 'Local RC1 assets have not been signed or attested yet.'
+                                reason: "Local ${nativeLoaderReleaseTag} assets have not been signed or attested yet."
                         ]
                 ],
                 stableReleaseBlockedUntil: [
-                        'GitHub v1.0.0-RC1 assets are uploaded and checksum/download-smoked',
+                        "GitHub ${nativeLoaderReleaseTag} assets are uploaded and checksum/download-smoked",
                         'workflow provenance, signing, or attestation policy is satisfied',
                         'launcher install, rollback, and diagnostics smoke evidence are attached',
                         'pack gameplay evidence is real-run and green',
