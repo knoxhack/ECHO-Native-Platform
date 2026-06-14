@@ -24,7 +24,8 @@ final class EchoNativeBootstrapEntrypointRunner {
         context.ensureVanillaBootstrap().getAsBoolean();
         NativeLoaderProductClientRouteBootstrap.ClientRouteBootstrapReport clientRouteBootstrap =
                 NativeLoaderProductClientRouteBootstrap.bootstrapFirstPartyClientRoutes(
-                        EchoNativeBootstrapMain.nativeClientModuleClassLoader());
+                        EchoNativeBootstrapMain.nativeClientModuleClassLoader(),
+                        parsed.modules());
         Map<String, Object> runtimeBridge = context.runtimeBridge().apply(
                 parsed.packId(),
                 parsed.remainingArgs(),

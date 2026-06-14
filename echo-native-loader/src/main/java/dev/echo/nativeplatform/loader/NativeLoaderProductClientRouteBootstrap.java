@@ -10,9 +10,11 @@ import java.lang.reflect.Modifier;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class NativeLoaderProductClientRouteBootstrap {
     public static final List<ClientRouteBootstrapEntrypoint> FIRST_PARTY_CLIENT_ROUTE_ENTRYPOINTS = List.of(
@@ -57,6 +59,15 @@ public final class NativeLoaderProductClientRouteBootstrap {
 
     public static ClientRouteBootstrapReport bootstrapFirstPartyClientRoutes(ClassLoader classLoader) {
         return bootstrapClientRoutes(classLoader, FIRST_PARTY_CLIENT_ROUTE_ENTRYPOINTS);
+    }
+
+    public static ClientRouteBootstrapReport bootstrapFirstPartyClientRoutes(
+            ClassLoader classLoader,
+            List<String> activeModules
+    ) {
+        return bootstrapClientRoutes(
+                classLoader,
+                entrypointsForActiveModules(FIRST_PARTY_CLIENT_ROUTE_ENTRYPOINTS, activeModules));
     }
 
     public static ClientRouteBootstrapReport bootstrapClientRoutes(
@@ -120,6 +131,31 @@ public final class NativeLoaderProductClientRouteBootstrap {
             }
         }
         return ClientRouteBootstrapReport.from(results);
+    }
+
+    private static List<ClientRouteBootstrapEntrypoint> entrypointsForActiveModules(
+            List<ClientRouteBootstrapEntrypoint> entrypoints,
+            List<String> activeModules
+    ) {
+        if (activeModules == null || activeModules.isEmpty()) {
+            return entrypoints == null ? List.of() : List.copyOf(entrypoints);
+        }
+        Set<String> active = new LinkedHashSet<>();
+        for (String module : activeModules) {
+            if (module != null && !module.isBlank()) {
+                active.add(module.trim());
+            }
+        }
+        if (active.isEmpty()) {
+            return entrypoints == null ? List.of() : List.copyOf(entrypoints);
+        }
+        List<ClientRouteBootstrapEntrypoint> filtered = new ArrayList<>();
+        for (ClientRouteBootstrapEntrypoint entrypoint : entrypoints == null ? List.<ClientRouteBootstrapEntrypoint>of() : entrypoints) {
+            if (active.contains(entrypoint.moduleId())) {
+                filtered.add(entrypoint);
+            }
+        }
+        return List.copyOf(filtered);
     }
 
     private static Map<String, Object> invokeEntrypoint(
