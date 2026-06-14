@@ -16,15 +16,23 @@ import dev.echo.nativeplatform.contracts.EchoNativeServiceRegistry;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class EchoNativeModuleLoader {
     private static final String RELEASE_ENTRYPOINT_POLICY = "release_requires_echo_native_module_entrypoint";
     private static final String LEGACY_COMPATIBILITY_SHIM_POLICY = "non_release_legacy_activate_native_map_compatibility_shim";
+    private static final Pattern MODULE_REPLACEMENT_PATTERN = Pattern.compile("\\{[^{}]*\"legacyId\"\\s*:\\s*\"([^\"]+)\"[^{}]*}");
+    private static final Pattern REPLACEMENT_ID_PATTERN = Pattern.compile("\"replacementId\"\\s*:\\s*\"([^\"]+)\"");
+    private static final Pattern REPLACEMENT_SCOPE_PATTERN = Pattern.compile("\"scope\"\\s*:\\s*\"([^\"]+)\"");
 
     private final ClassLoader parentClassLoader;
     private final Map<EchoNativeModuleLoadResult, LoadedModuleHandle> loadedHandles = new IdentityHashMap<>();
@@ -86,6 +94,7 @@ public final class EchoNativeModuleLoader {
             EchoNativeRuntimeSide hostSide
     ) {
         EchoNativeModuleDescriptor descriptor = EchoNativeModuleDescriptor.fromAddon(addonDescriptor);
+        registerModuleAliases(addonDescriptor, serviceRegistry);
         EchoNativeRuntimeSide checkedHostSide = hostSide == null ? EchoNativeRuntimeSide.UNKNOWN : hostSide;
         List<EchoNativeLifecyclePhase> phases = new ArrayList<>();
         List<EchoNativeLifecycleRecord> lifecyclePhaseHistory = new ArrayList<>();
@@ -475,6 +484,47 @@ public final class EchoNativeModuleLoader {
                 closeQuietly(classLoader);
             }
         }
+    }
+
+    private static void registerModuleAliases(
+            EchoNativeAddonDescriptor addonDescriptor,
+            EchoNativeServiceRegistry serviceRegistry
+    ) {
+        for (String alias : moduleAliases(addonDescriptor)) {
+            serviceRegistry.registerModuleAlias(alias, addonDescriptor.id());
+        }
+    }
+
+    private static List<String> moduleAliases(EchoNativeAddonDescriptor addonDescriptor) {
+        if (addonDescriptor == null || addonDescriptor.descriptorPath() == null
+                || !Files.isRegularFile(addonDescriptor.descriptorPath())) {
+            return List.of();
+        }
+        try {
+            String json = Files.readString(addonDescriptor.descriptorPath(), StandardCharsets.UTF_8);
+            LinkedHashSet<String> aliases = new LinkedHashSet<>();
+            Matcher matcher = MODULE_REPLACEMENT_PATTERN.matcher(json);
+            while (matcher.find()) {
+                String block = matcher.group();
+                String legacyId = matcher.group(1);
+                String replacementId = capture(block, REPLACEMENT_ID_PATTERN);
+                String scope = capture(block, REPLACEMENT_SCOPE_PATTERN);
+                boolean moduleScope = scope.isBlank() || "module_id".equals(scope);
+                boolean canonicalReplacement = replacementId.isBlank() || addonDescriptor.id().equals(replacementId);
+                if (moduleScope && canonicalReplacement && legacyId != null && !legacyId.isBlank()) {
+                    aliases.add(legacyId);
+                }
+            }
+            aliases.remove(addonDescriptor.id());
+            return List.copyOf(aliases);
+        } catch (IOException ignored) {
+            return List.of();
+        }
+    }
+
+    private static String capture(String text, Pattern pattern) {
+        Matcher matcher = pattern.matcher(text);
+        return matcher.find() ? matcher.group(1) : "";
     }
 
     private static boolean isNonReleaseLegacyActivateNativeCompatibilityShim(Class<?> type) {

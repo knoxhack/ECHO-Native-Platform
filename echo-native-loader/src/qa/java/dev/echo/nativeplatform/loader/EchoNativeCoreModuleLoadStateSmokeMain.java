@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -84,7 +85,9 @@ public final class EchoNativeCoreModuleLoadStateSmokeMain {
         List<String> classpath = sharedNativeClasspath(repoRoot, classpathRoot, descriptorModules, classpathMode);
         Map<String, EchoNativeAddonDescriptor> descriptors = new LinkedHashMap<>();
         for (TargetModule module : descriptorModules) {
-            descriptors.put(module.moduleId(), readDescriptor(repoRoot, module, classpath));
+            EchoNativeAddonDescriptor descriptor = readDescriptor(repoRoot, module, classpath);
+            descriptors.put(module.moduleId(), descriptor);
+            descriptors.put(descriptor.id(), descriptor);
         }
 
         EchoNativeServiceRegistry serviceRegistry = new EchoNativeServiceRegistry();
@@ -174,8 +177,9 @@ public final class EchoNativeCoreModuleLoadStateSmokeMain {
                 target.moduleId() + " must load from descriptor nativeClasspath, not the app classpath.");
         require(result.diagnostics().stream().noneMatch(item -> item.contains("legacy activateNative(Map) lifecycle bridge")),
                 target.moduleId() + " must not use the legacy lifecycle bridge.");
+        Set<String> acceptedModuleIds = new LinkedHashSet<>(List.of(target.moduleId(), result.descriptor().id()));
         Set<String> moduleServiceIds = result.registeredServices().stream()
-                .filter(service -> target.moduleId().equals(service.moduleId()))
+                .filter(service -> acceptedModuleIds.contains(service.moduleId()))
                 .map(EchoNativeRegisteredService::serviceId)
                 .collect(Collectors.toSet());
         require(moduleServiceIds.stream().anyMatch(serviceId -> !serviceId.startsWith("content.")),

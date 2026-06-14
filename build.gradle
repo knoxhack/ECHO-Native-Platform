@@ -1010,9 +1010,19 @@ tasks.register('runNativeAgent3AshfallCreativeTabWiringGate', JavaExec) {
     workingDir = rootProject.projectDir
 }
 
+tasks.register('runNativeAllModuleCreativeTabLiveEvidenceSmoke', JavaExec) {
+    group = 'verification'
+    description = 'Generates catalog-wide Native Loader creative-tab live bridge evidence using the first-class native creative tab bridge.'
+    dependsOn nativeBootstrapQaClassesTask
+    classpath = nativeBootstrapQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.bootstrap.EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain'
+    workingDir = rootProject.projectDir
+}
+
 tasks.register('runNativeAllModuleCreativeTabVisibilitySmoke', Exec) {
     group = 'verification'
     description = 'Fails unless every first-party content module has registry-backed, visible, searchable, selectable, playable Native creative-tab evidence.'
+    dependsOn tasks.named('runNativeAllModuleCreativeTabLiveEvidenceSmoke')
     executable = 'node'
     workingDir = echoModulesRepoRoot.get()
     args 'scripts/generate-all-module-creative-tab-visibility.mjs',

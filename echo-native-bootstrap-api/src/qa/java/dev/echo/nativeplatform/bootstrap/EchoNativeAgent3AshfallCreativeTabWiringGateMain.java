@@ -10,9 +10,11 @@ public final class EchoNativeAgent3AshfallCreativeTabWiringGateMain {
     public static void main(String[] args) throws Exception {
         Path ashfallRoot = echoModulesRoot().resolve("echoashfallprotocol").resolve("src/main/java/com/knoxhack/echoashfallprotocol");
         Path providerPath = ashfallRoot.resolve("nativebridge/AshfallNativeProductBridgeProvider.java");
+        Path catalogPath = ashfallRoot.resolve("nativebridge/AshfallNativeCreativeTabCatalog.java");
         Path creativeTabsPath = ashfallRoot.resolve("registry/ModCreativeTabs.java");
         Path nativeModulePath = ashfallRoot.resolve("EchoAshfallNativeModule.java");
         String provider = Files.readString(providerPath);
+        String catalog = Files.readString(catalogPath);
         String creativeTabs = Files.readString(creativeTabsPath);
         String nativeModule = Files.readString(nativeModulePath);
         String registryBridge = between(
@@ -129,10 +131,18 @@ public final class EchoNativeAgent3AshfallCreativeTabWiringGateMain {
         require(creativeTabs.contains(".filter(itemId -> !itemId.isBlank())")
                         && !creativeTabs.contains("getDescriptionId()"),
                 "Ashfall native modules tab source lists must fail closed to live registry item ids");
-        require(nativeModule.contains("ModCreativeTabs.nativeModuleCreativeItemIds()")
-                        && nativeModule.contains("ModCreativeTabs.nativeModuleCreativeFeaturedItemIds()")
-                        && nativeModule.contains("ModCreativeTabs.nativeModuleCreativeNamespaces()"),
-                "Ashfall native module descriptor must directly wire to ModCreativeTabs source methods");
+        require(catalog.contains("public static List<String> itemIds()")
+                        && catalog.contains("public static List<String> baselineItemIds()")
+                        && catalog.contains("public static List<String> featuredItemIds()")
+                        && catalog.contains("public static List<String> namespaces()"),
+                "Ashfall native creative-tab catalog must expose standalone-safe full, baseline, featured, and namespace sources");
+        require(nativeModule.contains("AshfallNativeCreativeTabCatalog.itemIds()")
+                        && nativeModule.contains("AshfallNativeCreativeTabCatalog.baselineItemIds()")
+                        && nativeModule.contains("AshfallNativeCreativeTabCatalog.featuredItemIds()")
+                        && nativeModule.contains("AshfallNativeCreativeTabCatalog.namespaces()"),
+                "Ashfall native module descriptor must wire to the standalone-safe creative-tab catalog");
+        require(!nativeModule.contains("import com.knoxhack.echoashfallprotocol.registry.ModCreativeTabs;"),
+                "Ashfall native module descriptor must not import NeoForge-bound ModCreativeTabs");
         require(nativeModule.contains("\"orderAnchor\", \"minecraft:building_blocks\"")
                         && nativeModule.contains("\"orderStrategy\", \"with_tabs_before_anchor\"")
                         && nativeModule.contains("\"searchVisibility\", \"parent_and_search_tabs\"")
