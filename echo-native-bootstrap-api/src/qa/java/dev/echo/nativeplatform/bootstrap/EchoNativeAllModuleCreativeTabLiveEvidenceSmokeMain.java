@@ -52,9 +52,8 @@ public final class EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain {
         List<ModuleContent> modules = discoverModules(addonsRoot);
         ArrayList<Map<String, Object>> registeredCreativeTabs = new ArrayList<>();
         ArrayList<Map<String, Object>> moduleRows = new ArrayList<>();
-        ArrayList<String> selectableItemIds = new ArrayList<>();
-        ArrayList<String> playableItemIds = new ArrayList<>();
-        ArrayList<String> placedBlockIds = new ArrayList<>();
+        ArrayList<String> catalogItemIds = new ArrayList<>();
+        ArrayList<String> expectedPlacedBlockIds = new ArrayList<>();
 
         for (ModuleContent module : modules) {
             TestRegistry<TestCreativeModeTab> creativeTabRegistry = new TestRegistry<>();
@@ -93,10 +92,9 @@ public final class EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain {
                     List.of(declaration(module, tabId, allItems))
             );
             registeredCreativeTabs.addAll(bridges);
-            selectableItemIds.addAll(allItems);
-            playableItemIds.add(module.representativeItemId());
+            catalogItemIds.addAll(allItems);
             if (module.representativeBlockId() != null && !module.representativeBlockId().isBlank()) {
-                placedBlockIds.add(module.representativeBlockId());
+                expectedPlacedBlockIds.add(module.representativeBlockId());
             }
             moduleRows.add(moduleRow(module, bridges));
         }
@@ -105,27 +103,35 @@ public final class EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain {
         registryBridge.put("registeredCreativeTabs", registeredCreativeTabs);
         registryBridge.put("registeredCreativeTabCount", registeredCreativeTabs.size());
         registryBridge.put("nativeCreativeTabBridgeApplied", !registeredCreativeTabs.isEmpty());
-        registryBridge.put("creativeVisibilityBridgeApplied", true);
-        registryBridge.put("nativeCreativeModuleTabRegistryBacked", true);
-        registryBridge.put("nativeCreativeModuleTabContentVisible", true);
-        registryBridge.put("visibleModuleItems", selectableItemIds);
-        registryBridge.put("creativeTabSelectableItemIds", selectableItemIds);
-        registryBridge.put("creativeTabPlayableItemIds", playableItemIds);
+        registryBridge.put("testRegistryBridgeApplied", true);
+        registryBridge.put("liveCreativeInventoryOutput", false);
+        registryBridge.put("creativeVisibilityBridgeApplied", false);
+        registryBridge.put("nativeCreativeModuleTabRegistryBacked", false);
+        registryBridge.put("nativeCreativeModuleTabContentVisible", false);
+        registryBridge.put("visibleModuleItems", List.of());
+        registryBridge.put("creativeTabSelectableItemIds", List.of());
+        registryBridge.put("creativeTabPlayableItemIds", List.of());
+        registryBridge.put("catalogItemIds", catalogItemIds);
 
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("schema", "echo.native.all_module_creative_tab_live_evidence.v1");
         report.put("generatedAt", "1970-01-01T00:00:00Z");
-        report.put("status", "PASS");
+        report.put("status", "FAIL");
         report.put("runtime", "echo_native");
+        report.put("evidenceKind", "catalog_test_registry_bridge");
+        report.put("liveGameEvidence", false);
+        report.put("blocker", "Catalog TestRegistry bridge output is not a real Minecraft creative inventory, hotbar selection, or gameplay-use proof.");
         report.put("moduleIds", modules.stream().map(ModuleContent::moduleId).toList());
-        report.put("registryBackedModuleIds", modules.stream().map(ModuleContent::moduleId).toList());
-        report.put("visibleParentModuleIds", modules.stream().map(ModuleContent::moduleId).toList());
-        report.put("visibleSearchModuleIds", modules.stream().map(ModuleContent::moduleId).toList());
-        report.put("selectableModuleIds", modules.stream().map(ModuleContent::moduleId).toList());
-        report.put("playableModuleIds", modules.stream().map(ModuleContent::moduleId).toList());
-        report.put("selectableItemIds", selectableItemIds);
-        report.put("playableItemIds", playableItemIds);
-        report.put("placedBlockIds", placedBlockIds);
+        report.put("registryBackedModuleIds", List.of());
+        report.put("visibleParentModuleIds", List.of());
+        report.put("visibleSearchModuleIds", List.of());
+        report.put("selectableModuleIds", List.of());
+        report.put("playableModuleIds", List.of());
+        report.put("selectableItemIds", List.of());
+        report.put("playableItemIds", List.of());
+        report.put("placedBlockIds", List.of());
+        report.put("catalogItemIds", catalogItemIds);
+        report.put("expectedPlacedBlockIds", expectedPlacedBlockIds);
         report.put("modules", moduleRows);
         report.put("runtimeBridge", Map.of("registryBridge", registryBridge));
 
@@ -134,8 +140,8 @@ public final class EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain {
                 .normalize();
         Files.createDirectories(reportPath.getParent());
         Files.writeString(reportPath, toJson(report) + "\n", StandardCharsets.UTF_8);
-        System.out.println("native all-module creative tab live evidence PASS modules=" + modules.size()
-                + " tabs=" + registeredCreativeTabs.size());
+        System.out.println("native all-module creative tab live evidence requires live client proof modules="
+                + modules.size() + " tabs=" + registeredCreativeTabs.size());
     }
 
     private static Map<String, Object> declaration(ModuleContent module, String tabId, List<String> allItems) {
@@ -156,17 +162,22 @@ public final class EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain {
     private static Map<String, Object> moduleRow(ModuleContent module, List<Map<String, Object>> bridges) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("moduleId", module.moduleId());
-        row.put("registryBacked", true);
-        row.put("visibleParent", true);
-        row.put("visibleSearch", true);
-        row.put("selectable", true);
-        row.put("playable", true);
+        row.put("registryBacked", false);
+        row.put("visibleParent", false);
+        row.put("visibleSearch", false);
+        row.put("selectable", false);
+        row.put("playable", false);
+        row.put("testRegistryBacked", true);
         row.put("selectedItemId", module.representativeItemId());
-        row.put("playMutation", module.representativeBlockId().isBlank() ? "creative_item_activate" : "creative_block_place");
+        row.put("expectedPlayMutation", module.representativeBlockId().isBlank() ? "creative_item_activate" : "creative_block_place");
         row.put("expectedEntries", module.entries().stream().map(CreativeEntry::itemId).toList());
-        row.put("missingCreativeTabEntries", List.of());
-        row.put("missingCreativeSearchEntries", List.of());
-        row.put("blockers", List.of());
+        row.put("missingCreativeTabEntries", module.entries().stream().map(CreativeEntry::itemId).toList());
+        row.put("missingCreativeSearchEntries", module.entries().stream().map(CreativeEntry::itemId).toList());
+        row.put("blockers", List.of(
+                "catalog TestRegistry bridge is not live Minecraft creative inventory output",
+                "no hotbar or inventory selection proof",
+                "no gameplay use or block-place proof"
+        ));
         row.put("registeredCreativeTabs", bridges);
         return row;
     }

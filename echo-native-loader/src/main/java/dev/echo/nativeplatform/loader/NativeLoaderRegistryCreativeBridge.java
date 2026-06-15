@@ -383,11 +383,19 @@ public final class NativeLoaderRegistryCreativeBridge {
             CreativeTabOutputProof outputProof = existingCreativeTabOutputProof(tab, outputClass);
             List<String> provenOutputItems = outputProof.itemIds();
             List<String> provenSearchVisibleItems = outputProof.searchVisibleItemIds();
+            List<String> unresolvedLiveItems = unresolvedItems(
+                    allNativeItems,
+                    itemRegistry,
+                    identifierClass
+            );
+            boolean outputProofDeferred = created
+                    && !allNativeItems.isEmpty()
+                    && unresolvedLiveItems.isEmpty()
+                    && provenOutputItems.isEmpty()
+                    && !outputProof.visibilityInspectable();
             boolean outputBacked = provenOutputItems.containsAll(allNativeItems);
             boolean searchVisible = !Boolean.FALSE.equals(bridge.get("searchVisible"));
-            boolean searchOutputBacked = !searchVisible
-                    || !outputProof.visibilityInspectable()
-                    || provenSearchVisibleItems.containsAll(allNativeItems);
+            boolean searchOutputBacked = !searchVisible || provenSearchVisibleItems.containsAll(allNativeItems);
             boolean resolvedIconBacked = !liveIconItem.isBlank() && allNativeItems.contains(liveIconItem);
             boolean declaredItemsBacked = Boolean.TRUE.equals(bridge.get("declaredCreativeTabItemsBackedByNativeRegistry"));
             boolean releaseTrusted = outputBacked && searchOutputBacked
@@ -404,6 +412,8 @@ public final class NativeLoaderRegistryCreativeBridge {
                     : "existing_native_registry_tab");
             bridge.put("creativeTabOutputProofItemIds", provenOutputItems);
             bridge.put("creativeTabOutputBacked", outputBacked);
+            bridge.put("creativeTabOutputProofDeferredUntilComponentsBound", outputProofDeferred);
+            bridge.put("creativeTabOutputProofUnresolvedItemIds", unresolvedLiveItems);
             bridge.put("creativeTabSearchOutputProofItemIds", provenSearchVisibleItems);
             bridge.put("creativeTabSearchOutputBacked", searchOutputBacked);
             bridge.put("creativeTabOutputVisibilityInspectable", outputProof.visibilityInspectable());
@@ -422,9 +432,13 @@ public final class NativeLoaderRegistryCreativeBridge {
             bridge.put("preferredIconCandidates", preferredIconCandidates(profile, namespace));
             bridge.put("title", title);
             bridge.put("summary", created
-                    ? outputBacked
+                    ? outputProofDeferred
+                    ? "Native Loader registered a namespace creative tab for native module content, but live creative output proof is still pending."
+                    : outputBacked
                     ? "Native Loader registered a namespace creative tab for native module content and proved its live output contains the registry-backed native item population."
                     : "Native Loader registered a namespace creative tab for native module content, but could not prove its live output contains the registry-backed native item population."
+                    : outputProofDeferred
+                    ? "Native Loader found the exact native namespace creative tab already registered, but live creative output proof is still pending."
                     : outputBacked
                     ? "Native Loader found the exact native namespace creative tab already registered and proved its output contains the registry-backed native item population."
                     : "Native Loader found the exact native namespace creative tab already registered, but could not prove its output contains the registry-backed native item population.");
@@ -488,6 +502,33 @@ public final class NativeLoaderRegistryCreativeBridge {
             }
         }
         return "";
+    }
+
+    private static List<String> unresolvedItems(
+            List<String> itemIds,
+            Object itemRegistry,
+            Class<?> identifierClass
+    ) {
+        List<String> unresolved = new ArrayList<>();
+        for (String itemId : itemIds == null ? List.<String>of() : itemIds) {
+            String normalized = normalizedContentId(itemId);
+            if (normalized.isBlank()) {
+                continue;
+            }
+            try {
+                int separator = normalized.indexOf(':');
+                Object id = identifierClass.getMethod("fromNamespaceAndPath", String.class, String.class)
+                        .invoke(null, normalized.substring(0, separator), normalized.substring(separator + 1));
+                if (registryItem(itemRegistry, identifierClass, id) == null && !unresolved.contains(normalized)) {
+                    unresolved.add(normalized);
+                }
+            } catch (Throwable ignored) {
+                if (!unresolved.contains(normalized)) {
+                    unresolved.add(normalized);
+                }
+            }
+        }
+        return List.copyOf(unresolved);
     }
 
     private record CreativeTabOutputProof(
@@ -727,25 +768,25 @@ public final class NativeLoaderRegistryCreativeBridge {
         );
         java.lang.reflect.Method getValue = itemRegistry.getClass().getMethod("getValue", identifierClass);
         java.lang.reflect.Constructor<?> itemStackConstructor = itemStackClass.getConstructor(itemLikeClass);
-            Object iconStack = firstStack(
-                List.of(iconItem, "minecraft:compass", "minecraft:stick"),
-                itemRegistry,
-                identifierFactory,
-                getValue,
-                itemStackConstructor
-        );
-        if (iconStack == null) {
-            throw new IllegalStateException("No item stack could be resolved for " + tabId
+        List<String> iconCandidates = List.of(iconItem, "minecraft:compass", "minecraft:stick");
+        if (resolvableItemCount(iconCandidates, itemRegistry, identifierFactory, getValue) == 0) {
+            throw new IllegalStateException("No icon item could be resolved for " + tabId
                     + "; candidates="
                     + stackResolutionDiagnostics(
-                    List.of(iconItem, "minecraft:compass", "minecraft:stick"),
+                    iconCandidates,
                     itemRegistry,
                     identifierFactory,
                     getValue,
                     itemStackConstructor
             ));
         }
-        Supplier<Object> iconSupplier = () -> iconStack;
+        Supplier<Object> iconSupplier = () -> firstStack(
+                iconCandidates,
+                itemRegistry,
+                identifierFactory,
+                getValue,
+                itemStackConstructor
+        );
         builder.getClass().getMethod("icon", Supplier.class).invoke(builder, iconSupplier);
 
         Class<?> generatorClass = Class.forName(creativeModeTabClass.getName() + "$DisplayItemsGenerator");
@@ -938,6 +979,34 @@ public final class NativeLoaderRegistryCreativeBridge {
             }
         }
         return null;
+    }
+
+    private static int resolvableItemCount(
+            List<String> itemIds,
+            Object itemRegistry,
+            java.lang.reflect.Method identifierFactory,
+            java.lang.reflect.Method getValue
+    ) {
+        int count = 0;
+        for (String itemId : itemIds == null ? List.<String>of() : itemIds) {
+            try {
+                int separator = itemId.indexOf(':');
+                if (separator < 1 || separator + 1 >= itemId.length()) {
+                    continue;
+                }
+                Object id = identifierFactory.invoke(null, itemId.substring(0, separator), itemId.substring(separator + 1));
+                Object item = unwrapRegistryValue(getValue.invoke(itemRegistry, id));
+                if (item == null) {
+                    item = registryItem(itemRegistry, id.getClass(), id);
+                }
+                if (item != null) {
+                    count++;
+                }
+            } catch (Throwable ignored) {
+                // Mapping-dependent registry access; other candidates may still resolve.
+            }
+        }
+        return count;
     }
 
     private static List<Map<String, Object>> stackResolutionDiagnostics(
