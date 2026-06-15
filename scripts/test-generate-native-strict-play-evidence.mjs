@@ -16,8 +16,16 @@ async function readJson(root, relativePath) {
 }
 
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'echo-native-strict-play-'))
+const modulesRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'echo-modules-strict-play-'))
 
 try {
+  await writeJson(modulesRoot, 'reports/echo-native/core-module-integration-audit.json', {
+    schema: 'echo.native.core_module_integration_audit.v1',
+    modules: [
+      { moduleId: 'echocore', nativeIntegrationStatus: 'LEGACY_ADAPTER_BRIDGEABLE' },
+      { moduleId: 'echoindex', nativeIntegrationStatus: 'LEGACY_ADAPTER_BRIDGEABLE' },
+    ],
+  })
   await writeJson(root, 'build/native-all-bridgeable-module-artifact-load-state/native-all-bridgeable-module-artifact-load-state.json', {
     schema: 'echo.native.core_module_load_state_smoke.v1',
     failedModuleCount: 0,
@@ -81,7 +89,7 @@ try {
     moduleIds: ['truth_gate_module'],
   })
 
-  const { written } = await generateNativeStrictPlayEvidence({ root })
+  const { written } = await generateNativeStrictPlayEvidence({ root, modulesRoot })
   assert.equal(written.length, 5)
 
   const fullCatalog = await readJson(root, 'build/native-full-catalog-play/native-full-catalog-play.json')
@@ -89,6 +97,7 @@ try {
   assert.deepEqual(fullCatalog.requiredFor, ['lifecycle'])
   assert.equal(fullCatalog.allModules, true)
   assert.deepEqual(fullCatalog.moduleIds, ['echocore', 'echoindex'])
+  assert.deepEqual(fullCatalog.missingExpectedModuleIds, [])
 
   const ui = await readJson(root, 'build/native-ui-surfaces/native-ui-surfaces.json')
   assert.equal(ui.status, 'PASS')
@@ -107,8 +116,24 @@ try {
   const saveNetwork = await readJson(root, 'build/native-save-network/native-save-network.json')
   assert.equal(saveNetwork.status, 'PASS')
   assert.deepEqual(saveNetwork.moduleIds, ['echoblockworks', 'echohudcore', 'echoindex', 'echomachinecore', 'echoworldcore', 'truth_gate_module'])
+
+  await writeJson(modulesRoot, 'reports/echo-native/core-module-integration-audit.json', {
+    schema: 'echo.native.core_module_integration_audit.v1',
+    modules: [
+      { moduleId: 'echocore', nativeIntegrationStatus: 'LEGACY_ADAPTER_BRIDGEABLE' },
+      { moduleId: 'echoindex', nativeIntegrationStatus: 'LEGACY_ADAPTER_BRIDGEABLE' },
+      { moduleId: 'echodeepreachprotocol', nativeIntegrationStatus: 'LEGACY_ADAPTER_BRIDGEABLE' },
+    ],
+  })
+  await generateNativeStrictPlayEvidence({ root, modulesRoot })
+  const staleFullCatalog = await readJson(root, 'build/native-full-catalog-play/native-full-catalog-play.json')
+  assert.equal(staleFullCatalog.status, 'FAIL')
+  assert.equal(staleFullCatalog.allModules, false)
+  assert.deepEqual(staleFullCatalog.missingExpectedModuleIds, ['echodeepreachprotocol'])
+  assert.ok(staleFullCatalog.blockers.some((blocker) => blocker.includes('echodeepreachprotocol')))
 } finally {
   await fs.rm(root, { recursive: true, force: true })
+  await fs.rm(modulesRoot, { recursive: true, force: true })
 }
 
 console.log('generate-native-strict-play-evidence tests passed')

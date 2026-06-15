@@ -764,6 +764,18 @@ def nativeAllBridgeableModuleProjectPaths = []
 if (echoNativeCoreModuleAuditReport.isFile()) {
     def audit = new groovy.json.JsonSlurper().parse(echoNativeCoreModuleAuditReport)
     def auditModules = audit.modules instanceof List ? audit.modules : []
+    def addonsRoot = new File(echoModulesRepoRoot.get(), 'addons')
+    def descriptorCount = 0
+    if (addonsRoot.isDirectory()) {
+        addonsRoot.eachDir { moduleDirectory ->
+            if (new File(moduleDirectory, 'src/main/resources/META-INF/echo.mod.json').isFile()) {
+                descriptorCount += 1
+            }
+        }
+    }
+    if (descriptorCount > 0 && auditModules.size() != descriptorCount) {
+        throw new GradleException("ECHO Modules native integration audit is stale: ${auditModules.size()} audited module(s), ${descriptorCount} descriptor(s). Run `node scripts/generate-core-module-integration-audit.mjs` in ECHO-Modules before Native all-bridgeable smokes.")
+    }
     def modulesById = auditModules.collectEntries { module ->
         [(String.valueOf(module.moduleId)): module]
     }
@@ -1696,6 +1708,7 @@ tasks.register('generateNativeStrictPlayEvidence', Exec) {
     group = 'verification'
     description = 'Aggregates Native Loader strict-play evidence sidecars into the canonical reports consumed by ECHO-Modules --strict-play.'
     dependsOn 'runNativeAllBridgeableModuleArtifactLoadStateSmoke'
+    dependsOn 'runNativeAgent2ClientRouteOwnershipSmoke'
     dependsOn 'runNativeAgent5UiBridgeContractSmoke'
     dependsOn 'runNativeAgent4RegistryContentSmoke'
     dependsOn 'runNativeAgent4WorldStartupSmoke'
@@ -1703,7 +1716,8 @@ tasks.register('generateNativeStrictPlayEvidence', Exec) {
     dependsOn 'runNativeMutationTruthGate'
     workingDir = rootProject.projectDir
     executable = 'node'
-    args 'scripts/generate-native-strict-play-evidence.mjs'
+    args 'scripts/generate-native-strict-play-evidence.mjs',
+            '--modules-root', echoModulesRepoRoot.get().absolutePath
 }
 
 tasks.register('testGenerateNativeStrictPlayEvidence', Exec) {

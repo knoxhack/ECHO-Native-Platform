@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const DEFAULT_ROOT = process.cwd()
+const DEFAULT_MODULES_ROOT = path.resolve(DEFAULT_ROOT, '..', 'ECHO-Modules')
 
 const INPUTS = {
   loadState: 'build/native-all-bridgeable-module-artifact-load-state/native-all-bridgeable-module-artifact-load-state.json',
@@ -23,16 +24,18 @@ const OUTPUTS = {
   saveNetwork: 'build/native-save-network/native-save-network.json',
 }
 
-export async function generateNativeStrictPlayEvidence({ root = DEFAULT_ROOT } = {}) {
+export async function generateNativeStrictPlayEvidence({ root = DEFAULT_ROOT, modulesRoot = DEFAULT_MODULES_ROOT } = {}) {
   const repoRoot = path.resolve(root)
+  const normalizedModulesRoot = path.resolve(modulesRoot)
   const generatedAt = new Date().toISOString()
   const inputs = {}
   for (const [key, relativePath] of Object.entries(INPUTS)) {
     inputs[key] = await readReport(repoRoot, key, relativePath)
   }
+  const bridgeableAudit = await readBridgeableAudit(normalizedModulesRoot)
 
   const outputs = {
-    [OUTPUTS.fullCatalog]: fullCatalogReport({ generatedAt, repoRoot, inputs }),
+    [OUTPUTS.fullCatalog]: fullCatalogReport({ generatedAt, repoRoot, inputs, bridgeableAudit }),
     [OUTPUTS.uiSurfaces]: aggregateReport({
       generatedAt,
       repoRoot,
@@ -90,29 +93,47 @@ export async function generateNativeStrictPlayEvidence({ root = DEFAULT_ROOT } =
   return { generatedAt, written }
 }
 
-function fullCatalogReport({ generatedAt, repoRoot, inputs }) {
+function fullCatalogReport({ generatedAt, repoRoot, inputs, bridgeableAudit }) {
   const loadState = inputs.loadState.report
   const moduleIds = moduleIdsFrom(loadState)
   const loadStatePass = inputs.loadState.status === 'PASS'
+  const expectedModuleIds = bridgeableAudit.expectedModuleIds
+  const missingExpectedModuleIds = expectedModuleIds.filter((moduleId) => !moduleIds.includes(moduleId))
+  const extraModuleIds = moduleIds.filter((moduleId) => expectedModuleIds.length > 0 && !expectedModuleIds.includes(moduleId))
+  const catalogMatches = bridgeableAudit.status === 'PASS' && missingExpectedModuleIds.length === 0
+  const blockers = [
+    ...missingBlockers(inputs.loadState, 'Native all-bridgeable artifact load-state smoke is not PASS.'),
+    ...bridgeableAudit.blockers,
+    ...missingExpectedModuleIds.map((moduleId) => `Native all-bridgeable artifact load-state omitted current bridgeable module: ${moduleId}`),
+  ]
   return {
     schema: 'echo.native.strict_play.full_catalog.v1',
     generatedAt,
-    status: loadStatePass ? 'PASS' : 'FAIL',
+    status: loadStatePass && catalogMatches ? 'PASS' : 'FAIL',
     runtime: 'echo_native',
     evidenceKind: 'native-full-catalog-artifact-lifecycle-proof',
     repoRoot: normalizePath(repoRoot),
     requiredFor: ['lifecycle'],
     moduleIds,
-    allModules: loadStatePass,
+    expectedModuleIds,
+    missingExpectedModuleIds,
+    extraModuleIds,
+    allModules: loadStatePass && catalogMatches,
     sourceReports: sourceReports(inputs, ['loadState']),
+    bridgeableAudit: {
+      path: bridgeableAudit.relativePath,
+      found: bridgeableAudit.found,
+      status: bridgeableAudit.status,
+      moduleCount: expectedModuleIds.length,
+    },
     trustedMutations: array(loadState?.trustedMutations),
     visibleRoutes: [],
     saveEvidence: [],
     networkEvidence: [],
-    coverageNotes: loadStatePass
+    coverageNotes: loadStatePass && catalogMatches
       ? ['This proves packaged Native artifact lifecycle/load coverage only; content, UI, action, worldgen, and save/network proof is supplied by separate Native host reports.']
       : [],
-    blockers: loadStatePass ? [] : missingBlockers(inputs.loadState, 'Native all-bridgeable artifact load-state smoke is not PASS.'),
+    blockers,
   }
 }
 
@@ -191,6 +212,48 @@ async function readReport(root, key, relativePath) {
       return { relativePath, found: false, report: null, status: 'MISSING' }
     }
     return { relativePath, found: true, report: { parseError: error.message }, status: 'PARSE_ERROR' }
+  }
+}
+
+async function readBridgeableAudit(modulesRoot) {
+  const relativePath = 'reports/echo-native/core-module-integration-audit.json'
+  const absolute = path.join(modulesRoot, relativePath)
+  try {
+    const text = await fs.readFile(absolute, 'utf8')
+    const parsed = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text)
+    const modules = array(parsed.modules)
+    const expectedModuleIds = unique(modules
+      .filter((module) => module?.nativeIntegrationStatus === 'LEGACY_ADAPTER_BRIDGEABLE')
+      .map((module) => module.moduleId)
+      .filter((moduleId) => typeof moduleId === 'string' && moduleId.trim()))
+    const blockers = []
+    if (expectedModuleIds.length === 0) {
+      blockers.push(`Native bridgeable audit published no bridgeable modules: ${relativePath}`)
+    }
+    return {
+      relativePath: normalizePath(absolute),
+      found: true,
+      status: blockers.length === 0 ? 'PASS' : 'FAIL',
+      expectedModuleIds,
+      blockers,
+    }
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return {
+        relativePath: normalizePath(absolute),
+        found: false,
+        status: 'MISSING',
+        expectedModuleIds: [],
+        blockers: [`missing ECHO Modules native bridgeable audit: ${normalizePath(absolute)}`],
+      }
+    }
+    return {
+      relativePath: normalizePath(absolute),
+      found: true,
+      status: 'PARSE_ERROR',
+      expectedModuleIds: [],
+      blockers: [`failed to parse ECHO Modules native bridgeable audit: ${error.message}`],
+    }
   }
 }
 
@@ -329,10 +392,11 @@ function moduleIdsFrom(report) {
 }
 
 function parseArgs(argv) {
-  const options = { root: DEFAULT_ROOT, help: false }
+  const options = { root: DEFAULT_ROOT, modulesRoot: DEFAULT_MODULES_ROOT, help: false }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === '--root') options.root = argv[++index]
+    else if (arg === '--modules-root') options.modulesRoot = argv[++index]
     else if (arg === '--help') options.help = true
     else throw new Error(`Unknown argument: ${arg}`)
   }
@@ -363,11 +427,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   try {
     const options = parseArgs(process.argv.slice(2))
     if (options.help) {
-      console.log('Usage: node scripts/generate-native-strict-play-evidence.mjs [--root <path>]')
+      console.log('Usage: node scripts/generate-native-strict-play-evidence.mjs [--root <path>] [--modules-root <path>]')
     } else {
       const { written } = await generateNativeStrictPlayEvidence(options)
       for (const entry of written) {
         console.log(`${entry.status} ${entry.moduleCount} module(s): ${entry.path}`)
+      }
+      if (written.some((entry) => entry.status === 'FAIL')) {
+        throw new Error('Native strict-play evidence contains failing report(s).')
       }
     }
   } catch (error) {
