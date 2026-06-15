@@ -1,13 +1,16 @@
 package dev.echo.nativeplatform.loader;
 
+import dev.echo.nativeplatform.contracts.EchoAdapterCoreGameplayMutationService;
 import dev.echo.nativeplatform.contracts.EchoNativeLoadStatus;
+import dev.echo.nativeplatform.contracts.EchoNativeMutationReceipt;
+import dev.echo.nativeplatform.contracts.EchoNativeServiceMutation;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-public final class NativeLoaderAdapterCoreBackend {
+public final class NativeLoaderAdapterCoreBackend implements EchoAdapterCoreGameplayMutationService {
     public static final String SERVICE_ID = "adaptercore.native_loader.backend";
     private static final String RUNTIME_LANE = "Native Loader";
 
@@ -71,6 +74,105 @@ public final class NativeLoaderAdapterCoreBackend {
 
     public Map<String, Object> serviceSurfaceReport(String surface) {
         return bridge.toSurfaceReport(surface);
+    }
+
+    @Override
+    public EchoNativeMutationReceipt mutate(EchoNativeServiceMutation mutation) {
+        if (mutation == null) {
+            return EchoNativeMutationReceipt.failed(serviceId(),
+                    new EchoNativeServiceMutation("unknown", "adaptercore", "missing", "", null, Map.of()),
+                    "missing AdapterCore gameplay mutation");
+        }
+        try {
+            return receiptForTypedMutation(mutation, recordForTypedMutation(mutation));
+        } catch (RuntimeException exception) {
+            return EchoNativeMutationReceipt.failed(serviceId(), mutation,
+                    exception.getClass().getName() + ": " + String.valueOf(exception.getMessage()));
+        }
+    }
+
+    private NativeLoaderMutationLedger.MutationRecord recordForTypedMutation(EchoNativeServiceMutation mutation) {
+        String surface = value(mutation.surface());
+        String action = value(mutation.action());
+        Map<String, Object> evidence = mutation.evidence();
+        return switch (surface) {
+            case "inventory" -> action.contains("remove")
+                    ? removeItem(
+                    evidenceString(evidence, "playerId", mutation.target()),
+                    evidenceString(evidence, "itemId", ""),
+                    evidenceInt(evidence, "count", 1))
+                    : grantItem(
+                    evidenceString(evidence, "playerId", mutation.target()),
+                    evidenceString(evidence, "itemId", ""),
+                    evidenceInt(evidence, "count", 1));
+            case "player_state" -> updatePlayerState(
+                    evidenceString(evidence, "playerId", mutation.target()),
+                    evidenceString(evidence, "key", action),
+                    evidenceString(evidence, "value", ""));
+            case "world_blocks" -> placeBlock(
+                    evidenceString(evidence, "dimension", "minecraft:overworld"),
+                    evidenceInt(evidence, "x", 0),
+                    evidenceInt(evidence, "y", 64),
+                    evidenceInt(evidence, "z", 0),
+                    evidenceString(evidence, "blockId", mutation.target()));
+            case "world_state" -> updateWorldState(
+                    evidenceString(evidence, "dimension", "minecraft:overworld"),
+                    evidenceString(evidence, "key", mutation.target()),
+                    evidenceString(evidence, "value", ""));
+            case "structures" -> placeStructure(
+                    evidenceString(evidence, "dimension", "minecraft:overworld"),
+                    evidenceString(evidence, "structureId", mutation.target()),
+                    evidenceInt(evidence, "x", 0),
+                    evidenceInt(evidence, "y", 64),
+                    evidenceInt(evidence, "z", 0));
+            case "block_entities" -> updateBlockEntity(
+                    evidenceString(evidence, "dimension", "minecraft:overworld"),
+                    evidenceInt(evidence, "x", 0),
+                    evidenceInt(evidence, "y", 64),
+                    evidenceInt(evidence, "z", 0),
+                    evidenceString(evidence, "key", action),
+                    evidenceString(evidence, "value", ""));
+            case "capabilities" -> updateCapability(
+                    mutation.target(),
+                    evidenceString(evidence, "capability", action),
+                    evidenceString(evidence, "value", ""));
+            case "events" -> emitEvent(
+                    evidenceString(evidence, "eventType", mutation.target()),
+                    evidenceString(evidence, "payload", ""));
+            case "packets_hud" -> sendPacketHud(
+                    evidenceString(evidence, "channel", mutation.target()),
+                    evidenceString(evidence, "payload", ""));
+            case "hud" -> emitHud(
+                    evidenceString(evidence, "channel", mutation.target()),
+                    evidenceString(evidence, "message", ""));
+            case "save_data" -> action.contains("delete")
+                    ? deleteSaveData(evidenceString(evidence, "key", mutation.target()))
+                    : writeSaveData(
+                    evidenceString(evidence, "key", mutation.target()),
+                    evidenceString(evidence, "value", ""));
+            default -> unsupported(surface, action, mutation.target(), serviceId());
+        };
+    }
+
+    private EchoNativeMutationReceipt receiptForTypedMutation(
+            EchoNativeServiceMutation mutation,
+            NativeLoaderMutationLedger.MutationRecord record
+    ) {
+        Map<String, Object> evidence = new LinkedHashMap<>(mutation.evidence());
+        evidence.put("nativeLoaderMutationRecord", record.toReport());
+        evidence.put("typedAdapterCoreGameplayMutationService", true);
+        return new EchoNativeMutationReceipt(
+                mutation.moduleId(),
+                serviceId(),
+                mutation.surface(),
+                mutation.action(),
+                mutation.target(),
+                record.status(),
+                mutation.side(),
+                "",
+                record.sequence(),
+                evidence
+        );
     }
 
     public NativeLoaderMutationLedger.MutationRecord grantItem(String playerId, String itemId, int count) {
@@ -653,6 +755,32 @@ public final class NativeLoaderAdapterCoreBackend {
 
     private static boolean bool(Object value) {
         return Boolean.TRUE.equals(value) || "true".equalsIgnoreCase(String.valueOf(value));
+    }
+
+    private static String evidenceString(Map<String, Object> evidence, String key, String fallback) {
+        if (evidence != null && evidence.containsKey(key)) {
+            return value(evidence.get(key));
+        }
+        return value(fallback);
+    }
+
+    private static int evidenceInt(Map<String, Object> evidence, String key, int fallback) {
+        if (evidence == null || !evidence.containsKey(key)) {
+            return fallback;
+        }
+        Object value = evidence.get(key);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private static String value(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 
     private static int intValue(Object value) {
