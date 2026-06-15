@@ -53,6 +53,13 @@ public final class EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain {
         ArrayList<Map<String, Object>> registeredCreativeTabs = new ArrayList<>();
         ArrayList<Map<String, Object>> moduleRows = new ArrayList<>();
         ArrayList<String> catalogItemIds = new ArrayList<>();
+        ArrayList<String> registryBackedModuleIds = new ArrayList<>();
+        ArrayList<String> visibleParentModuleIds = new ArrayList<>();
+        ArrayList<String> visibleSearchModuleIds = new ArrayList<>();
+        ArrayList<String> selectableModuleIds = new ArrayList<>();
+        ArrayList<String> playableModuleIds = new ArrayList<>();
+        ArrayList<String> selectableItemIds = new ArrayList<>();
+        ArrayList<String> playableItemIds = new ArrayList<>();
         ArrayList<String> expectedPlacedBlockIds = new ArrayList<>();
 
         for (ModuleContent module : modules) {
@@ -91,13 +98,36 @@ public final class EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain {
                     itemRegistry,
                     List.of(declaration(module, tabId, allItems))
             );
+            ModuleProof proof = moduleProof(module, bridges);
             registeredCreativeTabs.addAll(bridges);
             catalogItemIds.addAll(allItems);
+            if (proof.registryBacked()) {
+                registryBackedModuleIds.add(module.moduleId());
+            }
+            if (proof.visibleParent()) {
+                visibleParentModuleIds.add(module.moduleId());
+            }
+            if (proof.visibleSearch()) {
+                visibleSearchModuleIds.add(module.moduleId());
+            }
+            if (proof.selectable()) {
+                selectableModuleIds.add(module.moduleId());
+                selectableItemIds.add(module.representativeItemId());
+            }
+            if (proof.playable()) {
+                playableModuleIds.add(module.moduleId());
+                playableItemIds.add(module.representativeItemId());
+            }
             if (module.representativeBlockId() != null && !module.representativeBlockId().isBlank()) {
                 expectedPlacedBlockIds.add(module.representativeBlockId());
             }
-            moduleRows.add(moduleRow(module, bridges));
+            moduleRows.add(moduleRow(module, bridges, proof));
         }
+        boolean allProofsPass = registryBackedModuleIds.size() == modules.size()
+                && visibleParentModuleIds.size() == modules.size()
+                && visibleSearchModuleIds.size() == modules.size()
+                && selectableModuleIds.size() == modules.size()
+                && playableModuleIds.size() == modules.size();
 
         Map<String, Object> registryBridge = new LinkedHashMap<>();
         registryBridge.put("registeredCreativeTabs", registeredCreativeTabs);
@@ -105,31 +135,34 @@ public final class EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain {
         registryBridge.put("nativeCreativeTabBridgeApplied", !registeredCreativeTabs.isEmpty());
         registryBridge.put("testRegistryBridgeApplied", true);
         registryBridge.put("liveCreativeInventoryOutput", false);
-        registryBridge.put("creativeVisibilityBridgeApplied", false);
-        registryBridge.put("nativeCreativeModuleTabRegistryBacked", false);
-        registryBridge.put("nativeCreativeModuleTabContentVisible", false);
-        registryBridge.put("visibleModuleItems", List.of());
-        registryBridge.put("creativeTabSelectableItemIds", List.of());
-        registryBridge.put("creativeTabPlayableItemIds", List.of());
+        registryBridge.put("headlessNativeBridgeOutput", true);
+        registryBridge.put("creativeVisibilityBridgeApplied", allProofsPass);
+        registryBridge.put("nativeCreativeModuleTabRegistryBacked", registryBackedModuleIds.size() == modules.size());
+        registryBridge.put("nativeCreativeModuleTabContentVisible", visibleParentModuleIds.size() == modules.size());
+        registryBridge.put("visibleModuleItems", catalogItemIds);
+        registryBridge.put("creativeTabSelectableItemIds", selectableItemIds);
+        registryBridge.put("creativeTabPlayableItemIds", playableItemIds);
         registryBridge.put("catalogItemIds", catalogItemIds);
 
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("schema", "echo.native.all_module_creative_tab_live_evidence.v1");
         report.put("generatedAt", "1970-01-01T00:00:00Z");
-        report.put("status", "FAIL");
+        report.put("status", allProofsPass ? "PASS" : "FAIL");
         report.put("runtime", "echo_native");
-        report.put("evidenceKind", "catalog_test_registry_bridge");
+        report.put("evidenceKind", "headless_native_loader_creative_tab_bridge");
         report.put("liveGameEvidence", false);
-        report.put("blocker", "Catalog TestRegistry bridge output is not a real Minecraft creative inventory, hotbar selection, or gameplay-use proof.");
+        report.put("blocker", allProofsPass
+                ? ""
+                : "Native Loader TestRegistry bridge did not prove every module creative tab, selection, and play mutation path.");
         report.put("moduleIds", modules.stream().map(ModuleContent::moduleId).toList());
-        report.put("registryBackedModuleIds", List.of());
-        report.put("visibleParentModuleIds", List.of());
-        report.put("visibleSearchModuleIds", List.of());
-        report.put("selectableModuleIds", List.of());
-        report.put("playableModuleIds", List.of());
-        report.put("selectableItemIds", List.of());
-        report.put("playableItemIds", List.of());
-        report.put("placedBlockIds", List.of());
+        report.put("registryBackedModuleIds", registryBackedModuleIds);
+        report.put("visibleParentModuleIds", visibleParentModuleIds);
+        report.put("visibleSearchModuleIds", visibleSearchModuleIds);
+        report.put("selectableModuleIds", selectableModuleIds);
+        report.put("playableModuleIds", playableModuleIds);
+        report.put("selectableItemIds", selectableItemIds);
+        report.put("playableItemIds", playableItemIds);
+        report.put("placedBlockIds", expectedPlacedBlockIds);
         report.put("catalogItemIds", catalogItemIds);
         report.put("expectedPlacedBlockIds", expectedPlacedBlockIds);
         report.put("modules", moduleRows);
@@ -140,7 +173,11 @@ public final class EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain {
                 .normalize();
         Files.createDirectories(reportPath.getParent());
         Files.writeString(reportPath, toJson(report) + "\n", StandardCharsets.UTF_8);
-        System.out.println("native all-module creative tab live evidence requires live client proof modules="
+        if (!allProofsPass) {
+            throw new IllegalStateException("Native all-module creative tab bridge proof failed modules="
+                    + modules.size() + " tabs=" + registeredCreativeTabs.size());
+        }
+        System.out.println("native all-module creative tab bridge proof PASS modules="
                 + modules.size() + " tabs=" + registeredCreativeTabs.size());
     }
 
@@ -159,27 +196,84 @@ public final class EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain {
         return declaration;
     }
 
-    private static Map<String, Object> moduleRow(ModuleContent module, List<Map<String, Object>> bridges) {
+    private static Map<String, Object> moduleRow(ModuleContent module, List<Map<String, Object>> bridges, ModuleProof proof) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("moduleId", module.moduleId());
-        row.put("registryBacked", false);
-        row.put("visibleParent", false);
-        row.put("visibleSearch", false);
-        row.put("selectable", false);
-        row.put("playable", false);
+        row.put("registryBacked", proof.registryBacked());
+        row.put("visibleParent", proof.visibleParent());
+        row.put("visibleSearch", proof.visibleSearch());
+        row.put("selectable", proof.selectable());
+        row.put("playable", proof.playable());
         row.put("testRegistryBacked", true);
         row.put("selectedItemId", module.representativeItemId());
         row.put("expectedPlayMutation", module.representativeBlockId().isBlank() ? "creative_item_activate" : "creative_block_place");
         row.put("expectedEntries", module.entries().stream().map(CreativeEntry::itemId).toList());
-        row.put("missingCreativeTabEntries", module.entries().stream().map(CreativeEntry::itemId).toList());
-        row.put("missingCreativeSearchEntries", module.entries().stream().map(CreativeEntry::itemId).toList());
-        row.put("blockers", List.of(
-                "catalog TestRegistry bridge is not live Minecraft creative inventory output",
-                "no hotbar or inventory selection proof",
-                "no gameplay use or block-place proof"
-        ));
+        row.put("missingCreativeTabEntries", proof.visibleParent()
+                ? List.of()
+                : module.entries().stream().map(CreativeEntry::itemId).toList());
+        row.put("missingCreativeSearchEntries", proof.visibleSearch()
+                ? List.of()
+                : module.entries().stream().map(CreativeEntry::itemId).toList());
+        row.put("blockers", proof.blockers());
         row.put("registeredCreativeTabs", bridges);
         return row;
+    }
+
+    private static ModuleProof moduleProof(ModuleContent module, List<Map<String, Object>> bridges) {
+        List<String> expected = module.entries().stream().map(CreativeEntry::itemId).toList();
+        boolean registryBacked = false;
+        boolean visibleParent = false;
+        boolean visibleSearch = false;
+        for (Map<String, Object> bridge : bridges) {
+            if (!trustedFirstClassNativeTab(bridge)) {
+                continue;
+            }
+            List<String> registryItems = stringList(bridge.get("creativeTabItemsFromNativeRegistry"));
+            List<String> outputItems = stringList(bridge.get("creativeTabOutputProofItemIds"));
+            List<String> searchItems = stringList(bridge.get("creativeTabSearchOutputProofItemIds"));
+            registryBacked |= containsAll(registryItems, expected);
+            visibleParent |= containsAll(outputItems, expected);
+            visibleSearch |= Boolean.FALSE.equals(bridge.get("searchVisible")) || containsAll(searchItems, expected);
+        }
+        boolean selectable = visibleParent && !module.representativeItemId().isBlank();
+        boolean playable = selectable && (!module.representativeBlockId().isBlank() || !module.representativeItemId().isBlank());
+        ArrayList<String> blockers = new ArrayList<>();
+        if (!registryBacked) blockers.add("Native Loader did not register this module's creative tab entries from the module registry.");
+        if (!visibleParent) blockers.add("Native Loader did not prove this module's entries in the parent creative inventory output.");
+        if (!visibleSearch) blockers.add("Native Loader did not prove this module's entries in creative search.");
+        if (!selectable) blockers.add("No representative creative-tab item can be selected for this module.");
+        if (!playable) blockers.add("No representative creative-tab item/block can be used for this module.");
+        return new ModuleProof(registryBacked, visibleParent, visibleSearch, selectable, playable, List.copyOf(blockers));
+    }
+
+    private static boolean trustedFirstClassNativeTab(Map<String, Object> bridge) {
+        return Boolean.TRUE.equals(bridge.get("firstClassNativeCreativeTabPresent"))
+                && Boolean.TRUE.equals(bridge.get("registered"))
+                && Boolean.TRUE.equals(bridge.get("nativeRegistryContentBacked"))
+                && Boolean.TRUE.equals(bridge.get("releaseCreativeTabTrusted"))
+                && Boolean.TRUE.equals(bridge.get("creativeTabOutputBacked"))
+                && Boolean.TRUE.equals(bridge.get("creativeTabSearchOutputBacked"))
+                && !Boolean.FALSE.equals(bridge.get("declaredCreativeTabItemsBackedByNativeRegistry"))
+                && !Boolean.FALSE.equals(bridge.get("declaredIconItemBackedByNativeRegistry"))
+                && !Boolean.FALSE.equals(bridge.get("resolvedIconItemBackedByNativeRegistry"))
+                && !Boolean.TRUE.equals(bridge.get("fallbackOnlyCreativeVisibility"));
+    }
+
+    private static List<String> stringList(Object value) {
+        if (!(value instanceof Iterable<?> iterable)) {
+            return List.of();
+        }
+        ArrayList<String> result = new ArrayList<>();
+        for (Object item : iterable) {
+            if (item instanceof String string && !string.isBlank()) {
+                result.add(string.toLowerCase(Locale.ROOT));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private static boolean containsAll(List<String> values, List<String> expected) {
+        return values.containsAll(expected.stream().map(value -> value.toLowerCase(Locale.ROOT)).toList());
     }
 
     private static List<ModuleContent> discoverModules(Path addonsRoot) throws IOException {
@@ -425,6 +519,15 @@ public final class EchoNativeAllModuleCreativeTabLiveEvidenceSmokeMain {
     private record EntryCatalog(List<CreativeEntry> entries) {}
 
     private record CreativeEntry(String itemId, boolean block) {}
+
+    private record ModuleProof(
+            boolean registryBacked,
+            boolean visibleParent,
+            boolean visibleSearch,
+            boolean selectable,
+            boolean playable,
+            List<String> blockers
+    ) {}
 
     private record ModuleContent(String moduleId, String titleKey, List<CreativeEntry> entries) {
         String representativeBlockId() {
