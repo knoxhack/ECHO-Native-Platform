@@ -413,7 +413,12 @@ def defaultEchoModulesRoot = providers.provider {
 def echoModulesRoot = providers.gradleProperty('echoModulesRoot')
         .orElse(providers.environmentVariable('ECHO_MODULES_ROOT'))
         .orElse(defaultEchoModulesRoot)
+def echoModulesRepoRootOverride = providers.gradleProperty('echoModulesRepoRoot')
+        .orElse(providers.environmentVariable('ECHO_MODULES_REPO_ROOT'))
 def echoModulesRepoRoot = providers.provider {
+    if (echoModulesRepoRootOverride.isPresent()) {
+        return new File(echoModulesRepoRootOverride.get())
+    }
     def modulesRoot = new File(echoModulesRoot.get())
     modulesRoot.name == 'addons' && modulesRoot.parentFile != null ? modulesRoot.parentFile : modulesRoot
 }
