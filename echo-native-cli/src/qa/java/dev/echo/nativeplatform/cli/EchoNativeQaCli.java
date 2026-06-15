@@ -1908,6 +1908,18 @@ public final class EchoNativeQaCli {
         writeSimple(fixture, result, "module-graph.json", "echo.native.module_graph.v1", graphPlan.diagnostics(), graphPlan.moduleGraph());
         writeSimple(fixture, result, "service-graph.json", "echo.native.service_graph.v1", graphPlan.diagnostics(), graphPlan.serviceGraph());
         writeSimple(fixture, result, "lifecycle-plan.json", "echo.native.lifecycle_plan.v1", graphPlan.diagnostics(), graphPlan.lifecyclePlan());
+        writeSimple(fixture, result, "content-graph.json", "echo.native.content_graph.v1", graphPlan.diagnostics(), contentGraphMap(graphPlan.contentGraph()));
+    }
+
+    private static Map<String, Object> contentGraphMap(dev.echo.nativeplatform.contracts.EchoNativeContentGraph contentGraph) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("schemaVersion", contentGraph.schemaVersion());
+        map.put("source", contentGraph.source());
+        map.put("moduleCount", contentGraph.moduleCount());
+        map.put("nodeCount", contentGraph.nodeCount());
+        map.put("edgeCount", contentGraph.edgeCount());
+        map.put("modules", contentGraph.modules());
+        return map;
     }
 
     private void writeFeatureReport(Path fixture, EchoNativeScanResult result, EchoNativeGraphPlan graphPlan) throws IOException {

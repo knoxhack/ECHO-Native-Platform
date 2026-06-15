@@ -1,6 +1,7 @@
 package dev.echo.nativeplatform.loader;
 
 import dev.echo.nativeplatform.contracts.EchoNativeAddonDescriptor;
+import dev.echo.nativeplatform.contracts.EchoNativeContentGraph;
 import dev.echo.nativeplatform.contracts.EchoNativeDiagnostic;
 import dev.echo.nativeplatform.contracts.EchoNativeIssueSeverity;
 import dev.echo.nativeplatform.contracts.EchoNativeRuntimeSide;
@@ -19,9 +20,17 @@ import java.util.TreeSet;
 
 public final class EchoNativeGraphPlanner {
     private final EchoNativeValidator validator = new EchoNativeValidator();
+    private final EchoNativeContentGraphPlanner contentGraphPlanner = new EchoNativeContentGraphPlanner();
 
     public EchoNativeGraphPlan plan(EchoNativeScanResult scanResult) {
+        return plan(scanResult, contentGraphRoot());
+    }
+
+    public EchoNativeGraphPlan plan(EchoNativeScanResult scanResult, Path contentGraphRoot) {
         List<EchoNativeDiagnostic> diagnostics = new ArrayList<>(validator.validate(scanResult));
+        EchoNativeContentGraph contentGraph = contentGraphRoot == null
+                ? contentGraphPlanner.plan(null, List.of())
+                : contentGraphPlanner.plan(contentGraphRoot, moduleIds(scanResult));
         if (scanResult.packProfile() == null) {
             return new EchoNativeGraphPlan(
                     diagnostics,
@@ -29,7 +38,8 @@ public final class EchoNativeGraphPlanner {
                     Map.of("nodes", List.of(), "edges", List.of()),
                     Map.of("features", List.of(), "edges", List.of()),
                     Map.of("services", List.of()),
-                    Map.of("phases", List.of())
+                    Map.of("phases", List.of()),
+                    contentGraph
             );
         }
         DeterministicLoadOrder loadOrder = deterministicLoadOrder(scanResult, diagnostics);
@@ -40,8 +50,25 @@ public final class EchoNativeGraphPlanner {
                 moduleGraph(scanResult, loadOrder),
                 featureGraph(scanResult),
                 serviceGraph(services),
-                lifecyclePlan(loadOrder.modules(), diagnostics)
+                lifecyclePlan(loadOrder.modules(), diagnostics),
+                contentGraph
         );
+    }
+
+    private static Path contentGraphRoot() {
+        String property = System.getProperty("echo.content.graph.root");
+        if (property == null || property.isBlank()) {
+            return null;
+        }
+        return Path.of(property);
+    }
+
+    private static List<String> moduleIds(EchoNativeScanResult scanResult) {
+        return scanResult.descriptors().stream()
+                .map(EchoNativeAddonDescriptor::id)
+                .sorted()
+                .distinct()
+                .toList();
     }
 
     public List<String> loadOrder(EchoNativeScanResult scanResult) {

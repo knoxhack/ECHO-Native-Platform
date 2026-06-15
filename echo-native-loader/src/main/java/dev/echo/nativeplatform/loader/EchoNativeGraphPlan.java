@@ -1,5 +1,6 @@
 package dev.echo.nativeplatform.loader;
 
+import dev.echo.nativeplatform.contracts.EchoNativeContentGraph;
 import dev.echo.nativeplatform.contracts.EchoNativeDiagnostic;
 
 import java.util.List;
@@ -11,6 +12,7 @@ public record EchoNativeGraphPlan(
         Map<String, Object> moduleGraph,
         Map<String, Object> featureGraph,
         Map<String, Object> serviceGraph,
-        Map<String, Object> lifecyclePlan
+        Map<String, Object> lifecyclePlan,
+        EchoNativeContentGraph contentGraph
 ) {
 }
