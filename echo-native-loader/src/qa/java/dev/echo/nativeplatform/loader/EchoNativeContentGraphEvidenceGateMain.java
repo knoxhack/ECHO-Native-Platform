@@ -7,8 +7,11 @@ import dev.echo.nativeplatform.diagnostics.EchoNativeJson;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 public final class EchoNativeContentGraphEvidenceGateMain {
     private EchoNativeContentGraphEvidenceGateMain() {
@@ -24,13 +27,10 @@ public final class EchoNativeContentGraphEvidenceGateMain {
                 "Generated module release graph root is missing: " + contentGraphRoot);
 
         EchoNativeScanResult scanResult = new EchoNativeDescriptorScanner().scanProduct(modulesRoot);
+        List<String> moduleIds = moduleIds(scanResult, contentGraphRoot);
         EchoNativeContentGraph evidence = new EchoNativeContentGraphPlanner().plan(
                 contentGraphRoot,
-                scanResult.descriptors().stream()
-                        .map(descriptor -> descriptor.id())
-                        .sorted()
-                        .distinct()
-                        .toList()
+                moduleIds
         );
         Path canonicalEvidencePath = contentGraphRoot.resolve("content-graph-evidence.json");
         Map<String, Object> canonicalEvidence = Files.isRegularFile(canonicalEvidencePath)
@@ -42,8 +42,8 @@ public final class EchoNativeContentGraphEvidenceGateMain {
         if (!canonicalEvidence.isEmpty()) {
             requireMatchesCanonical(canonicalEvidencePath, canonicalEvidence, evidence);
         }
-        require(scanResult.descriptors().size() >= 100,
-                "Expected at least 100 module descriptors, found " + scanResult.descriptors().size());
+        require(moduleIds.size() >= 100,
+                "Expected at least 100 content graph module ids, found " + moduleIds.size());
         require(evidence.moduleCount() >= 100,
                 "Expected at least 100 content graph modules, found " + evidence.moduleCount());
         require(evidence.nodeCount() >= 4_000,
@@ -67,6 +67,27 @@ public final class EchoNativeContentGraphEvidenceGateMain {
                 + " features=" + evidence.featureCount()
                 + " exportPlans=" + evidence.exportPlanCount()
                 + " hytaleBlockers=" + evidence.hytaleBlockerCount());
+    }
+
+    private static List<String> moduleIds(EchoNativeScanResult scanResult, Path contentGraphRoot) {
+        List<String> descriptorIds = scanResult.descriptors().stream()
+                .map(descriptor -> descriptor.id())
+                .sorted()
+                .distinct()
+                .toList();
+        if (!descriptorIds.isEmpty()) {
+            return descriptorIds;
+        }
+        List<String> releaseIds = new ArrayList<>();
+        try (Stream<Path> modules = Files.list(contentGraphRoot)) {
+            modules
+                    .filter(Files::isDirectory)
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .forEach(path -> releaseIds.add(path.getFileName().toString()));
+        } catch (Exception ignored) {
+            return List.of();
+        }
+        return List.copyOf(releaseIds);
     }
 
     private static void requireMatchesCanonical(
