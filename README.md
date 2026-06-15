@@ -8,7 +8,7 @@ Native runtime, loader, platform services, and adapter support for `.echo-addon`
 
 ## What Lives Here
 
-Gradle platform code, runtime loader code, platform docs, release workflow notes, native compatibility docs, and acceptance evidence.
+Gradle platform code, runtime loader code, platform docs, release workflow notes, native compatibility docs, `.ECHO Content Graph` planning evidence, and acceptance evidence.
 
 ## Release And Update Role
 
@@ -36,6 +36,14 @@ Run commands from the repository root.
 - `node scripts/generate-ashfall-gameplay-qa-evidence.mjs`
 - `node scripts/test-generate-ashfall-gameplay-qa-evidence.mjs`
 - `.\gradlew.bat check packageNativePlatformLayout packagePublicAlphaRelease`
+
+## Content Graph Planning
+
+`echo-native-loader` includes `EchoNativeContentGraphPlanner` and `EchoNativeGraphPlanner`. During a dry-run plan, the loader reads per-module `content-graph.json`, `features.json`, and `export-plans/hytale.json` files from the directory configured by the `echo.content.graph.root` system property (`<root>/<module>/<version>/.echo/content-graph/content-graph.json`) and produces an `echo.content_graph.evidence.v1` summary of module count, node count, edge count, feature count, export-plan count, Hytale blocker count, and diagnostics. This is optional evidence: a missing graph emits a warning but does not block native loading.
+
+`echo-native-cli` writes the content graph evidence to `content-graph.json` alongside module, feature, service, and lifecycle plans when running QA graph reports.
+
+Use `.\gradlew.bat runNativeContentGraphEvidenceGate -PechoModulesRepoRoot=..\ECHO-Modules --console=plain` after generating ECHO-Modules release outputs to prove the native planner can read the canonical graph release tree.
 
 ## Artifact Ownership
 

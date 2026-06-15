@@ -1202,6 +1202,16 @@ tasks.register('runNativeDependencyResolutionGate', JavaExec) {
     workingDir = rootProject.projectDir
 }
 
+tasks.register('runNativeContentGraphEvidenceGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies Native Loader content graph evidence from generated ECHO-Modules release outputs.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeContentGraphEvidenceGateMain'
+    workingDir = rootProject.projectDir
+    args echoModulesRepoRoot.get()
+}
+
 tasks.register('runNativeServiceCollisionGate', JavaExec) {
     group = 'verification'
     description = 'Verifies Native Loader service IDs cannot collide across modules or duplicate inside a module.'

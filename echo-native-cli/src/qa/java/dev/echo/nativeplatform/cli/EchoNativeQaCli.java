@@ -1918,6 +1918,9 @@ public final class EchoNativeQaCli {
         map.put("moduleCount", contentGraph.moduleCount());
         map.put("nodeCount", contentGraph.nodeCount());
         map.put("edgeCount", contentGraph.edgeCount());
+        map.put("featureCount", contentGraph.featureCount());
+        map.put("exportPlanCount", contentGraph.exportPlanCount());
+        map.put("hytaleBlockerCount", contentGraph.hytaleBlockerCount());
         map.put("modules", contentGraph.modules());
         return map;
     }

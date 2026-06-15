@@ -19,6 +19,15 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generate ECHO module content graph release outputs
+        working-directory: ECHO-Modules
+        run: node scripts/generate-module-release.mjs --out dist/echo-module-release --package-from-source
       - name: Build
         working-directory: ECHO-Native-Platform
         run: .\gradlew.bat build --console=plain
+      - name: Verify Native content graph evidence
+        working-directory: ECHO-Native-Platform
+        run: .\gradlew.bat runNativeContentGraphEvidenceGate -PechoModulesRepoRoot=..\ECHO-Modules --console=plain

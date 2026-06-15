@@ -16,6 +16,9 @@ public record EchoNativeContentGraph(
         int moduleCount,
         int nodeCount,
         int edgeCount,
+        int featureCount,
+        int exportPlanCount,
+        int hytaleBlockerCount,
         List<Map<String, Object>> modules,
         List<EchoNativeDiagnostic> diagnostics
 ) {
