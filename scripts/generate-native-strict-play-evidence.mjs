@@ -10,6 +10,7 @@ const INPUTS = {
   loadState: 'build/native-all-bridgeable-module-artifact-load-state/native-all-bridgeable-module-artifact-load-state.json',
   clientRoutes: 'build/native-agent2-client-routes/native-client-route-ownership.json',
   uiBridge: 'build/agent5/ui-bridge-contract/agent5-ui-bridge-contract.json',
+  creativeVisibility: 'build/native-all-module-creative-tab-visibility/native-all-module-creative-tab-visibility.json',
   registryContent: 'build/agent4/registry-content/native-agent4-registry-content-state.json',
   worldStartup: 'build/agent4/world-startup/native-agent4-world-startup.json',
   machineRuntime: 'build/agent9/machine-runtime-host/agent9-machine-runtime-host.json',
@@ -36,17 +37,7 @@ export async function generateNativeStrictPlayEvidence({ root = DEFAULT_ROOT, mo
 
   const outputs = {
     [OUTPUTS.fullCatalog]: fullCatalogReport({ generatedAt, repoRoot, inputs, bridgeableAudit }),
-    [OUTPUTS.uiSurfaces]: aggregateReport({
-      generatedAt,
-      repoRoot,
-      schema: 'echo.native.strict_play.ui_surfaces.v1',
-      evidenceKind: 'native-ui-visible-route-proof',
-      requiredFor: ['ui'],
-      inputs,
-      include: ['uiBridge', 'clientRoutes'],
-      partialIfAnyInputMissing: false,
-      blockers: [],
-    }),
+    [OUTPUTS.uiSurfaces]: uiSurfacesReport({ generatedAt, repoRoot, inputs }),
     [OUTPUTS.registryContent]: aggregateReport({
       generatedAt,
       repoRoot,
@@ -91,6 +82,183 @@ export async function generateNativeStrictPlayEvidence({ root = DEFAULT_ROOT, mo
   }
 
   return { generatedAt, written }
+}
+
+function uiSurfacesReport({ generatedAt, repoRoot, inputs }) {
+  const include = ['uiBridge', 'clientRoutes', 'creativeVisibility', 'worldStartup']
+  const included = include.map((key) => inputs[key])
+  const passing = included.filter((entry) => entry.status === 'PASS')
+  const sourceBlockers = included.flatMap((entry) => missingBlockers(entry, `${entry.relativePath} is not PASS.`))
+  const proofs = [
+    creativeTabSurfaceProof(inputs.creativeVisibility.report),
+    mainMenuSurfaceProof(inputs.clientRoutes.report),
+    createWorldSurfaceProof(inputs.clientRoutes.report, inputs.worldStartup.report),
+    loadingSurfaceProof(inputs.clientRoutes.report),
+  ]
+  const proofBlockers = proofs.flatMap((proof) =>
+    proof.blockers.map((blocker) => `${proof.surface}: ${blocker}`))
+  const status = sourceBlockers.length === 0 && proofBlockers.length === 0 ? 'PASS' : 'FAIL'
+  return {
+    schema: 'echo.native.strict_play.ui_surfaces.v1',
+    generatedAt,
+    status,
+    runtime: 'echo_native',
+    evidenceKind: 'native-ui-visible-route-host-action-proof',
+    repoRoot: normalizePath(repoRoot),
+    requiredFor: ['ui', 'creative_tabs', 'main_menu', 'create_world'],
+    moduleIds: unique(passing.flatMap((entry) => moduleIdsFrom(entry.report))),
+    allModules: status === 'PASS' && inputs.creativeVisibility.report?.allModules === true,
+    sourceReports: sourceReports(inputs, include),
+    surfaceProofs: proofs,
+    routeRegisteredSurfaces: proofs.filter((proof) => proof.registeredRoute).map((proof) => proof.surface),
+    liveHostReceiptSurfaces: proofs.filter((proof) => proof.liveHostReceipt).map((proof) => proof.surface),
+    actionableSurfaces: proofs.filter((proof) => proof.actionableSurface).map((proof) => proof.surface),
+    trustedMutations: unique([
+      ...passing.flatMap((entry) => array(entry.report?.trustedMutations)),
+      ...proofs.flatMap((proof) => proof.trustedMutations),
+    ]),
+    visibleRoutes: unique(passing.flatMap((entry) => array(entry.report?.visibleRoutes))),
+    saveEvidence: unique(passing.flatMap((entry) => array(entry.report?.saveEvidence))),
+    networkEvidence: unique(passing.flatMap((entry) => array(entry.report?.networkEvidence))),
+    blockers: unique([...sourceBlockers, ...proofBlockers]),
+  }
+}
+
+function creativeTabSurfaceProof(report) {
+  const blockers = []
+  const rows = array(report?.modules)
+  const moduleIds = moduleIdsFrom(report)
+  const allModules = report?.allModules === true
+  const liveGameEvidence = report?.liveGameEvidence === true
+  const sourceReports = array(report?.sourceReports)
+  const hasRuntimeSource = sourceReports.some((source) =>
+    source?.found === true && string(source?.schema).includes('creative_tab_live_evidence'))
+  const registryBacked = allModules && array(report?.registryBackedModuleIds).length === moduleIds.length
+  const visibleParent = allModules && array(report?.visibleParentModuleIds).length === moduleIds.length
+  const visibleSearch = allModules && array(report?.visibleSearchModuleIds).length === moduleIds.length
+  const selectable = allModules && array(report?.selectableModuleIds).length === moduleIds.length
+  const playable = allModules && array(report?.playableModuleIds).length === moduleIds.length
+  const liveHostReceipt = liveGameEvidence && hasRuntimeSource
+  if (!allModules || moduleIds.length === 0) blockers.push('catalog-wide creative visibility report is not all-modules PASS')
+  if (!hasRuntimeSource) blockers.push('creative visibility report is not backed by a Native runtime creative-tab source report')
+  if (!registryBacked) blockers.push('creative tabs are not registry-backed for every catalog module')
+  if (!visibleParent) blockers.push('creative entries are not visible in parent inventory for every catalog module')
+  if (!visibleSearch) blockers.push('creative entries are not visible in search for every catalog module')
+  if (!selectable) blockers.push('creative entries are not selectable for every catalog module')
+  if (!playable) blockers.push('creative entries are not playable for every catalog module')
+  return {
+    surface: 'creative_tab_catalog',
+    registeredRoute: registryBacked,
+    liveHostReceipt,
+    actionableSurface: selectable && playable,
+    proofMode: liveGameEvidence ? 'live_game_creative_inventory' : 'headless_native_creative_tab_bridge',
+    distinguishesRegisteredFromHostReceipt: true,
+    moduleCount: moduleIds.length,
+    registeredModuleCount: array(report?.registryBackedModuleIds).length,
+    selectableModuleCount: array(report?.selectableModuleIds).length,
+    playableModuleCount: array(report?.playableModuleIds).length,
+    evidenceNotes: liveGameEvidence
+      ? ['Creative catalog proof includes live game inventory receipt evidence.']
+      : ['Creative catalog proof is actionable headless Native bridge output, not live game inventory receipt evidence.'],
+    trustedMutations: blockers.length === 0
+      ? ['Catalog-wide Native creative tab bridge proved registry-backed, visible, searchable, selectable, and playable module entries.']
+      : [],
+    blockers,
+    sampleModules: rows.slice(0, 5).map((row) => row?.moduleId).filter(Boolean),
+  }
+}
+
+function mainMenuSurfaceProof(report) {
+  const blockers = []
+  const registeredRoute = array(report?.requiredSurfaces).includes('main_menu')
+    && !!object(report?.builtInProductRoutes).main_menu
+  const directReceipt = report?.directPublicSdkDispatchResults?.['menu.new_run'] === true
+  const hostReceipt = report?.dispatchResults?.['menu.new_run'] === true
+  const inputReceipt = report?.inputDispatchResults?.['menu.new_run'] === true
+  const frame = object(object(report?.builtInProductRendererFrames).main_menu)
+  const actionableSurface = object(object(report?.builtInProductSurfaceState).main_menu).nativeProductUiReady === true
+    && frame.nativeProductUiReady === true
+    && frame.status === 'MUTATED'
+  if (!registeredRoute) blockers.push('main menu route is not registered as a Native built-in product route')
+  if (!directReceipt) blockers.push('main menu direct public SDK dispatch did not return a mutating receipt')
+  if (!hostReceipt) blockers.push('main menu UI host dispatch did not return a mutating receipt')
+  if (!inputReceipt) blockers.push('main menu key/input dispatch did not return a mutating receipt')
+  if (!actionableSurface) blockers.push('main menu renderer/state proof is not actionable')
+  return {
+    surface: 'main_menu',
+    registeredRoute,
+    liveHostReceipt: directReceipt && hostReceipt && inputReceipt,
+    actionableSurface,
+    proofMode: 'native_client_ui_host_route_and_window_pump',
+    distinguishesRegisteredFromHostReceipt: true,
+    requiredActions: ['menu.open', 'menu.new_run', 'menu.quit'],
+    trustedMutations: blockers.length === 0
+      ? ['Native main menu route is registered and host/window-pump actions returned mutating receipts.']
+      : [],
+    blockers,
+  }
+}
+
+function createWorldSurfaceProof(routeReport, worldReport) {
+  const blockers = []
+  const registeredRoute = array(routeReport?.requiredSurfaces).includes('world_setup')
+  const openReceipt = routeReport?.directPublicSdkDispatchResults?.['world_setup.open'] === true
+  const createReceipt = routeReport?.directPublicSdkDispatchResults?.['world_setup.create'] === true
+  const worldStartupPass = reportStatus(worldReport) === 'PASS'
+  const worldSaveEvidence = array(worldReport?.saveEvidence).some((entry) =>
+    string(entry).includes('product world open marker'))
+  const trustedWorldMutation = array(worldReport?.trustedMutations).some((entry) =>
+    string(entry).includes('fresh product world plan creates Ashfall world'))
+  if (!registeredRoute) blockers.push('create-world route is not registered as the Native world_setup surface')
+  if (!openReceipt) blockers.push('world_setup.open direct public SDK dispatch did not return a mutating receipt')
+  if (!createReceipt) blockers.push('world_setup.create direct public SDK dispatch did not return a mutating receipt')
+  if (!worldStartupPass) blockers.push('Agent 4 Ashfall world startup report is not PASS')
+  if (!worldSaveEvidence) blockers.push('world startup evidence does not prove product world open/save markers')
+  if (!trustedWorldMutation) blockers.push('world startup evidence does not prove fresh Ashfall product world creation')
+  return {
+    surface: 'create_world',
+    registeredRoute,
+    liveHostReceipt: openReceipt && createReceipt,
+    actionableSurface: worldStartupPass && worldSaveEvidence && trustedWorldMutation,
+    proofMode: 'native_world_setup_route_plus_agent4_world_startup',
+    distinguishesRegisteredFromHostReceipt: true,
+    requiredActions: ['world_setup.open', 'world_setup.create'],
+    trustedMutations: blockers.length === 0
+      ? ['Native world setup route accepted create-world receipts and Agent 4 proved Ashfall product world startup markers.']
+      : [],
+    blockers,
+  }
+}
+
+function loadingSurfaceProof(report) {
+  const blockers = []
+  const registeredRoute = array(report?.requiredSurfaces).includes('loading_screen')
+    && !!object(report?.builtInProductRoutes).loading_screen
+  const renderReceipt = report?.dispatchResults?.['loading.render'] === true
+  const progressReceipt = report?.dispatchResults?.['loading.progress'] === true
+  const completeReceipt = report?.dispatchResults?.['loading.complete'] === true
+  const frame = object(object(report?.builtInProductRendererFrames).loading_screen)
+  const actionableSurface = object(object(report?.builtInProductSurfaceState).loading_screen).nativeProductUiReady === true
+    && frame.nativeProductUiReady === true
+    && frame.status === 'MUTATED'
+  if (!registeredRoute) blockers.push('loading route is not registered as a Native built-in product route')
+  if (!renderReceipt) blockers.push('loading renderer did not return a mutating receipt')
+  if (!progressReceipt) blockers.push('loading progress did not return a mutating receipt')
+  if (!completeReceipt) blockers.push('loading complete did not return a mutating receipt')
+  if (!actionableSurface) blockers.push('loading renderer/state proof is not actionable')
+  return {
+    surface: 'loading_screen',
+    registeredRoute,
+    liveHostReceipt: renderReceipt && progressReceipt && completeReceipt,
+    actionableSurface,
+    proofMode: 'native_client_ui_host_loading_renderer',
+    distinguishesRegisteredFromHostReceipt: true,
+    requiredActions: ['loading.open', 'loading.render', 'loading.progress', 'loading.complete'],
+    trustedMutations: blockers.length === 0
+      ? ['Native loading screen route is registered and host/window-pump render/progress/complete actions returned mutating receipts.']
+      : [],
+    blockers,
+  }
 }
 
 function fullCatalogReport({ generatedAt, repoRoot, inputs, bridgeableAudit }) {
@@ -289,7 +457,7 @@ function normalizedReport(key, report) {
 function nativeAgent2RouteBlockers(report) {
   const blockers = []
   const requiredSurfaces = array(report.requiredSurfaces)
-  for (const surface of ['terminal', 'index', 'lens', 'holomap', 'hud']) {
+  for (const surface of ['terminal', 'index', 'lens', 'holomap', 'hud', 'main_menu', 'world_setup', 'loading_screen']) {
     if (!requiredSurfaces.includes(surface)) blockers.push(`Agent 2 route ownership report missing required surface: ${surface}`)
   }
   if (!string(report.exitGate).includes('without NeoForge event ownership')) {
@@ -310,6 +478,22 @@ function nativeAgent2RouteBlockers(report) {
   if (report.sharedClientOverlayRouteOwned !== true) {
     blockers.push('Agent 2 route ownership report did not prove shared client overlay route ownership.')
   }
+  for (const actionId of ['menu.open', 'menu.new_run', 'world_setup.open', 'world_setup.create', 'loading.open', 'loading.render', 'loading.progress', 'loading.complete']) {
+    if (report.directPublicSdkDispatchResults?.[actionId] !== true) {
+      blockers.push(`Agent 2 route ownership report did not prove direct public SDK mutation for action: ${actionId}`)
+    }
+  }
+  for (const actionId of ['menu.new_run', 'loading.render', 'loading.progress', 'loading.complete']) {
+    if (report.dispatchResults?.[actionId] !== true) {
+      blockers.push(`Agent 2 route ownership report did not prove UI host/window-pump mutation for action: ${actionId}`)
+    }
+  }
+  if (!object(report.builtInProductRoutes).main_menu) {
+    blockers.push('Agent 2 route ownership report did not publish the built-in main menu route.')
+  }
+  if (!object(report.builtInProductRoutes).loading_screen) {
+    blockers.push('Agent 2 route ownership report did not publish the built-in loading route.')
+  }
   for (const [key, value] of Object.entries({
     directPublicSdkDispatchGateResults: report.directPublicSdkDispatchGateResults,
     directPublicSdkInputDispatchGateResults: report.directPublicSdkInputDispatchGateResults,
@@ -318,6 +502,9 @@ function nativeAgent2RouteBlockers(report) {
     routeTableOwnerHandlerGateResults: report.routeTableOwnerHandlerGateResults,
     terminalNativeRouteStateGateResults: report.terminalNativeRouteStateGateResults,
     holoMapNativeRouteStateGateResults: report.holoMapNativeRouteStateGateResults,
+    productRouteStateGateResults: report.productRouteStateGateResults,
+    nativeWindowPumpGateResults: report.nativeWindowPumpGateResults,
+    clientWindowPumpServiceGateResults: report.clientWindowPumpServiceGateResults,
   })) {
     if (!allBooleansTrue(value)) blockers.push(`Agent 2 route ownership gate is not fully true: ${key}`)
   }

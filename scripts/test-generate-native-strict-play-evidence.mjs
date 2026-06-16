@@ -40,15 +40,72 @@ try {
     saveEvidence: ['settings persisted'],
     networkEvidence: ['ui sync ack'],
   })
+  await writeJson(root, 'build/native-all-module-creative-tab-visibility/native-all-module-creative-tab-visibility.json', {
+    schema: 'echo.native.all_module_creative_tab_visibility.v1',
+    status: 'PASS',
+    runtime: 'echo_native',
+    allModules: true,
+    moduleIds: ['echohudcore', 'echoindex', 'echolens'],
+    registryBackedModuleIds: ['echohudcore', 'echoindex', 'echolens'],
+    visibleParentModuleIds: ['echohudcore', 'echoindex', 'echolens'],
+    visibleSearchModuleIds: ['echohudcore', 'echoindex', 'echolens'],
+    selectableModuleIds: ['echohudcore', 'echoindex', 'echolens'],
+    playableModuleIds: ['echohudcore', 'echoindex', 'echolens'],
+    sourceReports: [
+      {
+        path: 'reports/echo-native/all-module-creative-tab-live-evidence.json',
+        found: true,
+        status: 'PASS',
+        schema: 'echo.native.all_module_creative_tab_live_evidence.v1',
+      },
+    ],
+    modules: [
+      { moduleId: 'echohudcore', registryBacked: true, visibleParent: true, visibleSearch: true, selectable: true, playable: true },
+      { moduleId: 'echoindex', registryBacked: true, visibleParent: true, visibleSearch: true, selectable: true, playable: true },
+      { moduleId: 'echolens', registryBacked: true, visibleParent: true, visibleSearch: true, selectable: true, playable: true },
+    ],
+    blockers: [],
+  })
   await writeJson(root, 'build/native-agent2-client-routes/native-client-route-ownership.json', {
     schema: 'echo.native.agent2.client_route_ownership.v1',
     exitGate: 'Native route dispatch opened Terminal, Index, Lens, HoloMap, HUD, menu, and loading actions without NeoForge event ownership.',
     neoForgeEventOwnershipRequired: false,
-    requiredSurfaces: ['terminal', 'index', 'lens', 'holomap', 'hud'],
+    requiredSurfaces: ['terminal', 'index', 'lens', 'holomap', 'hud', 'main_menu', 'world_setup', 'loading_screen'],
     unownedRouteStatus: 'UNSUPPORTED',
     unknownInputBindingStatus: 'UNSUPPORTED',
     hudOverlayLifecycleNativeOwned: true,
     sharedClientOverlayRouteOwned: true,
+    dispatchResults: {
+      'menu.new_run': true,
+      'loading.render': true,
+      'loading.progress': true,
+      'loading.complete': true,
+    },
+    directPublicSdkDispatchResults: {
+      'menu.open': true,
+      'menu.new_run': true,
+      'world_setup.open': true,
+      'world_setup.create': true,
+      'loading.open': true,
+      'loading.render': true,
+      'loading.progress': true,
+      'loading.complete': true,
+    },
+    inputDispatchResults: {
+      'menu.new_run': true,
+    },
+    builtInProductRoutes: {
+      main_menu: { moduleId: 'echo-native-loader', surfaceId: 'echo-native-loader:main_menu' },
+      loading_screen: { moduleId: 'echo-native-loader', surfaceId: 'echo-native-loader:loading_screen' },
+    },
+    builtInProductSurfaceState: {
+      main_menu: { nativeProductUiReady: true },
+      loading_screen: { nativeProductUiReady: true },
+    },
+    builtInProductRendererFrames: {
+      main_menu: { status: 'MUTATED', nativeProductUiReady: true },
+      loading_screen: { status: 'MUTATED', nativeProductUiReady: true },
+    },
     actionDispatchEvidence: {
       dispatchCount: 2,
       events: [
@@ -66,6 +123,9 @@ try {
     routeTableOwnerHandlerGateResults: { handlers: true },
     terminalNativeRouteStateGateResults: { terminal: true },
     holoMapNativeRouteStateGateResults: { holomap: true },
+    productRouteStateGateResults: { menu: true, loading: true },
+    nativeWindowPumpGateResults: { frames: true },
+    clientWindowPumpServiceGateResults: { services: true },
   })
   await writeJson(root, 'build/agent4/registry-content/native-agent4-registry-content-state.json', {
     schema: 'echo.native.agent4.registry_content_smoke_state.v1',
@@ -77,6 +137,8 @@ try {
     schema: 'echo.native.agent4.world_startup_smoke.v1',
     status: 'PASS',
     moduleIds: ['echoworldcore', 'echoblockworks'],
+    trustedMutations: ['fresh product world plan creates Ashfall world'],
+    saveEvidence: ['product world open marker, staged datapack, level.dat, player, and level evidence verified'],
   })
   await writeJson(root, 'build/agent9/machine-runtime-host/agent9-machine-runtime-host.json', {
     schema: 'echo.native.agent9.machine_runtime_host_smoke.v1',
@@ -100,9 +162,16 @@ try {
   assert.deepEqual(fullCatalog.missingExpectedModuleIds, [])
 
   const ui = await readJson(root, 'build/native-ui-surfaces/native-ui-surfaces.json')
+  if (ui.status !== 'PASS') {
+    console.dir({ blockers: ui.blockers, surfaceProofs: ui.surfaceProofs }, { depth: null })
+  }
   assert.equal(ui.status, 'PASS')
-  assert.deepEqual(ui.moduleIds, ['echohudcore', 'echoindex', 'echolens'])
+  assert.deepEqual(ui.moduleIds, ['echoblockworks', 'echohudcore', 'echoindex', 'echolens', 'echoworldcore'])
   assert.ok(ui.visibleRoutes.includes('echolens:lens'))
+  assert.deepEqual(ui.routeRegisteredSurfaces, ['creative_tab_catalog', 'main_menu', 'create_world', 'loading_screen'])
+  assert.deepEqual(ui.liveHostReceiptSurfaces, ['main_menu', 'create_world', 'loading_screen'])
+  assert.deepEqual(ui.actionableSurfaces, ['creative_tab_catalog', 'main_menu', 'create_world', 'loading_screen'])
+  assert.equal(ui.surfaceProofs.find((proof) => proof.surface === 'creative_tab_catalog').proofMode, 'headless_native_creative_tab_bridge')
 
   const registry = await readJson(root, 'build/native-registry-content/native-registry-content.json')
   assert.equal(registry.status, 'PARTIAL')

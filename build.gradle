@@ -1725,6 +1725,7 @@ tasks.register('generateNativeStrictPlayEvidence', Exec) {
     dependsOn 'runNativeAllBridgeableModuleArtifactLoadStateSmoke'
     dependsOn 'runNativeAgent2ClientRouteOwnershipSmoke'
     dependsOn 'runNativeAgent5UiBridgeContractSmoke'
+    dependsOn 'runNativeAllModuleCreativeTabVisibilitySmoke'
     dependsOn 'runNativeAgent4RegistryContentSmoke'
     dependsOn 'runNativeAgent4WorldStartupSmoke'
     dependsOn 'runNativeAgent9MachineRuntimeHostSmoke'
