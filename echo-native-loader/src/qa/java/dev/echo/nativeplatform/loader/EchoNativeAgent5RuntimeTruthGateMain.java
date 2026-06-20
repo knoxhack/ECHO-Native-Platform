@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class EchoNativeAgent5RuntimeTruthGateMain {
     private static final List<String> REQUIRED_AGENT5_LIVE_PROOF_SURFACES = List.of(
@@ -159,6 +160,178 @@ public final class EchoNativeAgent5RuntimeTruthGateMain {
         require(Boolean.FALSE.equals(staleDispatchLiveProof.get("nativeHostMutationClaimAllowed")),
                 "live proof service must not allow mutation claims from stale dispatch proof: "
                         + staleDispatchLiveProof);
+        NativeLoaderProductPlayableRuntimeEvidence.Config liveReceiptConfig =
+                new NativeLoaderProductPlayableRuntimeEvidence.Config(
+                        NativeLoaderAdapterCoreBackend.SERVICE_ID,
+                        "echoashfallprotocol",
+                        NativeLoaderAdapterCoreBackend.class.getName(),
+                        "Native Loader",
+                        "com.knoxhack.echoashfallprotocol.event.NativeMinecraftEchoRuntimeHost",
+                        "echoashfallprotocol:native_minecraft_runtime_host",
+                        "",
+                        "",
+                        "hud"
+                );
+        Map<String, Object> projectedRuntimeResult = new LinkedHashMap<>();
+        projectedRuntimeResult.put("hostInventoryMutated", true);
+        projectedRuntimeResult.put("hostInventoryMutationEvidence", liveNativeLoaderBackendReceipt(
+                "inventory",
+                "grantItem",
+                "native_client.grant_item.echoterminal:echo_terminal_remote",
+                "EchoNativeRuntimeHost.PlayerInventory"));
+        projectedRuntimeResult.put("hostWorldBlockMutated", true);
+        projectedRuntimeResult.put("hostWorldBlockMutationEvidence", liveNativeLoaderBackendReceipt(
+                "world_blocks",
+                "placeBlock",
+                "native_client.world_block.echoashfallprotocol:acid_mud.0.64.0",
+                "EchoNativeRuntimeHost.WorldBlocks"));
+        projectedRuntimeResult.put("saveDataWritten", true);
+        projectedRuntimeResult.put("saveDataScope", "echoashfallprotocol");
+        projectedRuntimeResult.put("saveDataKey", "native_loader.first_spawn");
+        projectedRuntimeResult.put("saveDataWriteEvidence", liveNativeLoaderBackendReceipt(
+                "save_data",
+                "writeSaveData",
+                "native_client.save_data.echoashfallprotocol.native_loader.first_spawn",
+                "EchoNativeRuntimeHost.SaveData"));
+        Map<String, Object> hudBackendReceipt = liveNativeLoaderBackendReceipt(
+                "hud",
+                "emitHud",
+                "native_client.hud_notification.ashfall_live_proof",
+                "EchoNativeRuntimeHost.Hud");
+        List<Map<String, Object>> projectedRuntimeLedger =
+                NativeLoaderProductPlayableRuntimeEvidence.mutationLedger(
+                        projectedRuntimeResult,
+                        hudBackendReceipt,
+                        liveReceiptConfig);
+        Set<String> projectedRuntimeSurfaces =
+                NativeLoaderProductPlayableRuntimeEvidence.mutatedSurfaces(
+                        projectedRuntimeLedger,
+                        liveReceiptConfig);
+        require(projectedRuntimeSurfaces.containsAll(List.of("inventory", "world_blocks", "save_data", "hud")),
+                "product playable runtime evidence must trust a direct Native Loader backend receipt even when "
+                        + "runtimeHostRegistered is stale false: " + projectedRuntimeLedger);
+        Map<String, Object> projectedRuntimeLiveProof = new NativeLoaderLiveProofService(
+                "agent5Runtime",
+                List.of("inventory", "world_blocks", "save_data", "hud")
+        ).create(
+                "net.minecraft.client.main.Main",
+                Map.of(
+                        "executed", true,
+                        "preservedExistingLiveEvidence", true,
+                        "clientRuntimeAccessed", true,
+                        "clientThreadScheduled", true,
+                        "agent5Runtime", Map.of(
+                                "mutationLedger", projectedRuntimeLedger,
+                                "saveDataScope", "echoashfallprotocol",
+                                "saveDataKey", "native_loader.first_spawn"
+                        )
+                ),
+                Map.of(
+                        "clientUiHostAttached", true,
+                        "clientThreadAccepted", true,
+                        "liveWindowHandlePresent", true,
+                        "fallbackHostAttached", false,
+                        "headlessUiHostAttached", false
+                ),
+                Map.of(),
+                Map.of(
+                        "applied", true,
+                        "runtimeInitializedServiceCount", 1
+                ),
+                Map.of(
+                        "echoashfallprotocol", Map.of("nativeAdapterCodeExecuted", true)
+                ),
+                new NativeLoaderLiveProofService.Config(
+                        NativeLoaderAdapterCoreBackend.SERVICE_ID,
+                        "echoashfallprotocol",
+                        NativeLoaderAdapterCoreBackend.class.getName(),
+                        "Native Loader",
+                        "com.knoxhack.echoashfallprotocol.event.NativeMinecraftEchoRuntimeHost",
+                        "echoashfallprotocol:native_minecraft_runtime_host",
+                        "",
+                        "",
+                        "hud"
+                ),
+                ignored -> true
+        );
+        require(Boolean.TRUE.equals(projectedRuntimeLiveProof.get("complete")),
+                "direct Native Loader backend receipts must satisfy live proof surfaces: "
+                        + projectedRuntimeLiveProof);
+        require(Boolean.TRUE.equals(projectedRuntimeLiveProof.get("requiredMutationSurfacesMutated")),
+                "direct Native Loader backend receipts must satisfy required mutation surfaces: "
+                        + projectedRuntimeLiveProof);
+        Map<String, Object> projectedStructureStartResult = new LinkedHashMap<>(projectedRuntimeResult);
+        projectedStructureStartResult.put("canonicalStartingStructureId", "echoashfallprotocol:drop_pod");
+        projectedStructureStartResult.put("startingStructurePlaced", true);
+        projectedStructureStartResult.put("hostWorldBlockMutated", false);
+        projectedStructureStartResult.put("hostStructureMutated", true);
+        projectedStructureStartResult.put("starterRegionMaterialized", false);
+        projectedStructureStartResult.put("starterRegionSkipped", "canonical_structure_placement");
+        projectedStructureStartResult.put("hostStructureMutationEvidence", liveNativeLoaderBackendReceipt(
+                "structures",
+                "placeStructure",
+                "native_client.structure.echoashfallprotocol:drop_pod.0.64.0",
+                "EchoNativeRuntimeHost.Structures"));
+        List<Map<String, Object>> projectedStructureStartLedger =
+                NativeLoaderProductPlayableRuntimeEvidence.mutationLedger(
+                        projectedStructureStartResult,
+                        hudBackendReceipt,
+                        liveReceiptConfig);
+        Set<String> projectedStructureStartSurfaces =
+                NativeLoaderProductPlayableRuntimeEvidence.mutatedSurfaces(
+                        projectedStructureStartLedger,
+                        liveReceiptConfig);
+        require(projectedStructureStartSurfaces.containsAll(List.of("inventory", "structures", "save_data", "hud"))
+                        && !projectedStructureStartSurfaces.contains("world_blocks"),
+                "canonical Ashfall starting structure must satisfy structures instead of world_blocks: "
+                        + projectedStructureStartLedger);
+        Map<String, Object> projectedStructureStartLiveProof = new NativeLoaderLiveProofService(
+                "agent5Runtime",
+                List.of("inventory", "structures", "save_data", "hud")
+        ).create(
+                "net.minecraft.client.main.Main",
+                Map.of(
+                        "executed", true,
+                        "preservedExistingLiveEvidence", true,
+                        "clientRuntimeAccessed", true,
+                        "clientThreadScheduled", true,
+                        "agent5Runtime", Map.of(
+                                "mutationLedger", projectedStructureStartLedger,
+                                "saveDataScope", "echoashfallprotocol",
+                                "saveDataKey", "native_loader.first_spawn"
+                        )
+                ),
+                Map.of(
+                        "clientUiHostAttached", true,
+                        "clientThreadAccepted", true,
+                        "liveWindowHandlePresent", true,
+                        "fallbackHostAttached", false,
+                        "headlessUiHostAttached", false
+                ),
+                Map.of(),
+                Map.of(
+                        "applied", true,
+                        "runtimeInitializedServiceCount", 1
+                ),
+                Map.of(
+                        "echoashfallprotocol", Map.of("nativeAdapterCodeExecuted", true)
+                ),
+                new NativeLoaderLiveProofService.Config(
+                        NativeLoaderAdapterCoreBackend.SERVICE_ID,
+                        "echoashfallprotocol",
+                        NativeLoaderAdapterCoreBackend.class.getName(),
+                        "Native Loader",
+                        "com.knoxhack.echoashfallprotocol.event.NativeMinecraftEchoRuntimeHost",
+                        "echoashfallprotocol:native_minecraft_runtime_host",
+                        "",
+                        "",
+                        "hud"
+                ),
+                ignored -> true
+        );
+        require(Boolean.TRUE.equals(projectedStructureStartLiveProof.get("requiredMutationSurfacesMutated")),
+                "canonical Ashfall starting structure must satisfy required structures mutation surfaces: "
+                        + projectedStructureStartLiveProof);
 
         NativeLoaderRuntimeHost feedbackOnlyHost = new NativeLoaderRuntimeHost(new NativeLoaderRuntimeHostContext(
                 "echoashfallprotocol",
@@ -2294,6 +2467,10 @@ public final class EchoNativeAgent5RuntimeTruthGateMain {
         report.put("partialMinecraftSurfaceProofLedger", partialLedger.toReport());
         report.put("partialMinecraftRuntimeHostReport", partialRuntimeHostReport);
         report.put("liveRuntimeHostReport", liveReport);
+        report.put("projectedNativeLoaderBackendReceiptProof", projectedRuntimeLiveProof);
+        report.put("projectedCanonicalStartingStructureRuntime", projectedStructureStartResult);
+        report.put("projectedCanonicalStartingStructureLedger", projectedStructureStartLedger);
+        report.put("projectedCanonicalStartingStructureLiveProof", projectedStructureStartLiveProof);
         report.put("liveAdapterCoreProofSurfaces", liveAdapterCoreProofSurfaces);
         report.put("adapterCoreTopLevelProofAudit", adapterCoreTopLevelProofAudit);
         report.put("adapterCoreBackendLedger", adapterLedger.toReport());
@@ -2324,6 +2501,91 @@ public final class EchoNativeAgent5RuntimeTruthGateMain {
             return Map.copyOf(copy);
         }
         return Map.of();
+    }
+
+    private static Map<String, Object> liveNativeLoaderBackendReceipt(
+            String surface,
+            String methodName,
+            String operationId,
+            String nativeInterface
+    ) {
+        Map<String, Object> runtimeHostReport = new LinkedHashMap<>();
+        runtimeHostReport.put("runtimeHostClass", "com.knoxhack.echoashfallprotocol.event.NativeLoaderEchoRuntimeHost");
+        runtimeHostReport.put("runtimeHostId", "echoashfallprotocol:native_loader_runtime_host");
+        runtimeHostReport.put("runtimeLane", "Native Loader");
+        runtimeHostReport.put("liveMinecraftDelegateId", "echoashfallprotocol:native_minecraft_runtime_host");
+        runtimeHostReport.put("liveMinecraftAttached", true);
+        runtimeHostReport.put("nativeLoaderLiveRuntimeBridgeAttached", true);
+        runtimeHostReport.put("nativeLoaderBackendAttached", true);
+        runtimeHostReport.put("firstClassNativeRuntime", true);
+        runtimeHostReport.put("compatibilityDelegate", "");
+
+        Map<String, Object> backendResultSnapshot = new LinkedHashMap<>();
+        backendResultSnapshot.put("resultStatus", EchoNativeLoadStatus.MUTATED.name());
+        backendResultSnapshot.put("operationId", operationId);
+        backendResultSnapshot.put("nativeInterface", nativeInterface);
+        backendResultSnapshot.put("realNativeStateMutated", true);
+        backendResultSnapshot.put("stateMutated", true);
+        backendResultSnapshot.put("compatibilityDelegate", "");
+        backendResultSnapshot.put("releaseProof", false);
+
+        Map<String, Object> backendRecord = new LinkedHashMap<>();
+        backendRecord.put("directNativeLoaderBackendCall", true);
+        backendRecord.put("methodName", methodName);
+        backendRecord.put("nativeLoaderBackendClass", NativeLoaderAdapterCoreBackend.class.getName());
+        backendRecord.put("adapterCoreBackendClass", NativeLoaderAdapterCoreBackend.class.getName());
+        backendRecord.put("runtimeHostId", "echoashfallprotocol:native_loader_runtime_host");
+        backendRecord.put("runtimeLane", "Native Loader");
+        backendRecord.put("status", EchoNativeLoadStatus.MUTATED.name());
+        backendRecord.put("resultSnapshot", Map.copyOf(backendResultSnapshot));
+
+        Map<String, Object> resultSnapshot = new LinkedHashMap<>();
+        resultSnapshot.put("resultStatus", EchoNativeLoadStatus.MUTATED.name());
+        resultSnapshot.put("operationId", operationId);
+        resultSnapshot.put("nativeInterface", nativeInterface);
+        resultSnapshot.put("adapterCoreBackendClass", NativeLoaderAdapterCoreBackend.class.getName());
+        resultSnapshot.put("adapterCoreCallEnteredNativeLoaderHost", true);
+        resultSnapshot.put("adapterCoreCallEnteredNativeLoaderBackend", true);
+        resultSnapshot.put("nativeLoaderBackendAttached", true);
+        resultSnapshot.put("nativeLoaderBackendRecord", Map.copyOf(backendRecord));
+        resultSnapshot.put("nativeLoaderBackendRecordStatus", EchoNativeLoadStatus.MUTATED.name());
+        resultSnapshot.put("nativeLoaderRuntimeHostClass",
+                "com.knoxhack.echoashfallprotocol.event.NativeLoaderEchoRuntimeHost");
+        resultSnapshot.put("nativeLoaderRuntimeHostId", "echoashfallprotocol:native_loader_runtime_host");
+        resultSnapshot.put("runtimeLane", "Native Loader");
+        resultSnapshot.put("liveMinecraftDelegateClass",
+                "com.knoxhack.echoashfallprotocol.event.NativeMinecraftEchoRuntimeHost");
+        resultSnapshot.put("liveMinecraftDelegateId", "echoashfallprotocol:native_minecraft_runtime_host");
+        resultSnapshot.put("liveMinecraftAttached", true);
+        resultSnapshot.put("nativeLoaderLiveRuntimeBridgeAttached", true);
+        resultSnapshot.put("firstClassNativeRuntime", true);
+        resultSnapshot.put("realNativeStateMutated", true);
+        resultSnapshot.put("stateMutated", true);
+        resultSnapshot.put("compatibilityFallbackUsed", false);
+        resultSnapshot.put("compatibilityDelegate", "");
+        resultSnapshot.put("compatibilityBackendClass", "");
+        resultSnapshot.put("nativeLoaderRuntimeHostReport", Map.copyOf(runtimeHostReport));
+
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("mutated", true);
+        evidence.put("runtimeHostRegistered", false);
+        evidence.put("runtimeHostClass", "com.knoxhack.echoashfallprotocol.event.NativeLoaderEchoRuntimeHost");
+        evidence.put("nativeLoaderRuntimeHostClass",
+                "com.knoxhack.echoashfallprotocol.event.NativeLoaderEchoRuntimeHost");
+        evidence.put("runtimeHostId", "echoashfallprotocol:native_loader_runtime_host");
+        evidence.put("runtimeHostLane", "Native Loader");
+        evidence.put("adapterCoreBackendClass", NativeLoaderAdapterCoreBackend.class.getName());
+        evidence.put("adapterCoreCallEnteredNativeLoaderHost", true);
+        evidence.put("adapterCoreCallEnteredNativeLoaderBackend", true);
+        evidence.put("nativeLoaderBackendAttached", true);
+        evidence.put("nativeLoaderBackendRecordStatus", EchoNativeLoadStatus.MUTATED.name());
+        evidence.put("nativeLoaderBackendRecord", Map.copyOf(backendRecord));
+        evidence.put("resultSnapshot", Map.copyOf(resultSnapshot));
+        evidence.put("compatibilityFallbackUsed", false);
+        evidence.put("compatibilityDelegate", "");
+        evidence.put("compatibilityBackendClass", "");
+        evidence.put("surface", surface);
+        return Map.copyOf(evidence);
     }
 
     private static void require(boolean condition, String message) {

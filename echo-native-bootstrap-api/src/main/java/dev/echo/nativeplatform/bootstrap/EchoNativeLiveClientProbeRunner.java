@@ -148,6 +148,7 @@ final class EchoNativeLiveClientProbeRunner {
                         context.blockSetter
                 ),
                 context.hostWorldBlockMutation,
+                context.hostStructureMutation,
                 context.saveDataWriter,
                 context.hudNotificationPublisher
         );
@@ -345,6 +346,7 @@ final class EchoNativeLiveClientProbeRunner {
         private final NativeLoaderProductPlayableRuntimeActions.IntMethodReader intMethodReader;
         private final NativeLoaderProductPlayableRuntimeActions.BlockSetter blockSetter;
         private final NativeLoaderProductPlayableRuntimeBridge.HostWorldBlockMutation hostWorldBlockMutation;
+        private final NativeLoaderProductPlayableRuntimeBridge.HostStructureMutation hostStructureMutation;
         private final NativeLoaderProductPlayableRuntimeBridge.SaveDataWriter saveDataWriter;
         private final NativeLoaderProductPlayableRuntimeBridge.HudNotificationPublisher hudNotificationPublisher;
         private final ProbeWriter probeWriter;
@@ -372,6 +374,7 @@ final class EchoNativeLiveClientProbeRunner {
                 NativeLoaderProductPlayableRuntimeActions.IntMethodReader intMethodReader,
                 NativeLoaderProductPlayableRuntimeActions.BlockSetter blockSetter,
                 NativeLoaderProductPlayableRuntimeBridge.HostWorldBlockMutation hostWorldBlockMutation,
+                NativeLoaderProductPlayableRuntimeBridge.HostStructureMutation hostStructureMutation,
                 NativeLoaderProductPlayableRuntimeBridge.SaveDataWriter saveDataWriter,
                 NativeLoaderProductPlayableRuntimeBridge.HudNotificationPublisher hudNotificationPublisher,
                 ProbeWriter probeWriter
@@ -398,6 +401,7 @@ final class EchoNativeLiveClientProbeRunner {
             this.intMethodReader = intMethodReader;
             this.blockSetter = blockSetter;
             this.hostWorldBlockMutation = hostWorldBlockMutation;
+            this.hostStructureMutation = hostStructureMutation;
             this.saveDataWriter = saveDataWriter;
             this.hudNotificationPublisher = hudNotificationPublisher;
             this.probeWriter = probeWriter;

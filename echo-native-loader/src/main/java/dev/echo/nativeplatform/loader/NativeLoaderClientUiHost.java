@@ -537,23 +537,26 @@ public final class NativeLoaderClientUiHost {
             safeActionId = "native_loader." + phase;
         }
         Map<String, Object> safeMetadata = hostServiceMetadata(metadata, "screen_lifecycle");
+        boolean lifecycleHandoff = Boolean.TRUE.equals(safeMetadata.get("nativeLoaderScreenLifecycleHandoff"));
         EchoNativeLoadStatus bridgeStatus = liveClientBridge.screenLifecycle(
                 surfaceType,
                 phase,
                 safeActionId,
                 safeMetadata
         );
-        EchoNativeLoadStatus lifecycleStatus = NativeLoaderClientRouteTable.screenLifecycle(
-                surfaceType,
-                phase,
-                safeActionId,
-                safeMetadata
-        );
+        EchoNativeLoadStatus lifecycleStatus = lifecycleHandoff
+                ? NativeLoaderClientRouteTable.publishLifecycleEvent(surfaceType, phase, safeActionId, safeMetadata)
+                : NativeLoaderClientRouteTable.screenLifecycle(
+                        surfaceType,
+                        phase,
+                        safeActionId,
+                        safeMetadata
+                );
         EchoNativeLoadStatus status;
         if (bridgeStatus != null && bridgeStatus != EchoNativeLoadStatus.UNSUPPORTED) {
             status = merge(lifecycleStatus, bridgeStatus);
         } else {
-            status = safeActionId.startsWith("native_loader.")
+            status = safeActionId.startsWith("native_loader.") || lifecycleHandoff
                     ? lifecycleStatus
                     : merge(lifecycleStatus, NativeLoaderClientRouteTable.dispatchStatus(
                             surfaceType,
@@ -2240,7 +2243,8 @@ public final class NativeLoaderClientUiHost {
         String selected = text(state.get("selectedCommand"));
         NativeLoaderTheme theme = NativeLoaderThemeResolver.activeTheme();
         model.put("surface", "main_menu");
-        model.put("product", theme.token("identityLabel"));
+        model.put("product", "ECHO Native Loader");
+        model.put("displayProduct", theme.token("identityLabel"));
         model.put("routeDriven", true);
         model.put("visible", Boolean.TRUE.equals(state.get("visible")));
         model.put("phase", text(state.get("phase")));
@@ -2268,7 +2272,8 @@ public final class NativeLoaderClientUiHost {
         Map<String, Object> model = new LinkedHashMap<>();
         NativeLoaderTheme theme = NativeLoaderThemeResolver.activeTheme();
         model.put("surface", "loading_screen");
-        model.put("product", theme.token("identityLabel"));
+        model.put("product", "ECHO Native Loader");
+        model.put("displayProduct", theme.token("identityLabel"));
         model.put("routeDriven", true);
         model.put("visible", Boolean.TRUE.equals(state.get("visible")));
         model.put("phase", text(state.get("phase")));
@@ -2284,7 +2289,8 @@ public final class NativeLoaderClientUiHost {
         Map<String, Object> model = new LinkedHashMap<>();
         NativeLoaderTheme theme = NativeLoaderThemeResolver.activeTheme();
         model.put("surface", "world_setup");
-        model.put("product", theme.token("identityLabel"));
+        model.put("product", "ECHO Native Loader");
+        model.put("displayProduct", theme.token("identityLabel"));
         model.put("routeDriven", true);
         model.put("visible", Boolean.TRUE.equals(state.get("visible")));
         model.put("phase", text(state.get("phase")));

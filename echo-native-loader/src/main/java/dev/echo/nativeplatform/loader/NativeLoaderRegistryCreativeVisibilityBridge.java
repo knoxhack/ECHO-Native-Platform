@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class NativeLoaderRegistryCreativeVisibilityBridge {
     public static final String SERVICE_ID = "echo.native.registry_creative_visibility_bridge";
@@ -15,6 +16,7 @@ public final class NativeLoaderRegistryCreativeVisibilityBridge {
     private static final int MAX_ATTEMPTS = 7200;
     private static final long POLL_MILLIS = 250L;
     private static final int TIMEOUT_SECONDS = 1800;
+    private static final Set<Path> ACTIVE_MARKERS = ConcurrentHashMap.newKeySet();
 
     private NativeLoaderRegistryCreativeVisibilityBridge() {
     }
@@ -30,9 +32,27 @@ public final class NativeLoaderRegistryCreativeVisibilityBridge {
             RuntimeClassResolver runtimeClassResolver,
             MarkerSnapshotWriter snapshotWriter
     ) {
+        Path markerKey = markerPath.toAbsolutePath().normalize();
+        if (!ACTIVE_MARKERS.add(markerKey)) {
+            Map<String, Object> registryBridge = object(runtimeBridge.get("registryBridge"));
+            registryBridge.put("creativeVisibilityBridgeStartSkipped", true);
+            registryBridge.put("creativeVisibilityBridgeStartSkippedReason", "already_running_for_marker");
+            runtimeBridge.put("registryBridge", registryBridge);
+            return;
+        }
         Thread thread = new Thread(() -> {
             for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
                 try {
+                    if (!minecraftWorldReady(runtimeClassResolver)) {
+                        if (attempt == 0 || attempt % 40 == 0) {
+                            Map<String, Object> registryBridge = object(runtimeBridge.get("registryBridge"));
+                            registryBridge.put("creativeVisibilityBridgeWaitingForWorld", true);
+                            registryBridge.put("creativeVisibilityBridgeWorldReadyAttempt", attempt);
+                            runtimeBridge.put("registryBridge", registryBridge);
+                        }
+                        Thread.sleep(POLL_MILLIS);
+                        continue;
+                    }
                     int visibleCount = applyCreativeSearchVisibility(runtimeBridge, runtimeClassResolver);
                     if (visibleCount > 0) {
                         snapshotWriter.write(
@@ -96,6 +116,35 @@ public final class NativeLoaderRegistryCreativeVisibilityBridge {
         thread.start();
     }
 
+    private static boolean minecraftWorldReady(RuntimeClassResolver runtimeClassResolver) {
+        try {
+            Class<?> minecraftClass = Class.forName(runtimeClassResolver.runtimeClass("client.Minecraft"));
+            Object minecraft = minecraftClass.getMethod("getInstance").invoke(null);
+            if (minecraft == null) {
+                return false;
+            }
+            return fieldValue(minecraft, "player") != null || fieldValue(minecraft, "level") != null;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static Object fieldValue(Object target, String name) {
+        Class<?> current = target.getClass();
+        while (current != null) {
+            try {
+                java.lang.reflect.Field field = current.getDeclaredField(name);
+                field.setAccessible(true);
+                return field.get(target);
+            } catch (NoSuchFieldException ignored) {
+                current = current.getSuperclass();
+            } catch (Throwable ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     private static int applyCreativeSearchVisibility(
             Map<String, Object> runtimeBridge,
             RuntimeClassResolver runtimeClassResolver
@@ -111,12 +160,19 @@ public final class NativeLoaderRegistryCreativeVisibilityBridge {
 
         Class<?> creativeModeTabsClass = Class.forName(runtimeClassResolver.runtimeClass("world.item.CreativeModeTabs"));
         Class<?> builtInRegistriesClass = Class.forName(runtimeClassResolver.runtimeClass("core.registries.BuiltInRegistries"));
+        Class<?> registriesClass = Class.forName(runtimeClassResolver.runtimeClass("core.registries.Registries"));
         Class<?> identifierClass = Class.forName(runtimeClassResolver.runtimeClass("resources.Identifier"));
+        Class<?> resourceKeyClass = Class.forName(runtimeClassResolver.runtimeClass("resources.ResourceKey"));
+        Class<?> registryClass = Class.forName(runtimeClassResolver.runtimeClass("core.Registry"));
+        Class<?> itemClass = Class.forName(runtimeClassResolver.runtimeClass("world.item.Item"));
+        Class<?> itemPropertiesClass = Class.forName(runtimeClassResolver.runtimeClass("world.item.Item$Properties"));
         Class<?> itemStackClass = Class.forName(runtimeClassResolver.runtimeClass("world.item.ItemStack"));
         Class<?> itemLikeClass = Class.forName(runtimeClassResolver.runtimeClass("world.level.ItemLike"));
         Class<?> tabVisibilityClass = Class.forName(runtimeClassResolver.runtimeClass("world.item.CreativeModeTab$TabVisibility"));
         Class<?> outputClass = Class.forName(runtimeClassResolver.runtimeClass("world.item.CreativeModeTab$Output"));
-        Class<?> resourceKeyClass = Class.forName(runtimeClassResolver.runtimeClass("resources.ResourceKey"));
+        Class<?> blockClass = Class.forName(runtimeClassResolver.runtimeClass("world.level.block.Block"));
+        Class<?> blockPropertiesClass = Class.forName(runtimeClassResolver.runtimeClass("world.level.block.state.BlockBehaviour$Properties"));
+        Class<?> blockItemClass = Class.forName(runtimeClassResolver.runtimeClass("world.item.BlockItem"));
 
         Object searchTab;
         try {
@@ -128,6 +184,9 @@ public final class NativeLoaderRegistryCreativeVisibilityBridge {
             throw exception;
         }
         Object itemRegistry = builtInRegistriesClass.getField("ITEM").get(null);
+        Object itemRegistryKey = registriesClass.getField("ITEM").get(null);
+        Object blockRegistry = builtInRegistriesClass.getField("BLOCK").get(null);
+        Object blockRegistryKey = registriesClass.getField("BLOCK").get(null);
         java.lang.reflect.Method identifierFactory = identifierClass.getMethod(
                 "fromNamespaceAndPath",
                 String.class,
@@ -135,6 +194,37 @@ public final class NativeLoaderRegistryCreativeVisibilityBridge {
         );
         java.lang.reflect.Method getValue = itemRegistry.getClass().getMethod("getValue", identifierClass);
         java.lang.reflect.Constructor<?> itemStackConstructor = itemStackClass.getConstructor(itemLikeClass);
+        Map<String, Object> repairReport = repairMissingNativeContent(
+                registryBridge,
+                registeredBlockItems,
+                registeredContentItems,
+                identifierClass,
+                resourceKeyClass,
+                registryClass,
+                itemClass,
+                itemPropertiesClass,
+                blockClass,
+                blockPropertiesClass,
+                blockItemClass,
+                blockRegistry,
+                blockRegistryKey,
+                itemRegistry,
+                itemRegistryKey,
+                identifierFactory
+        );
+        registryBridge.put("runtimeContentRepair", repairReport);
+        registryBridge.put("runtimeContentRepairApplied", Boolean.TRUE.equals(repairReport.get("applied")));
+        registryBridge.put("runtimeContentRepairItemCount", integer(repairReport.get("repairedItemCount")));
+        registryBridge.put("runtimeContentRepairBlockCount", integer(repairReport.get("repairedBlockCount")));
+        registryBridge.put("runtimeContentRepairFailureCount", integer(repairReport.get("failureCount")));
+        List<String> liveVisibleRegisteredItems = resolvableItemIds(
+                registeredItems,
+                itemRegistry,
+                identifierFactory,
+                getValue
+        );
+        registryBridge.put("runtimeResolvedRegisteredItemCount", liveVisibleRegisteredItems.size());
+        registryBridge.put("runtimeResolvedRegisteredItems", liveVisibleRegisteredItems);
         installCreativeSearchGeneratorBridge(
                 registryBridge,
                 "creativeVisibilitySearchGeneratorInstalled",
@@ -170,9 +260,9 @@ public final class NativeLoaderRegistryCreativeVisibilityBridge {
         cachedParameters.setAccessible(true);
         if (cachedParameters.get(null) == null) {
             int bridgedItemCount = augmentedTabs.stream()
-                    .mapToInt(tab -> integer(tab.get("itemCount")))
+                    .mapToInt(tab -> integer(tab.get("visibleItemCount")))
                     .sum();
-            if (bridgedItemCount > 0) {
+            if (bridgedItemCount > 0 && !liveVisibleRegisteredItems.isEmpty()) {
                 boolean nativeCreativeBridgeApplied = firstClassNativeCreativeTabBridgeApplied(registryBridge);
                 invalidateCreativeTabCache(creativeModeTabsClass, registryBridge);
                 registryBridge.put("creativeContentVisible", true);
@@ -183,9 +273,9 @@ public final class NativeLoaderRegistryCreativeVisibilityBridge {
                 registryBridge.put("augmentedCreativeTabs", augmentedTabs);
                 registryBridge.put("visibleCreativeTabPathCount",
                         integer(registryBridge.get("visibleCreativeTabPathCount")) + augmentedTabs.size());
-                registryBridge.put("visibleItemCount", bridgedItemCount);
+                registryBridge.put("visibleItemCount", liveVisibleRegisteredItems.size());
                 registryBridge.put("visibleModuleItemCount", registeredModuleItems.size());
-                registryBridge.put("visibleItems", List.copyOf(registeredItems));
+                registryBridge.put("visibleItems", liveVisibleRegisteredItems);
                 registryBridge.put("visibleModuleItems", registeredModuleItems.stream()
                         .map(item -> String.valueOf(item.getOrDefault("itemId", "")))
                         .filter(itemId -> !itemId.isBlank())
@@ -198,7 +288,7 @@ public final class NativeLoaderRegistryCreativeVisibilityBridge {
                         "applied", true,
                         "nativeCreativeTabBridgeApplied", nativeCreativeBridgeApplied,
                         "augmentedCreativeTabCount", augmentedTabs.size(),
-                        "visibleItemCount", bridgedItemCount,
+                        "visibleItemCount", liveVisibleRegisteredItems.size(),
                         "visibleModuleItemCount", registeredModuleItems.size(),
                         "timeoutSeconds", TIMEOUT_SECONDS,
                         "strategy", "stable_vanilla_tab_generator_bridge",
@@ -562,6 +652,245 @@ public final class NativeLoaderRegistryCreativeVisibilityBridge {
                 // Creative output rejects duplicates and disabled entries; keep the bridge best-effort.
             }
         }
+    }
+
+    private static Map<String, Object> repairMissingNativeContent(
+            Map<String, Object> registryBridge,
+            List<String> registeredBlockItems,
+            List<String> registeredContentItems,
+            Class<?> identifierClass,
+            Class<?> resourceKeyClass,
+            Class<?> registryClass,
+            Class<?> itemClass,
+            Class<?> itemPropertiesClass,
+            Class<?> blockClass,
+            Class<?> blockPropertiesClass,
+            Class<?> blockItemClass,
+            Object blockRegistry,
+            Object blockRegistryKey,
+            Object itemRegistry,
+            Object itemRegistryKey,
+            java.lang.reflect.Method identifierFactory
+    ) {
+        boolean blockWasFrozen = false;
+        boolean itemWasFrozen = false;
+        int repairedBlocks = 0;
+        int repairedItems = 0;
+        List<String> repairedBlockIds = new ArrayList<>();
+        List<String> repairedItemIds = new ArrayList<>();
+        List<Map<String, Object>> failures = new ArrayList<>();
+        try {
+            blockWasFrozen = NativeLoaderRegistryRuntimeSupport.unfreezeNativeRegistry(blockRegistry);
+            itemWasFrozen = NativeLoaderRegistryRuntimeSupport.unfreezeNativeRegistry(itemRegistry);
+            NativeLoaderRegistryRuntimeSupport.enableNativeIntrusiveHolders(blockRegistry);
+            NativeLoaderRegistryRuntimeSupport.enableNativeIntrusiveHolders(itemRegistry);
+            for (String blockId : registeredBlockItems == null ? List.<String>of() : registeredBlockItems) {
+                if (!validContentId(blockId)) {
+                    continue;
+                }
+                if (registryValue(blockRegistry, identifierFactory, blockId) != null
+                        && registryValue(itemRegistry, identifierFactory, blockId) != null) {
+                    continue;
+                }
+                int separator = blockId.indexOf(':');
+                try {
+                    NativeLoaderRegistryContentBridge.registerNativeBlock(
+                            blockId.substring(0, separator),
+                            blockId.substring(separator + 1),
+                            identifierClass,
+                            resourceKeyClass,
+                            registryClass,
+                            blockClass,
+                            blockPropertiesClass,
+                            blockItemClass,
+                            itemPropertiesClass,
+                            blockRegistry,
+                            blockRegistryKey,
+                            itemRegistry,
+                            itemRegistryKey,
+                            (id, nativeBlockClass, nativeBlockPropertiesClass, nativeBlockProperties) ->
+                                    nativeBlockClass.getConstructor(nativeBlockPropertiesClass).newInstance(nativeBlockProperties)
+                    );
+                    if (registryValue(blockRegistry, identifierFactory, blockId) != null
+                            && registryValue(itemRegistry, identifierFactory, blockId) != null) {
+                        repairedBlocks++;
+                        repairedBlockIds.add(blockId);
+                    }
+                } catch (Throwable exception) {
+                    addFailure(failures, "block", blockId, exception);
+                }
+            }
+            for (String itemId : registeredContentItems == null ? List.<String>of() : registeredContentItems) {
+                if (!validContentId(itemId) || registryValue(itemRegistry, identifierFactory, itemId) != null) {
+                    continue;
+                }
+                int separator = itemId.indexOf(':');
+                try {
+                    NativeLoaderRegistryContentBridge.registerNativeItem(
+                            itemId.substring(0, separator),
+                            itemId.substring(separator + 1),
+                            identifierClass,
+                            resourceKeyClass,
+                            registryClass,
+                            itemClass,
+                            itemPropertiesClass,
+                            itemRegistry,
+                            itemRegistryKey,
+                            (id, nativeItemClass, nativeItemPropertiesClass, nativeItemProperties) ->
+                                    nativeItemClass.getConstructor(nativeItemPropertiesClass).newInstance(nativeItemProperties)
+                    );
+                    if (registryValue(itemRegistry, identifierFactory, itemId) != null) {
+                        repairedItems++;
+                        repairedItemIds.add(itemId);
+                    }
+                } catch (Throwable exception) {
+                    addFailure(failures, "item", itemId, exception);
+                }
+            }
+        } finally {
+            NativeLoaderRegistryRuntimeSupport.clearUnregisteredIntrusiveHolders(blockRegistry, itemRegistry);
+            if (blockWasFrozen) {
+                NativeLoaderRegistryRuntimeSupport.restoreNativeRegistryFrozenFlag(blockRegistry, true);
+            }
+            if (itemWasFrozen) {
+                NativeLoaderRegistryRuntimeSupport.restoreNativeRegistryFrozenFlag(itemRegistry, true);
+            }
+        }
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("serviceId", SERVICE_ID);
+        report.put("applied", repairedBlocks > 0 || repairedItems > 0);
+        report.put("requestedBlockCount", registeredBlockItems == null ? 0 : registeredBlockItems.size());
+        report.put("requestedItemCount", registeredContentItems == null ? 0 : registeredContentItems.size());
+        report.put("repairedBlockCount", repairedBlocks);
+        report.put("repairedItemCount", repairedItems);
+        report.put("failureCount", failures.size());
+        report.put("failureSamples", failures.stream().limit(20).toList());
+        report.put("repairedBlockSamples", repairedBlockIds.stream().limit(40).toList());
+        report.put("repairedItemSamples", repairedItemIds.stream().limit(40).toList());
+        report.put("blockRegistryWasFrozen", blockWasFrozen);
+        report.put("itemRegistryWasFrozen", itemWasFrozen);
+        report.put("strategy", "live_client_registry_rehydration_before_creative_visibility");
+        report.put("summary", repairedBlocks > 0 || repairedItems > 0
+                ? "Native Loader rehydrated missing item/block entries into the live Minecraft registries before creative/index visibility."
+                : "Native Loader did not need to rehydrate live Minecraft item/block registries before creative/index visibility.");
+        return Map.copyOf(report);
+    }
+
+    private static List<String> resolvableItemIds(
+            List<String> itemIds,
+            Object itemRegistry,
+            java.lang.reflect.Method identifierFactory,
+            java.lang.reflect.Method getValue
+    ) {
+        List<String> resolved = new ArrayList<>();
+        for (String itemId : itemIds == null ? List.<String>of() : itemIds) {
+            if (!validContentId(itemId)) {
+                continue;
+            }
+            try {
+                Object item = registryValue(itemRegistry, identifierFactory, itemId);
+                if (item != null && !resolved.contains(itemId)) {
+                    resolved.add(itemId);
+                    continue;
+                }
+                int separator = itemId.indexOf(':');
+                Object id = identifierFactory.invoke(null, itemId.substring(0, separator), itemId.substring(separator + 1));
+                item = getValue.invoke(itemRegistry, id);
+                if (item != null && !resolved.contains(itemId)) {
+                    resolved.add(itemId);
+                }
+            } catch (Throwable ignored) {
+                // Missing individual items stay out of visible proof.
+            }
+        }
+        return List.copyOf(resolved);
+    }
+
+    private static Object registryValue(
+            Object registry,
+            java.lang.reflect.Method identifierFactory,
+            String contentId
+    ) {
+        if (registry == null || identifierFactory == null || !validContentId(contentId)) {
+            return null;
+        }
+        try {
+            int separator = contentId.indexOf(':');
+            Object id = identifierFactory.invoke(null, contentId.substring(0, separator), contentId.substring(separator + 1));
+            for (String methodName : List.of("getValue", "get", "getOptional", "getOptionalValue")) {
+                for (java.lang.reflect.Method method : registry.getClass().getMethods()) {
+                    if (!method.getName().equals(methodName)
+                            || method.getParameterCount() != 1
+                            || !method.getParameterTypes()[0].isAssignableFrom(id.getClass())) {
+                        continue;
+                    }
+                    try {
+                        Object value = unwrapRegistryValue(method.invoke(registry, id));
+                        if (value != null) {
+                            return value;
+                        }
+                    } catch (Throwable ignored) {
+                        // Try the next compatible registry accessor.
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            return null;
+        }
+        return null;
+    }
+
+    private static Object unwrapRegistryValue(Object value) {
+        if (value instanceof java.util.Optional<?> optional) {
+            return unwrapRegistryValue(optional.orElse(null));
+        }
+        if (value == null) {
+            return null;
+        }
+        for (String methodName : List.of("value", "get", "getValue")) {
+            try {
+                java.lang.reflect.Method method = value.getClass().getMethod(methodName);
+                if (method.getParameterCount() == 0) {
+                    Object unwrapped = method.invoke(value);
+                    if (unwrapped != null && unwrapped != value) {
+                        return unwrapRegistryValue(unwrapped);
+                    }
+                }
+            } catch (Throwable ignored) {
+                // Not a holder/reference wrapper.
+            }
+        }
+        return value;
+    }
+
+    private static boolean validContentId(String contentId) {
+        if (contentId == null || contentId.isBlank()) {
+            return false;
+        }
+        int separator = contentId.indexOf(':');
+        return separator > 0 && separator + 1 < contentId.length();
+    }
+
+    private static void addFailure(
+            List<Map<String, Object>> failures,
+            String registry,
+            String id,
+            Throwable exception
+    ) {
+        if (failures.size() >= 64) {
+            return;
+        }
+        Map<String, Object> failure = new LinkedHashMap<>();
+        failure.put("registry", registry);
+        failure.put("id", id);
+        failure.put("failureKind", exception.getClass().getSimpleName());
+        failure.put("failureMessage", failureMessage(exception));
+        Throwable cause = exception.getCause();
+        if (cause != null) {
+            failure.put("causeKind", cause.getClass().getSimpleName());
+            failure.put("causeMessage", failureMessage(cause));
+        }
+        failures.add(Map.copyOf(failure));
     }
 
     private static boolean isCreativeTabsNotReady(java.lang.reflect.InvocationTargetException exception) {

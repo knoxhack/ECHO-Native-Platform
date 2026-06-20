@@ -25,6 +25,72 @@ import java.util.TreeMap;
 import java.util.function.Supplier;
 
 final class EchoNativeActivationMarkerSnapshot {
+    private static final List<String> COMPACT_ACTIVATION_KEYS = List.of(
+            "moduleId",
+            "id",
+            "activated",
+            "nativeActivationLoaded",
+            "nativeModuleActivated",
+            "activationClaimAllowed",
+            "activationClaimBlocker",
+            "activationStage",
+            "attempted",
+            "entrypoint",
+            "loadedClassName",
+            "loadedClassLoader",
+            "loadedByModuleClassLoader",
+            "nativeAdapterCodeExecuted",
+            "serviceCodeExecuted",
+            "addonServiceCodeExecuted",
+            "nativeLoaderLifecycleAttempted",
+            "nativeLoaderLifecycleFallback",
+            "nativeHostMutationClaimAllowed",
+            "nativeHostMutationClaimBlocker",
+            "gameplayReadyClaimAllowed",
+            "gameplayReadyClaimBlocker",
+            "status",
+            "phaseLifecycleFailed",
+            "phaseLifecycleError",
+            "phaseLifecycleErrorClass",
+            "registeredServiceCount",
+            "registeredContentCount",
+            "registeredFeatureContracts",
+            "adapterDomains",
+            "runtimeTargets",
+            "lifecyclePhaseHistory",
+            "loadedModuleStateWritten",
+            "loadedModuleStatePath",
+            "typedHostMutationReceiptCount",
+            "typedMutationReceiptCount",
+            "diagnostics"
+    );
+
+    private static final List<String> HEAVY_ACTIVATION_KEYS = List.of(
+            "registeredServices",
+            "registeredContent",
+            "nativeLifecycleDispatch",
+            "lifecycleBridge",
+            "serviceBridge",
+            "registryBridge",
+            "eventBridge",
+            "nativeLoaderLifecycleEventHost",
+            "loadedModuleState",
+            "nativeLoadedModuleState",
+            "classpath"
+    );
+
+    private static final List<String> HEAVY_MODULE_KEYS = List.of(
+            "registeredServices",
+            "registeredContent",
+            "nativeLifecycleDispatch",
+            "lifecycleBridge",
+            "serviceBridge",
+            "registryBridge",
+            "eventBridge",
+            "loadedModuleState",
+            "nativeLoadedModuleState"
+    );
+
     private EchoNativeActivationMarkerSnapshot() {
     }
 
@@ -111,7 +177,14 @@ final class EchoNativeActivationMarkerSnapshot {
         marker.put("nativeActivationCount", nativeActivations.values().stream()
                 .filter(NativeLoaderActivationModuleSnapshot::nativeActivationLoaded)
                 .count());
-        marker.put("nativeActivations", nativeActivations.values());
+        marker.put("nativeActivationMarkerCompacted", true);
+        marker.put("nativeActivationInlineMode", "summary");
+        marker.put("nativeActivationDetailSidecars", true);
+        marker.put("nativeActivationDetailDirectory", markerPath.getParent().resolve("loaded-modules").toString());
+        marker.put("nativeActivations", nativeActivations.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> compactNativeActivation(entry.getKey(), entry.getValue()))
+                .toList());
         marker.put("modules", modules.stream()
                 .sorted(String::compareTo)
                 .map(moduleId -> NativeLoaderActivationModuleSnapshot.module(
@@ -121,8 +194,55 @@ final class EchoNativeActivationMarkerSnapshot {
                         Boolean.TRUE.equals(registryBridge.get("creativeContentVisible")),
                         productGameplayBridge
                 ))
+                .map(EchoNativeActivationMarkerSnapshot::compactModuleSnapshot)
                 .toList());
         NativeLoaderJsonSupport.writeAtomically(markerPath, marker);
+    }
+
+    private static Map<String, Object> compactNativeActivation(String moduleId, Map<String, Object> activation) {
+        Map<String, Object> source = activation == null ? Map.of() : activation;
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("moduleId", !moduleId.isBlank()
+                ? moduleId
+                : String.valueOf(source.getOrDefault("moduleId", source.getOrDefault("id", ""))));
+        summary.put("activationDetailInlineMode", "summary");
+        for (String key : COMPACT_ACTIVATION_KEYS) {
+            if (source.containsKey(key)) {
+                summary.put(key, source.get(key));
+            }
+        }
+        for (String key : HEAVY_ACTIVATION_KEYS) {
+            Object value = source.get(key);
+            int count = count(value);
+            if (count >= 0) {
+                summary.put(key + "Count", count);
+            }
+        }
+        Object sidecarPath = source.get("loadedModuleStatePath");
+        if (sidecarPath != null) {
+            summary.put("activationDetailSidecarPath", sidecarPath);
+        }
+        if (!source.isEmpty()) {
+            summary.put("nativeActivationLoaded", NativeLoaderActivationModuleSnapshot.nativeActivationLoaded(source));
+        }
+        return summary;
+    }
+
+    private static Map<String, Object> compactModuleSnapshot(Map<String, Object> module) {
+        Map<String, Object> summary = new LinkedHashMap<>(module);
+        summary.put("activationDetailInlineMode", "summary");
+        for (String key : HEAVY_MODULE_KEYS) {
+            Object removed = summary.remove(key);
+            int count = count(removed);
+            if (count >= 0) {
+                summary.put(key + "Count", count);
+            }
+        }
+        Object sidecarPath = summary.get("loadedModuleStatePath");
+        if (sidecarPath != null) {
+            summary.put("activationDetailSidecarPath", sidecarPath);
+        }
+        return summary;
     }
 
     private static Map<String, String> registeredModuleItems(Object value) {
@@ -154,6 +274,20 @@ final class EchoNativeActivationMarkerSnapshot {
 
     private static int integer(Object value) {
         return value instanceof Number number ? number.intValue() : 0;
+    }
+
+    private static int count(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            return map.size();
+        }
+        if (value instanceof Iterable<?> iterable) {
+            int count = 0;
+            for (Object ignored : iterable) {
+                count++;
+            }
+            return count;
+        }
+        return -1;
     }
 
     record Context(

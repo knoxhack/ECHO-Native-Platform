@@ -191,10 +191,18 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
                 "HUD health data source must match registry data");
         require(expectedHud.get("hazard").equals(hudData.get("hazard")),
                 "HUD hazard data source must match registry data");
+        require("echoashfallprotocol:secure_crash_outpost".equals(hudData.get("missionId")),
+                "HUD mission id must be sourced from the Ashfall MissionCore starter mission");
+        require("TRACKED".equals(hudData.get("missionStatus")),
+                "HUD mission status must follow the MissionCore mission log state");
+        require(EchoNativeAgent5UiExpectedValues.missionObjective().equals(hudData.get("mission")),
+                "HUD mission line must come from the MissionCore mission objective");
         require("echoashfallprotocol:secure_crash_outpost".equals(contract.get("activeMissionId")),
                 "active mission id must match reference");
         require("echoashfallprotocol:secure_crash_outpost".equals(missionLogData.get("missionId")),
                 "mission log data source mission id must match reference");
+        require(number(missionLogData.get("recordCount")) > 0,
+                "mission log data source must load real Ashfall MissionCore records");
         require(EchoNativeAgent5UiExpectedValues.missionObjective().equals(contract.get("activeMissionObjective")),
                 "active mission objective must come from mission data");
         require("TRACKED".equals(contract.get("activeMissionStatus")), "active mission status must be tracked");
@@ -4402,7 +4410,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require(String.valueOf(attached.get("screenTitle")).contains("MAIN_MENU"),
                 "native main-menu override smoke must render main menu host model");
         require(EchoNativeAgent5UiHostSmokeSnapshot.strings(object(attached.get("snapshot")), "surfaceLines").stream()
-                        .anyMatch(line -> line.contains("Main Menu: ECHO Native Loader routes")),
+                        .anyMatch(line -> line.contains("Main Menu: ECHO Ashfall Terminal boot routes")),
                 "native main-menu override smoke must include main menu surface lines");
 
         Map<String, Object> skipped = EchoNativeAgent5MainMenuOverrideSmoke.capture(
@@ -5027,8 +5035,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
         require(list(smoke, "terminalSurfaceLines").stream().anyMatch(line -> line.contains(
                         EchoNativeAgent5UiExpectedValues.terminalOutput())),
                 "native theme application smoke must render the theme through terminal output");
-        require(object(smoke.get("tokens")).get("terminal.prompt").equals("ECHO>"),
-                "native theme application smoke must preserve native loader prompt token");
+        require(object(smoke.get("tokens")).get("terminal.prompt").equals("ASHFALL>"),
+                "native theme application smoke must preserve Ashfall terminal prompt token");
         Map<String, Object> resolverScenarios = object(smoke.get("resolverScenarios"));
         require(Boolean.TRUE.equals(resolverScenarios.get("invalidThemeIdFallsBack")),
                 "native theme resolver must fall back to built-in theme for invalid loader_default theme ids");
@@ -5541,7 +5549,7 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
             Object mainMenu = screenConstructor.newInstance("MAIN_MENU", "ashfall", 12, 3, 2, 1);
             graphics = graphicsClass.getConstructor().newInstance();
             render.invoke(mainMenu, graphics, 0, 0, 0.0F);
-            requireRenderedTextContains(graphics, "Main Menu: ECHO Native Loader routes");
+            requireRenderedTextContains(graphics, "Main Menu: ECHO Ashfall Terminal boot routes");
             require(Boolean.TRUE.equals(keyPressed.invoke(mainMenu, keyEvent(keyEventClass, glfwClass, "GLFW_KEY_DOWN"))),
                     "generated main menu screen must route Down to New Run");
             require(Boolean.TRUE.equals(keyPressed.invoke(mainMenu, keyEvent(keyEventClass, glfwClass, "GLFW_KEY_DOWN"))),
@@ -5566,7 +5574,8 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
             clearScreen(setScreen, minecraft);
             require(Boolean.TRUE.equals(keyPressed.invoke(terminal, keyEvent(keyEventClass, glfwClass, "GLFW_KEY_M"))),
                     "generated screen must handle M terminal route");
-            require("TERMINAL".equals(mode(currentScreen.invoke(minecraft))), "M route must open terminal mode");
+            require(currentScreen.invoke(minecraft) == null,
+                    "M route must hand off to the native terminal surface instead of opening a generated placeholder");
 
             Object recovery = screenConstructor.newInstance("RECOVERY", "ashfall", 12, 3, 2, 1);
             require("recovery:recover".equals(field(recovery, "focusedControl")),
@@ -5667,6 +5676,9 @@ public final class EchoNativeAgent5UiBridgeContractVerifier {
     }
 
     private static String mode(Object screen) throws ReflectiveOperationException {
+        if (screen == null) {
+            return "";
+        }
         Object value = field(screen, "mode");
         return value == null ? "" : String.valueOf(value);
     }

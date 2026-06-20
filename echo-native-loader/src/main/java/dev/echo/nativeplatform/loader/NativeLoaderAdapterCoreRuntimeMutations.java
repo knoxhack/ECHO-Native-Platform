@@ -198,6 +198,67 @@ public final class NativeLoaderAdapterCoreRuntimeMutations {
         return Map.copyOf(evidence);
     }
 
+    public static Map<String, Object> placeStructure(
+            Context context,
+            Object level,
+            Object player,
+            String structureId,
+            String anchor
+    ) {
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("attempted", true);
+        evidence.put("mutated", false);
+        evidence.put("nativeInterface", "EchoNativeRuntimeHost.Structures");
+        evidence.put("nativeMethod", "placeStructure");
+        evidence.put("requestedStructureId", structureId == null ? "" : structureId);
+        evidence.put("requestedAnchor", anchor == null ? "" : anchor);
+        boolean invoked = NativeLoaderRuntimeHostSupport.invokeForServerPlayer(level, player, (serverPlayer, serverLevel) -> {
+            Object runtimeHost = runtimeHost(context, serverPlayer, serverLevel);
+            if (runtimeHost == null) {
+                NativeLoaderRuntimeHostSupport.putMissingHostEvidence(evidence);
+                return false;
+            }
+            Object center = optionalMethodValue(serverPlayer, "blockPosition");
+            if (center == null) {
+                evidence.put("failureKind", "missing_player_position");
+                return false;
+            }
+            String resolvedStructureId = structureId == null ? "" : structureId.trim();
+            if (resolvedStructureId.isBlank()) {
+                evidence.put("failureKind", "missing_structure_id");
+                return false;
+            }
+            putRuntimeHostEvidence(context, evidence, runtimeHost);
+            int x = context.intMethodReader().get(center, "getX");
+            int y = context.intMethodReader().get(center, "getY");
+            int z = context.intMethodReader().get(center, "getZ");
+            evidence.put("structureId", resolvedStructureId);
+            evidence.put("anchor", anchor == null ? "" : anchor);
+            evidence.put("target", Map.of(
+                    "dimensionId", runtimeDimensionId(runtimeHost),
+                    "x", x,
+                    "y", y,
+                    "z", z));
+            try {
+                Object result = placeStructureResult(
+                        context,
+                        runtimeHost,
+                        resolvedStructureId,
+                        x,
+                        y,
+                        z,
+                        anchor);
+                NativeLoaderRuntimeHostSupport.putResultEvidence(evidence, result);
+                return NativeLoaderRuntimeHostSupport.resultMutated(result);
+            } catch (Throwable failure) {
+                NativeLoaderRuntimeHostSupport.putInvocationFailure(evidence, "structures.placeStructure", failure);
+                return false;
+            }
+        }, context.runtimeHostContext());
+        evidence.put("serverInvocationCompleted", invoked);
+        return Map.copyOf(evidence);
+    }
+
     public static boolean writeSaveData(
             Context context,
             Object level,
@@ -440,6 +501,44 @@ public final class NativeLoaderAdapterCoreRuntimeMutations {
                 "EchoNativeRuntimeHost.WorldBlocks",
                 "setBlock");
         return setBlock.invoke(blocks, blockRef, blockState, mutationContext);
+    }
+
+    private static Object placeStructureResult(
+            Context context,
+            Object runtimeHost,
+            String structureId,
+            int x,
+            int y,
+            int z,
+            String anchor
+    ) throws ReflectiveOperationException {
+        if (runtimeHost == null) {
+            return null;
+        }
+        Object structures = runtimeHost.getClass().getMethod("structures").invoke(runtimeHost);
+        java.lang.reflect.Method placeStructure = runtimeHostMethod(structures, "placeStructure", 2);
+        Class<?>[] parameterTypes = placeStructure.getParameterTypes();
+        Map<String, Object> constraints = Map.of(
+                "source", "native_loader_playable_runtime",
+                "minimumStartingSurfaceY", 48);
+        Object placement = parameterTypes[0]
+                .getConstructor(String.class, String.class, int.class, int.class, int.class, String.class, Map.class)
+                .newInstance(
+                        structureId,
+                        runtimeDimensionId(runtimeHost),
+                        x,
+                        y,
+                        z,
+                        anchor == null ? "" : anchor,
+                        constraints);
+        Object mutationContext = runtimeMutationContext(
+                context,
+                runtimeHost,
+                parameterTypes[1],
+                "native_client.structure." + compactActionKey(structureId + "." + x + "." + y + "." + z),
+                "EchoNativeRuntimeHost.Structures",
+                "placeStructure");
+        return placeStructure.invoke(structures, placement, mutationContext);
     }
 
     private static Map<String, Object> publishHudNotificationOnServer(

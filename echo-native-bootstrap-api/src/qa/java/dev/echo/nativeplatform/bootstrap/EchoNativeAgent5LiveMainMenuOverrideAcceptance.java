@@ -25,7 +25,7 @@ public final class EchoNativeAgent5LiveMainMenuOverrideAcceptance {
                 && Boolean.TRUE.equals(surface.get("accepted"))
                 && "MAIN_MENU".equals(surface.get("currentMode"))
                 && "live_surface:accepted:MAIN_MENU".equals(surface.get("effect"))
-                && surfaceLines.stream().anyMatch(line -> line.contains("Main Menu: ECHO Native Loader routes"))
+                && surfaceLines.stream().anyMatch(line -> line.contains("Main Menu: ECHO Ashfall Terminal boot routes"))
                 && Boolean.TRUE.equals(endToEnd.get("accepted"))
                 && "main_menu_end_to_end:accepted:4".equals(endToEnd.get("effect"))
                 && selectedOptions.equals(List.of("Continue", "New Run", "Settings", "Quit"))

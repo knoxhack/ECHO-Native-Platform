@@ -31,6 +31,7 @@ public final class EchoNativeAgent3CreativeTabPlanGateMain {
         assertCreatedCreativeTabMustProveLiveOutputItems();
         assertLiveMultipleDeclaredCreativeGroupsInOneModule();
         assertExistingCreativeTabIsPresentButNotCreated();
+        assertMissingCreativeTabKeyIsNotTrustedFromGetValueFallback();
         assertProjectedCreativeTabItemsAreNotVisibleReleaseEvidence();
         assertCreativeTabFallbackIsNotTrustedAsRegistryBacked();
         assertCreativeVisibilityBridgeDoesNotPromoteVanillaAugmentationAsNativeTab();
@@ -824,6 +825,62 @@ public final class EchoNativeAgent3CreativeTabPlanGateMain {
                 "parent-only exact native tab must not contribute visible release items");
     }
 
+    private static void assertMissingCreativeTabKeyIsNotTrustedFromGetValueFallback() {
+        TestIdentifier tabId = TestIdentifier.fromNamespaceAndPath("echoashfallprotocol", "native_modules_tab");
+        PhantomCreativeTabRegistry creativeTabRegistry = new PhantomCreativeTabRegistry(TestCreativeModeTab.builder()
+                .title(TestComponent.literal("Phantom Ashfall Native Modules"))
+                .icon(() -> new TestItemStack(new TestItem("echoashfallprotocol:portable_signal_scanner")))
+                .displayItems((parameters, output) -> {
+                })
+                .build());
+        TestRegistry<TestItemLike> itemRegistry = new TestRegistry<>();
+        itemRegistry.put(TestIdentifier.fromNamespaceAndPath("echoashfallprotocol", "portable_signal_scanner"),
+                new TestItem("echoashfallprotocol:portable_signal_scanner"));
+        itemRegistry.put(TestIdentifier.fromNamespaceAndPath("echoashfallprotocol", "scrap_knife"),
+                new TestItem("echoashfallprotocol:scrap_knife"));
+
+        List<Map<String, Object>> bridges = NativeLoaderRegistryCreativeBridge.registerNativeCreativeTabs(
+                new TestProfile(),
+                List.of(),
+                List.of(
+                        "echoashfallprotocol:portable_signal_scanner",
+                        "echoashfallprotocol:scrap_knife"
+                ),
+                List.of("echoashfallprotocol:native_modules_tab"),
+                TestIdentifier.class,
+                TestRegistry.class,
+                TestCreativeModeTab.class,
+                TestCreativeModeTabs.class,
+                TestComponent.class,
+                TestItemStack.class,
+                TestItemLike.class,
+                TestTabVisibility.class,
+                TestOutput.class,
+                creativeTabRegistry,
+                itemRegistry,
+                List.of(Map.of(
+                        "registry", "creative_tab",
+                        "id", "echoashfallprotocol:native_modules_tab",
+                        "titleKey", "itemGroup.EchoAshfallNativeModules",
+                        "iconItem", "echoashfallprotocol:portable_signal_scanner",
+                        "itemIds", List.of(
+                                "echoashfallprotocol:portable_signal_scanner",
+                                "echoashfallprotocol:scrap_knife"
+                        )
+                ))
+        );
+
+        require(creativeTabRegistry.containsKey(tabId),
+                "phantom getValue fallback must not prevent real native creative tab registration");
+        Map<String, Object> bridge = bridges.get(0);
+        require(Boolean.TRUE.equals(bridge.get("customTabCreated")),
+                "missing creative tab key must be created even when getValue returns a placeholder");
+        require("created_native_registry_tab".equals(bridge.get("creativeTabRegistrationMode")),
+                "missing creative tab key must use created-tab registration mode");
+        require(Boolean.TRUE.equals(bridge.get("registered")),
+                "missing creative tab key must report the newly registered tab");
+    }
+
     private static void assertProjectedCreativeTabItemsAreNotVisibleReleaseEvidence() {
         List<Map<String, Object>> projectedTabs = List.of(Map.of(
                 "tabId", "echoashfallprotocol:native_modules_tab",
@@ -1447,8 +1504,16 @@ public final class EchoNativeAgent3CreativeTabPlanGateMain {
         }
     }
 
-    public static final class TestRegistry<T> {
+    public static class TestRegistry<T> {
         private final Map<TestIdentifier, T> values = new LinkedHashMap<>();
+
+        public boolean containsKey(TestIdentifier id) {
+            return values.containsKey(id);
+        }
+
+        public T get(TestIdentifier id) {
+            return values.get(id);
+        }
 
         public T getValue(TestIdentifier id) {
             return values.get(id);
@@ -1461,6 +1526,20 @@ public final class EchoNativeAgent3CreativeTabPlanGateMain {
         @SuppressWarnings("unchecked")
         public static void register(TestRegistry<?> registry, TestIdentifier id, Object value) {
             ((TestRegistry<Object>) registry).put(id, value);
+        }
+    }
+
+    public static final class PhantomCreativeTabRegistry extends TestRegistry<TestCreativeModeTab> {
+        private final TestCreativeModeTab phantom;
+
+        public PhantomCreativeTabRegistry(TestCreativeModeTab phantom) {
+            this.phantom = phantom;
+        }
+
+        @Override
+        public TestCreativeModeTab getValue(TestIdentifier id) {
+            TestCreativeModeTab value = super.getValue(id);
+            return value == null ? phantom : value;
         }
     }
 

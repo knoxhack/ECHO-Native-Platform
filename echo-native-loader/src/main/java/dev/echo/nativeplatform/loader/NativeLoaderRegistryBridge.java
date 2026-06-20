@@ -424,19 +424,81 @@ public final class NativeLoaderRegistryBridge {
                     itemRegistryForFreeze,
                     creativeTabRegistryForFreeze);
             data.put("finallyClearedUnregisteredIntrusiveHolderCount", finallyClearedIntrusiveHolderCount);
-            if (blockRegistryWasFrozen) {
-                NativeLoaderRegistryRuntimeSupport.freezeNativeRegistry(blockRegistryForFreeze);
+            data.put("finallyPreservedNativeRegistryTags", true);
+            int boundBlockRegistryHolders =
+                    NativeLoaderRegistryRuntimeSupport.bindRegistryHoldersWithoutFreezing(blockRegistryForFreeze);
+            int boundItemRegistryHolders =
+                    NativeLoaderRegistryRuntimeSupport.bindRegistryHoldersWithoutFreezing(itemRegistryForFreeze);
+            int boundCreativeTabRegistryHolders =
+                    NativeLoaderRegistryRuntimeSupport.bindRegistryHoldersWithoutFreezing(creativeTabRegistryForFreeze);
+            boolean restoredBlockFrozenFlag = blockRegistryWasFrozen
+                    && NativeLoaderRegistryRuntimeSupport.restoreNativeRegistryFrozenFlag(blockRegistryForFreeze, true);
+            boolean restoredItemFrozenFlag = itemRegistryWasFrozen
+                    && NativeLoaderRegistryRuntimeSupport.restoreNativeRegistryFrozenFlag(itemRegistryForFreeze, true);
+            boolean restoredCreativeTabFrozenFlag = creativeTabRegistryWasFrozen
+                    && NativeLoaderRegistryRuntimeSupport.restoreNativeRegistryFrozenFlag(creativeTabRegistryForFreeze, true);
+            data.put("finallyDirectNativeRegistryFreezeSkipped", true);
+            data.put("finallyRefrozeNativeRegistries", Map.of(
+                    "block", false,
+                    "item", false,
+                    "creativeTab", false
+            ));
+            data.put("finallyBoundNativeRegistryHoldersWithoutFreeze", Map.of(
+                    "block", boundBlockRegistryHolders,
+                    "item", boundItemRegistryHolders,
+                    "creativeTab", boundCreativeTabRegistryHolders
+            ));
+            data.put("finallyFallbackRestoredNativeRegistryFrozenFlags", Map.of(
+                    "block", restoredBlockFrozenFlag,
+                    "item", restoredItemFrozenFlag,
+                    "creativeTab", restoredCreativeTabFrozenFlag
+            ));
+            int preparedBuiltInRegistryFreezeCount = 0;
+            int preparedRegistryOfRegistriesFreezeCount = 0;
+            boolean registryFreezeGuardStarted = false;
+            try {
+                Class<?> builtInRegistriesClass = Class.forName(context.runtimeClass("core.registries.BuiltInRegistries"));
+                preparedBuiltInRegistryFreezeCount =
+                        NativeLoaderRegistryRuntimeSupport.prepareAllBuiltInRegistriesForMinecraftFreeze(builtInRegistriesClass);
+                preparedRegistryOfRegistriesFreezeCount =
+                        NativeLoaderRegistryRuntimeSupport.prepareRegistryAndContentsForMinecraftFreeze(
+                                builtInRegistriesClass.getField("REGISTRY").get(null));
+                registryFreezeGuardStarted =
+                        NativeLoaderRegistryRuntimeSupport.startBuiltInRegistryFreezeGuard(
+                                builtInRegistriesClass,
+                                600_000L,
+                                10L);
+            } catch (Throwable ignored) {
+                // The three explicitly-opened registries above were already restored.
             }
-            if (itemRegistryWasFrozen) {
-                NativeLoaderRegistryRuntimeSupport.freezeNativeRegistry(itemRegistryForFreeze);
-            }
-            if (creativeTabRegistryWasFrozen) {
-                NativeLoaderRegistryRuntimeSupport.freezeNativeRegistry(creativeTabRegistryForFreeze);
-            }
+            data.put("preparedBuiltInRegistryFreezeCount", preparedBuiltInRegistryFreezeCount);
+            data.put("preparedRegistryOfRegistriesFreezeCount", preparedRegistryOfRegistriesFreezeCount);
+            data.put("registryFreezeGuardStarted", registryFreezeGuardStarted);
+            data.put("registryFreezeGuardDurationMillis", 600_000L);
+            data.put("registryFreezeGuardIntervalMillis", 10L);
+            data.put("clientRegistryLayerPrimed", primeClientRegistryLayer(context, data));
+            data.put("nativeRegistryFreezeDeferredToMinecraft", true);
             data.put("nativeRegistryWindowClosed",
-                    blockRegistryWasFrozen || itemRegistryWasFrozen || creativeTabRegistryWasFrozen);
+                    blockRegistryWasFrozen
+                            || itemRegistryWasFrozen
+                            || creativeTabRegistryWasFrozen
+                            || preparedBuiltInRegistryFreezeCount > 0
+                            || preparedRegistryOfRegistriesFreezeCount > 0);
         }
         return data;
+    }
+
+    private static boolean primeClientRegistryLayer(Context context, Map<String, Object> data) {
+        try {
+            Class<?> clientRegistryLayerClass =
+                    Class.forName(context.runtimeClass("client.multiplayer.ClientRegistryLayer"));
+            clientRegistryLayerClass.getMethod("createRegistryAccess").invoke(null);
+            return true;
+        } catch (Throwable exception) {
+            data.put("clientRegistryLayerPrimeFailureKind", exception.getClass().getSimpleName());
+            data.put("clientRegistryLayerPrimeFailureMessage", failureMessage(exception));
+            return false;
+        }
     }
 
     private static Set<String> mergedContentIds(List<String> discoveredIds, List<String> sdkIds) {
@@ -495,7 +557,11 @@ public final class NativeLoaderRegistryBridge {
             }
             Object id = identifierClass.getMethod("fromNamespaceAndPath", String.class, String.class)
                     .invoke(null, contentId.substring(0, separator), contentId.substring(separator + 1));
-            for (String methodName : List.of("getValue", "get", "getOptional", "getOptionalValue")) {
+            Boolean containsKey = registryContainsKey(registry, identifierClass, id);
+            if (Boolean.FALSE.equals(containsKey)) {
+                return null;
+            }
+            for (String methodName : List.of("getOptionalValue", "getOptional", "get")) {
                 try {
                     Method method = registry.getClass().getMethod(methodName, identifierClass);
                     Object value = unwrapRegistryValue(method.invoke(registry, id));
@@ -506,8 +572,32 @@ public final class NativeLoaderRegistryBridge {
                     // Try the next registry accessor used by this Minecraft snapshot.
                 }
             }
+            if (Boolean.TRUE.equals(containsKey)) {
+                try {
+                    Method method = registry.getClass().getMethod("getValue", identifierClass);
+                    return unwrapRegistryValue(method.invoke(registry, id));
+                } catch (ReflectiveOperationException | RuntimeException ignored) {
+                    return null;
+                }
+            }
         } catch (ReflectiveOperationException | RuntimeException ignored) {
             return null;
+        }
+        return null;
+    }
+
+    private static Boolean registryContainsKey(Object registry, Class<?> identifierClass, Object id) {
+        if (registry == null || id == null) {
+            return Boolean.FALSE;
+        }
+        try {
+            Method method = registry.getClass().getMethod("containsKey", identifierClass);
+            Object value = method.invoke(registry, id);
+            if (value instanceof Boolean result) {
+                return result;
+            }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // Some runtime registry facades expose optional lookups without containsKey.
         }
         return null;
     }

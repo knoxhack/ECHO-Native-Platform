@@ -30,7 +30,7 @@ public final class NativeLoaderResourceSanitizer {
                 || name.startsWith("data/" + safeNamespace + "/tags/block/")
                 || name.startsWith("data/minecraft/worldgen/")
                 || name.startsWith("data/minecraft/tags/block/")) {
-            json = sanitizeAshfallNativeWorldgenFeatureReferences(sanitizeNativeRegistryUnsafeJson(json));
+            json = sanitizeAshfallNativeWorldgenFeatureReferences(sanitizeNativeRegistryUnsafeJson(name, json));
         }
         if (name.startsWith("data/" + safeNamespace + "/tags/block/")
                 || name.startsWith("data/minecraft/tags/block/")) {
@@ -108,6 +108,10 @@ public final class NativeLoaderResourceSanitizer {
     }
 
     public static String sanitizeNativeRegistryUnsafeJson(String json) {
+        return sanitizeNativeRegistryUnsafeJson("", json);
+    }
+
+    public static String sanitizeNativeRegistryUnsafeJson(String name, String json) {
         if (json == null) {
             return "";
         }
@@ -139,7 +143,176 @@ public final class NativeLoaderResourceSanitizer {
                 .replace("#minecraft:iron_barss", "minecraft:iron_bars")
                 .replace("minecraft:iron_barss", "minecraft:iron_bars")
                 .replace("minecraft:iron_bars_command_block", "minecraft:iron_bars");
+        sanitized = sanitizeBlockworksRegistryReferences(sanitized);
+        if (isBlockTagJson(name)) {
+            sanitized = sanitizeEchoNamespaceBlockTagReferences(sanitized);
+        }
+        if (isBiomeJson(name)) {
+            return sanitizeAshfallNativeBiomePlacedFeatureReferences(sanitized);
+        }
         return sanitizeAshfallNativeWorldgenBlockReferences(sanitized);
+    }
+
+    private static boolean isBlockTagJson(String name) {
+        String normalized = name == null ? "" : name.replace('\\', '/').toLowerCase(java.util.Locale.ROOT);
+        return normalized.contains("/tags/block/") && normalized.endsWith(".json");
+    }
+
+    private static boolean isBiomeJson(String name) {
+        String normalized = name == null ? "" : name.replace('\\', '/').toLowerCase(java.util.Locale.ROOT);
+        return normalized.contains("/worldgen/biome/") && normalized.endsWith(".json");
+    }
+
+    private static String sanitizeBlockworksRegistryReferences(String json) {
+        if (json == null || json.isBlank()) {
+            return json == null ? "" : json;
+        }
+        Pattern pattern = Pattern.compile("\"#?echoblockworks:([a-z0-9_]+)\"");
+        Matcher matcher = pattern.matcher(json);
+        return matcher.replaceAll(matchResult ->
+                Matcher.quoteReplacement("\"" + blockworksStandIn(matchResult.group(1)) + "\""));
+    }
+
+    private static String sanitizeEchoNamespaceBlockTagReferences(String json) {
+        if (json == null || json.isBlank()) {
+            return json == null ? "" : json;
+        }
+        Pattern pattern = Pattern.compile("\"#?(echo[a-z0-9_]*):([a-z0-9_./-]+)\"");
+        Matcher matcher = pattern.matcher(json);
+        return matcher.replaceAll(matchResult ->
+                Matcher.quoteReplacement("\"" + blockTagStandIn(matchResult.group(1), matchResult.group(2)) + "\""));
+    }
+
+    private static String blockworksStandIn(String blockId) {
+        String id = blockId == null ? "" : blockId;
+        if (id.endsWith("_wall")) {
+            return "minecraft:cobblestone_wall";
+        }
+        if (id.endsWith("_stairs")) {
+            return "minecraft:stone_stairs";
+        }
+        if (id.endsWith("_slab")) {
+            return "minecraft:stone_slab";
+        }
+        if (id.contains("glass")) {
+            return "minecraft:glass";
+        }
+        if (id.contains("ashstone")) {
+            return "minecraft:stone";
+        }
+        if (id.contains("charred_concrete")) {
+            return "minecraft:blackstone";
+        }
+        if (id.contains("blackbox") || id.contains("deepslate")) {
+            return "minecraft:deepslate_tiles";
+        }
+        if (id.contains("rusted_metal") || id.contains("reinforced_metal")
+                || id.contains("orbital_hull") || id.contains("cable")) {
+            return "minecraft:iron_block";
+        }
+        return "minecraft:stone";
+    }
+
+    private static String blockTagStandIn(String namespace, String blockId) {
+        String id = blockId == null ? "" : blockId;
+        if ("echoblockworks".equals(namespace)) {
+            return blockworksStandIn(id);
+        }
+        if (id.endsWith("_wall")) {
+            return "minecraft:cobblestone_wall";
+        }
+        if (id.endsWith("_stairs")) {
+            return "minecraft:stone_stairs";
+        }
+        if (id.endsWith("_slab")) {
+            return "minecraft:stone_slab";
+        }
+        if (id.contains("bush") || id.contains("grass") || id.contains("sapling")
+                || id.contains("fungus") || id.contains("scrub") || id.contains("reed")) {
+            return "minecraft:dead_bush";
+        }
+        if (id.contains("puddle") || id.contains("sludge") || id.contains("mud")) {
+            return "minecraft:mud";
+        }
+        if (id.contains("glass")) {
+            return "minecraft:glass";
+        }
+        if (id.contains("wood") || id.contains("log")) {
+            return "minecraft:oak_log";
+        }
+        if (id.contains("ore")) {
+            return "minecraft:iron_ore";
+        }
+        if (id.contains("workbench") || id.contains("bench") || id.contains("table")
+                || id.contains("station") || id.contains("rack") || id.contains("forge")) {
+            return "minecraft:iron_block";
+        }
+        return ashfallWorldgenStandIn(id);
+    }
+
+
+    private static String sanitizeAshfallNativeBiomePlacedFeatureReferences(String json) {
+        if (json == null || json.isBlank()) {
+            return json == null ? "" : json;
+        }
+        Pattern featurePattern = Pattern.compile("\"minecraft:([a-z0-9_]+)\"");
+        Matcher matcher = featurePattern.matcher(json);
+        return matcher.replaceAll(matchResult -> {
+            String featureId = matchResult.group(1);
+            String replacement = rewriteAshfallLegacyPlacedFeatureId(featureId);
+            if (replacement == null || replacement.isBlank()) {
+                return matchResult.group();
+            }
+            return Matcher.quoteReplacement("\"" + replacement + "\"");
+        });
+    }
+
+    private static String rewriteAshfallLegacyPlacedFeatureId(String featureId) {
+        if (featureId == null || featureId.isBlank()) {
+            return null;
+        }
+        String featureIdReplacement = switch (featureId) {
+            case "dead_bush", "dead_bush_patch", "dead_bush_patches" -> "echoashfallprotocol:ash_bushes";
+            case "dirt_patch" -> "echoashfallprotocol:contaminated_soil_patches";
+            case "gravel_patch", "gravel_scatter", "gravel_dense_patch", "gravel_surface_patch" ->
+                    "echoashfallprotocol:rubble_scatter";
+            case "iron_bars_patch", "iron_bars_scatter" -> "echoashfallprotocol:rusted_metal_debris_scatter";
+            case "iron_block_placement", "iron_blocks" -> "echoashfallprotocol:bio_lab_leaks";
+            case "iron_ore_scatter" -> "echoashfallprotocol:wasteland_scrap_ore";
+            case "mud_patch" -> "echoashfallprotocol:acidic_sludge_pools";
+            case "stone_patch" -> "echoashfallprotocol:ash_layer_patches";
+            case "stone_pile" -> "echoashfallprotocol:concrete_rubble_piles";
+            case "stone_scatter" -> "echoashfallprotocol:rubble_scatter";
+            case "amethyst_block_cluster", "amethyst_block_patch" -> "echoashfallprotocol:crystal_energy_deposit";
+            case "packed_ice_cluster", "packed_ice_scatter" -> "echoashfallprotocol:cryogenic_ruins_blue_ice_crystals";
+            case "snow_patch" -> "echoashfallprotocol:fallout_dust_patches";
+            default -> null;
+        };
+        if (featureIdReplacement != null) {
+            return featureIdReplacement;
+        }
+        if (featureId.endsWith("_dense_patch")) {
+            return "echoashfallprotocol:scattered_bones_dense";
+        }
+        if (featureId.endsWith("_surface_patch")) {
+            return "echoashfallprotocol:deep_ash_surface";
+        }
+        if (featureId.endsWith("_patch")) {
+            return "echoashfallprotocol:contaminated_soil_patches";
+        }
+        if (featureId.endsWith("_pile")) {
+            return "echoashfallprotocol:concrete_rubble_piles";
+        }
+        if (featureId.endsWith("_scatter")) {
+            return "echoashfallprotocol:rubble_scatter";
+        }
+        if (featureId.endsWith("_cluster")) {
+            return "echoashfallprotocol:crystal_energy_deposit";
+        }
+        if (featureId.endsWith("_placement")) {
+            return "echoashfallprotocol:bio_lab_leaks";
+        }
+        return null;
     }
 
     private static String sanitizeAshfallNativeWorldgenBlockReferences(String json) {
@@ -179,7 +352,7 @@ public final class NativeLoaderResourceSanitizer {
             case "ash_layer", "fallout_dust" -> "minecraft:snow";
             case "ash_stone", "wasteland_stone", "wasteland_trace_rubble", "toxic_slagstone",
                     "irradiated_shale", "cryogenic_fractured_stone", "crash_slag", "riftstone",
-                    "concrete_rubble", "rebar_block", "shattered_glass" -> "minecraft:stone";
+                    "concrete_rubble", "nexus_scar_stone", "rebar_block", "shattered_glass" -> "minecraft:stone";
             case "ashen_wasteland_dirt", "burnt_wasteland_soil", "contaminated_soil",
                     "nexus_cracked_soil", "wasteland_dirt", "wasteland_grass_block",
                     "mutated_wasteland_grass_block", "toxic_wasteland_grass_block",
@@ -194,8 +367,11 @@ public final class NativeLoaderResourceSanitizer {
             case "echo_crystal", "energized_fissure", "ooze_crystal", "uranium_crystal" -> "minecraft:amethyst_block";
             case "scrap_ore" -> "minecraft:iron_ore";
             case "structure_cache", "supply_crate", "workshop_block", "trade_counter",
-                    "weapon_rack", "bio_processing_station", "spore_garden", "map_table" -> "minecraft:barrel";
-            case "contaminant_condenser", "nexus_core", "radiation_block", "toxic_waste_barrel" -> "minecraft:iron_block";
+                    "weapon_rack", "bio_processing_station", "spore_garden", "map_table",
+                    "survey_table" -> "minecraft:barrel";
+            case "contaminant_condenser", "crystalline_synthesizer",
+                    "drop_pod_hull", "nexus_capacitor", "nexus_core", "radiation_block",
+                    "toxic_waste_barrel" -> "minecraft:iron_block";
             default -> "minecraft:stone";
         };
     }
@@ -223,10 +399,12 @@ public final class NativeLoaderResourceSanitizer {
             "cracked_asphalt",
             "cracked_earth",
             "crash_slag",
+            "crystalline_synthesizer",
             "cryogenic_fractured_stone",
             "dead_wood_log",
             "debris_block",
             "deep_ash",
+            "drop_pod_hull",
             "dry_grass",
             "dry_tall_grass",
             "echo_crystal",
@@ -243,8 +421,10 @@ public final class NativeLoaderResourceSanitizer {
             "mutated_leaves_purple",
             "mutated_sapling",
             "mutated_wasteland_grass_block",
+            "nexus_capacitor",
             "nexus_core",
             "nexus_cracked_soil",
+            "nexus_scar_stone",
             "nuclear_fungus",
             "nuclear_grass",
             "nuclear_tall_grass",
@@ -266,6 +446,7 @@ public final class NativeLoaderResourceSanitizer {
             "spore_garden",
             "structure_cache",
             "supply_crate",
+            "survey_table",
             "thorn_scrub",
             "toxic_grass",
             "toxic_moss",

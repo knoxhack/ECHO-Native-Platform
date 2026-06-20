@@ -19,7 +19,7 @@ public final class EchoNativeModuleClassLoader extends URLClassLoader {
         synchronized (getClassLoadingLock(name)) {
             Class<?> loaded = findLoadedClass(name);
             if (loaded == null) {
-                loaded = parentFirst(name) ? loadFromParent(name) : loadFromModuleThenParent(name);
+                loaded = parentFirst(name) ? loadFromParentThenModule(name) : loadFromModuleThenParent(name);
             }
             if (resolve) {
                 resolveClass(loaded);
@@ -33,6 +33,14 @@ public final class EchoNativeModuleClassLoader extends URLClassLoader {
             return findClass(name);
         } catch (ClassNotFoundException ignored) {
             return loadFromParent(name);
+        }
+    }
+
+    private Class<?> loadFromParentThenModule(String name) throws ClassNotFoundException {
+        try {
+            return loadFromParent(name);
+        } catch (ClassNotFoundException ignored) {
+            return findClass(name);
         }
     }
 
@@ -50,7 +58,10 @@ public final class EchoNativeModuleClassLoader extends URLClassLoader {
                 || name.startsWith("dev.echo.nativeplatform.contracts.")
                 || name.startsWith("dev.echo.nativeplatform.diagnostics.")
                 || name.startsWith("dev.echo.nativeplatform.packos.")
-                || name.startsWith("dev.echo.nativeplatform.loader.NativeLoader");
+                || name.startsWith("dev.echo.nativeplatform.loader.NativeLoader")
+                || name.startsWith("com.echoplatform.echocore.api.")
+                || name.startsWith("com.knoxhack.echoscreencore.api.")
+                || name.startsWith("com.knoxhack.echoterminal.api.");
     }
 
     private static URL[] urls(List<Path> classpath) {

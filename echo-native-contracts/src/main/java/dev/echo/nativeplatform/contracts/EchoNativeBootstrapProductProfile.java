@@ -597,6 +597,14 @@ public interface EchoNativeBootstrapProductProfile {
         return "";
     }
 
+    default String nativePlayableStartingStructureId() {
+        return "";
+    }
+
+    default String nativePlayableStartingStructureAnchor() {
+        return "";
+    }
+
     default List<String> nativePlayableStarterToolItemIds() {
         return nativeRecoveryItemId().isBlank() ? List.of() : List.of(nativeRecoveryItemId());
     }

@@ -29,6 +29,8 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
@@ -44,6 +46,7 @@ final class EchoNativeLiveUiBridge {
             "dev.echo.nativeplatform.generated.EchoNativeLoadingOverlayProjection";
     private static volatile Class<?> cachedGuiProjectionClass;
     private static final AtomicBoolean PRODUCT_WORLD_AUTO_OPEN_DISPATCHED = new AtomicBoolean(false);
+    private static final Set<Path> ACTIVE_MARKERS = ConcurrentHashMap.newKeySet();
     private static final List<String> CORE_DECLARED_HOTKEYS = List.of(
             "M:Terminal",
             "G:Index Catalog",
@@ -505,6 +508,14 @@ final class EchoNativeLiveUiBridge {
             Map<String, Object> runtimeBridge,
             SnapshotWriter snapshotWriter
     ) {
+        Path markerKey = markerPath.toAbsolutePath().normalize();
+        if (!ACTIVE_MARKERS.add(markerKey)) {
+            Map<String, Object> bridge = mutableBridge(runtimeBridge);
+            bridge.put("liveUiBridgeStartSkipped", true);
+            bridge.put("liveUiBridgeStartSkippedReason", "already_running_for_marker");
+            runtimeBridge.put("nativeClientUiBridge", bridge);
+            return;
+        }
         NativeLoaderLiveHudRenderBridge.configure(
                 EchoNativeBootstrapMain::nativeClientHudRendererClassNames,
                 EchoNativeBootstrapMain::nativeClientModuleClassLoader
@@ -646,7 +657,16 @@ final class EchoNativeLiveUiBridge {
             bridge.put("productWorldAutoOpenDispatchWaitAttempts", attempt + 1);
             bridge.put("productWorldAutoOpenDispatchLastScreen",
                     screen == null ? "" : screen.getClass().getName());
-            if (resourceManager != null) {
+            if (playableWorldReady(minecraftClass, minecraft)) {
+                bridge.put("productWorldAutoOpenPlayableWorldReady", true);
+                bridge.put("productWorldAutoOpenDispatched", true);
+                bridge.put("summary", "Native Loader reached a playable Ashfall product world before an additional auto-open dispatch was needed.");
+                runtimeBridge.put("nativeClientUiBridge", bridge);
+                writeUiReport(markerPath, bridge);
+                writeSnapshot(snapshotWriter);
+                return true;
+            }
+            if (resourceManager != null && productWorldAutoOpenDispatchScreenReady(screen)) {
                 try {
                     Class<?> dispatcherClass = Class.forName(
                             "com.knoxhack.echoashfallprotocol.client.screen.EchoNativeAshfallWorldOpenDispatcher",
@@ -676,7 +696,17 @@ final class EchoNativeLiveUiBridge {
                             "NativeLoaderAshfallWorldStartupService");
                     bridge.put("productWorldAutoOpenDispatchInvoker", "EchoNativeLiveUiBridge");
                     if (scheduled && dispatched[0]) {
-                        bridge.put("summary", "Native Loader dispatched Ashfall product world auto-open from the live bootstrap bridge after Minecraft resources became available.");
+                        boolean playableWorldReady = waitForPlayableWorld(minecraftClass, minecraft, bridge);
+                        bridge.put("productWorldAutoOpenPlayableWorldReady", playableWorldReady);
+                        if (!playableWorldReady) {
+                            bridge.put("productWorldAutoOpenDispatchIncomplete", true);
+                            bridge.put("summary", "Native Loader dispatched Ashfall product world auto-open, but Minecraft did not enter a playable world.");
+                            runtimeBridge.put("nativeClientUiBridge", bridge);
+                            writeUiReport(markerPath, bridge);
+                            writeSnapshot(snapshotWriter);
+                            return false;
+                        }
+                        bridge.put("summary", "Native Loader dispatched Ashfall product world auto-open from the live bootstrap bridge after Minecraft resources and the title screen were ready.");
                         runtimeBridge.put("nativeClientUiBridge", bridge);
                         writeUiReport(markerPath, bridge);
                         writeSnapshot(snapshotWriter);
@@ -693,6 +723,8 @@ final class EchoNativeLiveUiBridge {
                     writeSnapshot(snapshotWriter);
                     return false;
                 }
+            } else if (resourceManager != null) {
+                bridge.put("productWorldAutoOpenDispatchWaitingForScreen", true);
             }
             try {
                 Thread.sleep(50L);
@@ -708,6 +740,20 @@ final class EchoNativeLiveUiBridge {
         writeUiReport(markerPath, bridge);
         writeSnapshot(snapshotWriter);
         return false;
+    }
+
+    private static boolean productWorldAutoOpenDispatchScreenReady(Object screen) {
+        if (screen == null) {
+            return false;
+        }
+        if (isTitleScreen(screen)) {
+            return true;
+        }
+        String className = screen.getClass().getName();
+        return className.endsWith(".EchoNativeMainMenuScreen")
+                || className.endsWith(".MainMenuScreen")
+                || className.endsWith(".BackupScreen")
+                || className.endsWith(".BackupConfirmScreen");
     }
 
     static Map<String, Object> openOrCreateProductWorldFromUi(Object minecraft, Object parentScreen) {
@@ -857,6 +903,7 @@ final class EchoNativeLiveUiBridge {
             bridge.put("lastHudOverlayMessage", Boolean.TRUE.equals(bridge.get("nativeHudProjectionInstalled"))
                     ? "native_hud_projection_installed"
                     : "");
+            mergeNativeModuleSessionSnapshots(bridge);
             bindModuleDeclaredClientSurfaces(bridge);
             writeUiReport(markerPath, bridge);
             writeSnapshot(snapshotWriter);
@@ -1605,7 +1652,8 @@ final class EchoNativeLiveUiBridge {
                     currentHotkeys
             );
             boolean hudFrameChanged = mergeHudRenderFrame(bridge);
-            if (hudFrameChanged) {
+            boolean nativeModuleSessionChanged = mergeNativeModuleSessionSnapshots(bridge);
+            if (hudFrameChanged || nativeModuleSessionChanged) {
                 bindModuleDeclaredClientSurfaces(bridge);
             }
             if (Boolean.TRUE.equals(bridge.get("startupSurfaceProbeEvidenceAttempted"))) {
@@ -1618,7 +1666,7 @@ final class EchoNativeLiveUiBridge {
                         minecraftClass, minecraft, screenClass, String.valueOf(physicalHotkey.get("surface")),
                         String.valueOf(physicalHotkey.get("key")), String.valueOf(physicalHotkey.get("action")));
             }
-            if (mergeLiveUiInteractionRecorder(bridge)) {
+            if (mergeLiveUiInteractionRecorder(bridge) || nativeModuleSessionChanged) {
                 bridge.put("lastLiveClientHostEvidenceAcceptance",
                         qa("EchoNativeAgent5LiveClientHostEvidenceAcceptance").assess(bridge));
                 updateAdapterCoreRuntimeBridgeGuard(runtimeBridge, bridge);
@@ -1650,6 +1698,83 @@ final class EchoNativeLiveUiBridge {
             bridge.put("lastHudOverlayMessage", "ashfall_native_hud_rendered");
         }
         return currentFrame > previousFrame;
+    }
+
+    private static boolean mergeNativeModuleSessionSnapshots(Map<String, Object> bridge) {
+        return mergeNativeIndexSessionSnapshot(bridge);
+    }
+
+    private static boolean mergeNativeIndexSessionSnapshot(Map<String, Object> bridge) {
+        Map<String, Object> snapshot = nativeClientStaticMapSnapshot(
+                "com.knoxhack.echoindex.client.IndexNativeSessionBridge",
+                "snapshot");
+        if (snapshot.isEmpty()) {
+            bridge.put("nativeIndexSessionSnapshotAvailable", false);
+            return false;
+        }
+        Map<String, Object> previous = object(bridge.get("nativeIndexSession"));
+        boolean changed = !snapshot.equals(previous);
+        bridge.put("nativeIndexSessionSnapshotAvailable", true);
+        bridge.put("nativeIndexSession", Map.copyOf(snapshot));
+        bridge.put("nativeIndexSessionReady", Boolean.TRUE.equals(snapshot.get("nativeIndexSessionReady")));
+        bridge.put("nativeIndexOverlayDataSource", snapshot.getOrDefault("nativeIndexOverlayDataSource", ""));
+        bridge.put("nativeIndexOverlayUxComplete", Boolean.TRUE.equals(snapshot.get("nativeIndexOverlayUxComplete")));
+        bridge.put("nativeIndexPlaceholderData", Boolean.TRUE.equals(snapshot.get("placeholderIndexData")));
+        bridge.put("nativeIndexDashboardStats", object(snapshot.get("dashboardStats")));
+        bridge.put("nativeIndexInventoryFacts", object(snapshot.get("inventoryFacts")));
+        bridge.put("nativeIndexRecipeFacts", object(snapshot.get("recipeFacts")));
+        bridge.put("nativeIndexRouteDrivenIndexModel", object(snapshot.get("routeDrivenIndexModel")));
+        bridge.put("nativeIndexOverlay", object(snapshot.get("overlay")));
+        return changed;
+    }
+
+    private static Map<String, Object> nativeClientStaticMapSnapshot(String className, String methodName) {
+        Map<String, Object> fallback = Map.of();
+        for (ClassLoader loader : nativeClientSnapshotClassLoaders()) {
+            try {
+                Class<?> type = Class.forName(className, true, loader);
+                Map<String, Object> snapshot = object(type.getMethod(methodName).invoke(null));
+                if (snapshot.isEmpty()) {
+                    continue;
+                }
+                if (Boolean.TRUE.equals(snapshot.get("nativeIndexSessionReady"))) {
+                    return snapshot;
+                }
+                if (fallback.isEmpty()) {
+                    fallback = snapshot;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        return fallback;
+    }
+
+    private static List<ClassLoader> nativeClientSnapshotClassLoaders() {
+        LinkedHashSet<ClassLoader> loaders = new LinkedHashSet<>();
+        try {
+            addClassLoader(loaders, EchoNativeBootstrapMain.nativeClientModuleClassLoader());
+        } catch (Throwable ignored) {
+        }
+        addClassLoader(loaders, Thread.currentThread().getContextClassLoader());
+        addClassLoader(loaders, minecraftRuntimeClassLoader());
+        addClassLoader(loaders, EchoNativeLiveUiBridge.class.getClassLoader());
+        return List.copyOf(loaders);
+    }
+
+    private static void addClassLoader(Set<ClassLoader> loaders, ClassLoader loader) {
+        if (loader != null) {
+            loaders.add(loader);
+        }
+    }
+
+    private static ClassLoader minecraftRuntimeClassLoader() {
+        try {
+            Class<?> minecraftClass = Class.forName(runtimeClass("client.Minecraft"));
+            Object minecraft = minecraftClass.getMethod("getInstance").invoke(null);
+            return minecraft == null ? minecraftClass.getClassLoader() : minecraft.getClass().getClassLoader();
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private static void projectMainMenuIfTitleScreen(
@@ -4312,47 +4437,25 @@ final class EchoNativeLiveUiBridge {
                     Map<String, Object> mutation = EchoNativeBootstrapMain.executeNativeMachineSurfaceOpenFromGameplay(
                             safeGameplayContext);
                     boolean mutated = applyNativeMutationEvidence(route, mutation);
-                    Class<?> screenClass = compileScreenClass(
-                            Files.createTempDirectory("echo-native-machine-surface-"));
-                    Object screen = screenClass.getConstructor(String.class, String.class, int.class, int.class, int.class, int.class)
-                            .newInstance(
-                                    resolvedSurface,
-                                    EchoNativeBootstrapMain.nativeProductNamespace(),
-                                    Math.max(1, EchoNativeAgent5UiHandlerRegistry.dataSources().size()),
-                                    integer(dataSource.get("recordCount")),
-                                    integer(object(EchoNativeAgent5UiHandlerRegistry.dataSources().get("missionLog"))
-                                            .get("recordCount")),
-                                    integer(object(EchoNativeAgent5UiHandlerRegistry.dataSources().get("holomap"))
-                                            .get("recordCount"))
-                            );
-                    Class<?> vanillaScreenClass = Class.forName(runtimeClass("client.gui.screens.Screen"));
-                    boolean scheduled = invokeOnClientThreadAndWait(minecraftClass, minecraft, () -> {
-                        try {
-                            minecraft.getClass().getMethod("setScreen", vanillaScreenClass).invoke(minecraft, screen);
-                        } catch (ReflectiveOperationException exception) {
-                            throw new IllegalStateException(exception);
-                        }
-                    });
-                    Object current = currentScreen(minecraft);
-                    boolean opened = scheduled
-                            && current != null
-                            && screenClass.isInstance(current)
-                            && normalizeMode(mode(current)).equals(resolvedSurface);
-                    route.put("clientThreadScheduled", scheduled);
+                    route.put("clientThreadScheduled", false);
                     route.put("runtimeMutationAccepted", mutated);
-                    route.put("routeBound", opened);
-                    route.put("screenOpened", opened);
-                    route.put("handled", opened);
-                    route.put("dataBackedAction", opened && mutated);
-                    route.put("routeType", opened && mutated
-                            ? "adaptercore_event_screen"
-                            : opened ? "native_machine_screen_opened_runtime_pending" : "native_machine_screen_open_failed");
-                    route.put("screenMode", opened ? normalizeMode(mode(current)) : "");
+                    route.put("routeBound", mutated);
+                    route.put("screenOpened", false);
+                    route.put("handled", mutated);
+                    route.put("dataBackedAction", mutated);
+                    route.put("stateChanged", mutated);
+                    route.put("nativeLoaderGeneratedScreenFallbackAllowed", false);
+                    route.put("routeType", mutated
+                            ? "adaptercore_event_runtime_only"
+                            : "native_machine_runtime_mutation_failed");
+                    route.put("screenMode", "");
                     String machineEffect = EchoNativeBootstrapMain.nativeMachineEffectPrefix();
                     String machineOpenEffect = machineEffect == null || machineEffect.isBlank()
                             ? "native_machine_screen.open"
                             : machineEffect;
-                    route.put("effect", opened ? machineOpenEffect : machineOpenEffect + "_failed");
+                    route.put("effect", mutated
+                            ? machineOpenEffect + ".runtime_only"
+                            : machineOpenEffect + "_runtime_failed");
                 }
                 default -> route.put("effect", "no_real_module_surface:" + surface);
             }
@@ -4939,6 +5042,7 @@ final class EchoNativeLiveUiBridge {
         route.put("nativeDataScreenOnly", false);
         route.put("terminalScreenClass", "com.knoxhack.echoterminal.client.screencore.TerminalScreenCoreScreen");
         route.put("terminalBridgeClass", "com.knoxhack.echoterminal.client.screencore.TerminalScreenCoreBridge");
+        bindRealTerminalRuntime(route);
         boolean scheduled = invokeOnClientThreadAndWait(minecraftClass, minecraft, () -> {
             boolean openedByBridge = false;
             try {
@@ -4979,8 +5083,7 @@ final class EchoNativeLiveUiBridge {
         Object current = currentScreen(minecraft);
         String currentClass = current == null ? "" : current.getClass().getName();
         boolean opened = currentClass.equals("com.knoxhack.echoterminal.client.screencore.TerminalScreenCoreScreen")
-                || currentClass.equals("com.knoxhack.echoterminal.client.screen.EchoTerminalScreen")
-                || currentClass.equals("com.knoxhack.echoterminal.client.screen.EchoNativeTerminalScreen");
+                || currentClass.equals("com.knoxhack.echoterminal.client.screen.EchoTerminalScreen");
         route.put("realTerminalScreenOpened", opened);
         route.put("screenClass", currentClass);
         route.put("nativeProductScreen", true);
@@ -4993,7 +5096,7 @@ final class EchoNativeLiveUiBridge {
     }
 
     private static boolean openClassicTerminalFallback(Object minecraft) throws ReflectiveOperationException {
-        if (openNativeTerminalFallback(minecraft)) {
+        if (openScreenCoreTerminalFallback(minecraft)) {
             return true;
         }
         Object player = minecraft.getClass().getField("player").get(minecraft);
@@ -5014,6 +5117,43 @@ final class EchoNativeLiveUiBridge {
                 .invoke(null, menu, inventory, title);
         minecraft.getClass().getMethod("setScreen", vanillaScreenClass).invoke(minecraft, screen);
         return true;
+    }
+
+    private static boolean openScreenCoreTerminalFallback(Object minecraft) {
+        try {
+            Object player = minecraft.getClass().getField("player").get(minecraft);
+            if (player == null) {
+                return false;
+            }
+            Object inventory = player.getClass().getMethod("getInventory").invoke(player);
+            ClassLoader loader = EchoNativeBootstrapMain.nativeClientModuleClassLoader();
+            Class<?> bridgeClass = Class.forName(
+                    "com.knoxhack.echoterminal.client.screencore.TerminalScreenCoreBridge",
+                    true,
+                    loader);
+            bridgeClass.getMethod("register").invoke(null);
+            Class<?> menuClass = Class.forName("com.knoxhack.echoterminal.menu.EchoTerminalMenu", true, loader);
+            Class<?> screenClass = Class.forName(
+                    "com.knoxhack.echoterminal.client.screencore.TerminalScreenCoreScreen",
+                    true,
+                    loader);
+            Class<?> inventoryClass = Class.forName(runtimeClass("world.entity.player.Inventory"));
+            Class<?> componentClass = Class.forName(runtimeClass("network.chat.Component"));
+            Class<?> identifierClass = Class.forName(runtimeClass("resources.Identifier"));
+            Class<?> vanillaScreenClass = Class.forName(runtimeClass("client.gui.screens.Screen"));
+            Object menu = menuClass.getConstructor(int.class, inventoryClass).newInstance(0, inventory);
+            Object title = componentClass.getMethod("translatable", String.class)
+                    .invoke(null, "container.echoterminal.echo_terminal");
+            Object tab = identifierClass.getMethod("fromNamespaceAndPath", String.class, String.class)
+                    .invoke(null, "echoterminal", "overview");
+            Object screen = screenClass
+                    .getConstructor(menuClass, inventoryClass, componentClass, identifierClass)
+                    .newInstance(menu, inventory, title, tab);
+            minecraft.getClass().getMethod("setScreen", vanillaScreenClass).invoke(minecraft, screen);
+            return true;
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) {
+            return false;
+        }
     }
 
     private static boolean openNativeTerminalFallback(Object minecraft) {
@@ -5828,6 +5968,9 @@ final class EchoNativeLiveUiBridge {
                 return true;
             }
             Object screen = currentScreen(minecraft);
+            if (productWorldAutoOpen && confirmProductWorldBackupScreen(minecraftClass, minecraft, screen, bridge)) {
+                continue;
+            }
             if (isTitleScreen(screen)) {
                 bridge.put("playableWorldWaitSawTitleScreen", true);
                 if (!productWorldAutoOpen) {
@@ -5846,6 +5989,58 @@ final class EchoNativeLiveUiBridge {
         }
         bridge.put("playableWorldWaitTimedOut", true);
         return false;
+    }
+
+    private static boolean confirmProductWorldBackupScreen(
+            Class<?> minecraftClass,
+            Object minecraft,
+            Object screen,
+            Map<String, Object> bridge
+    ) {
+        if (!isBackupConfirmScreen(screen)) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(bridge.get("productWorldAutoOpenBackupConfirmDispatched"))) {
+            return false;
+        }
+        bridge.put("productWorldAutoOpenBackupConfirmAttempted", true);
+        bridge.put("productWorldAutoOpenBackupConfirmScreen", screen.getClass().getName());
+        boolean[] accepted = {false};
+        boolean scheduled = invokeOnClientThreadAndWait(minecraftClass, minecraft, () -> {
+            Object current = currentScreen(minecraft);
+            if (!isBackupConfirmScreen(current)) {
+                return;
+            }
+            try {
+                java.lang.reflect.Field onProceedField = current.getClass().getDeclaredField("onProceed");
+                onProceedField.setAccessible(true);
+                Object listener = onProceedField.get(current);
+                if (listener == null) {
+                    return;
+                }
+                java.lang.reflect.Method proceed = listener.getClass()
+                        .getMethod("proceed", boolean.class, boolean.class);
+                proceed.setAccessible(true);
+                proceed.invoke(listener, false, false);
+                accepted[0] = true;
+            } catch (ReflectiveOperationException exception) {
+                throw new IllegalStateException(exception);
+            }
+        });
+        bridge.put("productWorldAutoOpenBackupConfirmScheduled", scheduled);
+        bridge.put("productWorldAutoOpenBackupConfirmDispatched", scheduled && accepted[0]);
+        if (scheduled && accepted[0]) {
+            bridge.put("summary", "Native Loader accepted Minecraft's backup confirmation for the owned Ashfall product world and continued auto-open.");
+        }
+        return scheduled && accepted[0];
+    }
+
+    private static boolean isBackupConfirmScreen(Object screen) {
+        if (screen == null) {
+            return false;
+        }
+        String className = screen.getClass().getName();
+        return className.endsWith(".BackupConfirmScreen") || className.endsWith("$BackupConfirmScreen");
     }
 
     private static boolean productWorldAutoOpenEnabled() {

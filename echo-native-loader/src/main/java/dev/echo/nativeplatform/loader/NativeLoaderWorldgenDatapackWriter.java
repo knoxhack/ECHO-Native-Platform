@@ -150,7 +150,7 @@ public final class NativeLoaderWorldgenDatapackWriter {
         String json = new String(bytes, StandardCharsets.UTF_8);
         boolean unsafeNativeRegistryToken = NATIVE_REGISTRY_UNSAFE_DATAPACK_TOKENS.stream().anyMatch(json::contains);
         String sanitizedJson = NativeLoaderResourceSanitizer.sanitizeAshfallNativeWorldgenFeatureReferences(
-                NativeLoaderResourceSanitizer.sanitizeNativeRegistryUnsafeJson(json)
+                NativeLoaderResourceSanitizer.sanitizeNativeRegistryUnsafeJson(name, json)
         );
         if (name != null && name.startsWith("data/minecraft/tags/block/")) {
             sanitizedJson = NativeLoaderResourceSanitizer.sanitizeMinecraftBlockTagJson(name, sanitizedJson);

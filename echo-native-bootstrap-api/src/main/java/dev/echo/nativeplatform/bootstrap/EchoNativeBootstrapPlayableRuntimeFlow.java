@@ -143,6 +143,7 @@ final class EchoNativeBootstrapPlayableRuntimeFlow {
                 context.intMethodReader(),
                 context.blockSetter(),
                 context.hostWorldBlockMutation(),
+                context.hostStructureMutation(),
                 context.saveDataWriter(),
                 context.hudNotificationPublisher(),
                 this::writeLiveClientProbe
@@ -172,6 +173,7 @@ final class EchoNativeBootstrapPlayableRuntimeFlow {
             NativeLoaderProductPlayableRuntimeActions.IntMethodReader intMethodReader,
             NativeLoaderProductPlayableRuntimeActions.BlockSetter blockSetter,
             NativeLoaderProductPlayableRuntimeBridge.HostWorldBlockMutation hostWorldBlockMutation,
+            NativeLoaderProductPlayableRuntimeBridge.HostStructureMutation hostStructureMutation,
             NativeLoaderProductPlayableRuntimeBridge.SaveDataWriter saveDataWriter,
             NativeLoaderProductPlayableRuntimeBridge.HudNotificationPublisher hudNotificationPublisher
     ) {

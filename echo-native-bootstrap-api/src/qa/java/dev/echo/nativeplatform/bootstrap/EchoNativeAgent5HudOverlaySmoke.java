@@ -54,6 +54,8 @@ public final class EchoNativeAgent5HudOverlaySmoke {
         smoke.put("passed", clientUiHostAttached
                 && overlayRendered
                 && number(EchoNativeAgent5UiExpectedValues.hud().get("health")).equals(number(hud.get("health")))
+                && "echoashfallprotocol:secure_crash_outpost".equals(hud.get("missionId"))
+                && "TRACKED".equals(hud.get("missionStatus"))
                 && String.valueOf(hud.get("mission")).equals(
                 String.valueOf(EchoNativeAgent5UiExpectedValues.hud().get("mission"))));
         return Map.copyOf(smoke);

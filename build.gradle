@@ -1246,6 +1246,24 @@ tasks.register('runNativeLoaderClientEntrypointGate', JavaExec) {
     workingDir = rootProject.projectDir
 }
 
+tasks.register('runNativeResourcePackSelectionGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies generated Native resource packs are selected before Minecraft resource/model loading.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeResourcePackSelectionGateMain'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('runNativeRegistryFreezeGuardGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies Native registry freeze prep prevents existing-world/client reload tag freeze crashes.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeRegistryFreezeGuardGateMain'
+    workingDir = rootProject.projectDir
+}
+
 tasks.register('prepareNativeCoreModuleLoadStateClasses', Exec) {
     group = 'verification'
     description = 'Compiles the real repo core module classes consumed as Native Loader nativeClasspath entries.'
@@ -1450,6 +1468,8 @@ tasks.named('check') {
     dependsOn 'runNativeServiceCollisionGate'
     dependsOn 'runNativeMutationTruthGate'
     dependsOn 'runNativeLoaderClientEntrypointGate'
+    dependsOn 'runNativeResourcePackSelectionGate'
+    dependsOn 'runNativeRegistryFreezeGuardGate'
     dependsOn 'runNativeCoreModuleLoadStateSmoke'
     dependsOn 'runNativeAllBridgeableModuleLoadStateSmoke'
     dependsOn 'runNativeAllBridgeableModuleArtifactLoadStateSmoke'

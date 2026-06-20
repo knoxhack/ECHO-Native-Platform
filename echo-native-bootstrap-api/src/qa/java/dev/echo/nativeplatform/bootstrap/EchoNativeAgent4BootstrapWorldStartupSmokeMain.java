@@ -118,6 +118,9 @@ public final class EchoNativeAgent4BootstrapWorldStartupSmokeMain {
         entries.put("data/minecraft/worldgen/world_preset/normal.json", "{}");
         entries.put("data/echoashfallprotocol/worldgen/noise_settings/wasteland_overworld.json", "{}");
         entries.put("data/echoashfallprotocol/worldgen/biome/the_wasteland.json", "{}");
+        entries.put("data/echoashfallprotocol/missioncore/chapters/ashfall_crash_landing.json", "{}");
+        entries.put("data/echoashfallprotocol/missioncore/chapters/ashfall_major_routes.json", "{}");
+        entries.put("data/echoashfallprotocol/missioncore/missions/secure_crash_outpost.json", "{}");
         try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(zipPath))) {
             for (Map.Entry<String, String> entry : entries.entrySet()) {
                 output.putNextEntry(new ZipEntry(entry.getKey()));

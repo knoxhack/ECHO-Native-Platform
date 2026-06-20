@@ -498,6 +498,10 @@ public final class NativeLoaderGeneratedUiSources {
 
                     private boolean openNativeDashboardScreen(String destinationMode, String destinationPreviousMode, String source) {
                         String targetMode = destinationMode == null || destinationMode.isBlank() ? "WIKI" : destinationMode;
+                        if (isRealProductSurface(targetMode)) {
+                            Minecraft.getInstance().setScreen(null);
+                            return dispatchNativeOpenRoute(targetMode, source);
+                        }
                         if (!dispatchNativeOpenRoute(targetMode, source)) {
                             return false;
                         }
@@ -511,6 +515,14 @@ public final class NativeLoaderGeneratedUiSources {
                                 destinationPreviousMode
                         ));
                         return true;
+                    }
+
+                    private boolean isRealProductSurface(String destinationMode) {
+                        String mode = destinationMode == null ? "" : destinationMode.toUpperCase(java.util.Locale.ROOT);
+                        return switch (mode) {
+                            case "TERMINAL", "INDEX", "LENS", "HOLOMAP", "HUD", "MACHINE", "SIGNALOS" -> true;
+                            default -> false;
+                        };
                     }
 
                     private boolean dispatchGeneratedDashboardRoute(String actionId, String eventType) {
@@ -945,7 +957,7 @@ public final class NativeLoaderGeneratedUiSources {
                         graphics.fill(x + 1, y + 1, x + panelW - 1, y + 24, theme.color("panelAlt"));
                         graphics.text(font, theme.token("loadingTitle"), x + 14, y + 8, theme.color("identity"), false);
                         graphics.text(font, theme.token("identityLabel") + "  theme=" + theme.id(), x + 14, y + 40, theme.color("text"), false);
-                        graphics.text(font, theme.token("consolePrompt") + " initializing native route table", x + 14, y + 58, theme.color("mutedText"), false);
+                        graphics.text(font, theme.token("consolePrompt") + " syncing Ashfall route table", x + 14, y + 58, theme.color("mutedText"), false);
                         int barX = x + 14;
                         int barY = y + 84;
                         int barW = panelW - 28;

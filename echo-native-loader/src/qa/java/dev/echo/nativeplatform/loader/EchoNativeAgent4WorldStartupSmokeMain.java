@@ -25,9 +25,11 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
         String previousName = System.getProperty("echo.native.productWorldName");
         String previousDatapack = System.getProperty("echo.native.productWorldDatapack");
         String previousGameMode = System.getProperty("echo.native.productWorldGameMode");
+        String previousAutoOpen = System.getProperty("echo.native.productWorldAutoOpen");
         String previousModuleClasspath = System.getProperty("echo.native.moduleClasspath");
         try {
             requireFreshProductWorldPlan();
+            requireWorldStartupFlowAcceptsLauncherPackId();
             requireMarkedProductWorldReopenPlan();
             requireDispatchRejectsUnsafeOrStalePlans();
             requireUnsafeProductWorldFolderGuard();
@@ -51,6 +53,7 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
             restore("echo.native.productWorldName", previousName);
             restore("echo.native.productWorldDatapack", previousDatapack);
             restore("echo.native.productWorldGameMode", previousGameMode);
+            restore("echo.native.productWorldAutoOpen", previousAutoOpen);
             restore("echo.native.moduleClasspath", previousModuleClasspath);
         }
     }
@@ -126,6 +129,24 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
                 "fresh product marker should record the forced world preset");
         require(marker.contains("\"ownedBy\": \"NativeLoaderAshfallWorldStartupService\""),
                 "fresh product marker should record Native Loader world startup ownership");
+    }
+
+    private static void requireWorldStartupFlowAcceptsLauncherPackId() throws Exception {
+        Path gameDir = Files.createTempDirectory("echo-agent4-world-startup-launcher-id");
+        configure("agent4_launcher_id_world", "Agent 4 Launcher Ashfall", "agent4-launcher-id-datapack.zip", "survival");
+        System.setProperty("echo.native.productWorldAutoOpen", "true");
+        writeValidDatapack(gameDir.resolve("echo-native").resolve("worldgen").resolve("agent4-launcher-id-datapack.zip"));
+
+        NativeLoaderWorldStartupFlow flow = new NativeLoaderWorldStartupFlow("echo.native.gameDir");
+        Map<String, Object> bridge = flow.apply("ashfall-native-edition", List.of("--gameDir", gameDir.toString()));
+        require(Boolean.TRUE.equals(bridge.get("ashfallProduct")),
+                "launcher Ashfall Native pack id should be recognized as an Ashfall product");
+        require(Boolean.TRUE.equals(bridge.get("applied")),
+                "launcher Ashfall Native pack id should apply the product world startup bridge");
+        require(Boolean.TRUE.equals(bridge.get("productWorldMarkerWritten")),
+                "launcher Ashfall Native pack id should write the product world marker");
+        require(Boolean.TRUE.equals(bridge.get("stagedDatapackReady")),
+                "launcher Ashfall Native pack id should stage the product datapack");
     }
 
     private static void requireMarkedProductWorldReopenPlan() throws Exception {
@@ -507,6 +528,8 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
         boolean unsafeRegistryIdsPresent = false;
         boolean unsafeUserLogRegistryRefsPresent = false;
         boolean legacyUnboundMinecraftWorldgenIdsPresent = false;
+        boolean sawBiomePlacedFeatureFixture = false;
+        boolean biomePlacedFeatureIdsPreserved = false;
         boolean adaptNoisePresent = false;
         boolean structureReadmePresent = false;
         try (ZipFile zip = new ZipFile(datapack.toFile())) {
@@ -532,20 +555,28 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
                     if ("pack.mcmeta".equals(name)) {
                         packMcmeta = text;
                     }
+                    if ("data/echoashfallprotocol/worldgen/biome/ruined_plains.json".equals(name)) {
+                        sawBiomePlacedFeatureFixture = true;
+                        biomePlacedFeatureIdsPreserved = text.contains("\"echoashfallprotocol:rusty_wheat\"")
+                                && text.contains("\"echoashfallprotocol:ash_bushes\"")
+                                && !text.contains("\"minecraft:dead_bush\"");
+                    }
                     adaptNoisePresent |= text.contains("\"adapt_noise\"");
-                    unsafeRegistryIdsPresent |= text.contains("echoblockworks:")
-                            || text.contains("\"minecraft:chain\"");
-                    unsafeUserLogRegistryRefsPresent |= text.contains("minecraft:iron_bars_command_block")
-                            || text.contains("minecraft:iron_barss")
-                            || text.contains("\"echoashfallprotocol:wasteland_stone\"")
-                            || text.contains("\"echoashfallprotocol:debris_block\"")
-                            || text.contains("\"echoashfallprotocol:toxic_puddle\"")
-                            || text.contains("\"echoashfallprotocol:toxic_moss\"")
-                            || text.contains("\"#echoashfallprotocol:toxic_puddle\"")
-                            || text.contains("\"#echoashfallprotocol:toxic_moss\"");
-                    legacyUnboundMinecraftWorldgenIdsPresent |= NativeLoaderAshfallWorldStartupService
-                            .LEGACY_UNBOUND_MINECRAFT_WORLDGEN_FEATURE_IDS.stream()
-                            .anyMatch(id -> text.contains("\"" + id + "\""));
+                    if (isWorldgenOrTagJson(name)) {
+                        unsafeRegistryIdsPresent |= text.contains("echoblockworks:")
+                                || text.contains("\"minecraft:chain\"");
+                        unsafeUserLogRegistryRefsPresent |= text.contains("minecraft:iron_bars_command_block")
+                                || text.contains("minecraft:iron_barss")
+                                || text.contains("\"echoashfallprotocol:wasteland_stone\"")
+                                || text.contains("\"echoashfallprotocol:debris_block\"")
+                                || text.contains("\"echoashfallprotocol:toxic_puddle\"")
+                                || text.contains("\"echoashfallprotocol:toxic_moss\"")
+                                || text.contains("\"#echoashfallprotocol:toxic_puddle\"")
+                                || text.contains("\"#echoashfallprotocol:toxic_moss\"");
+                        legacyUnboundMinecraftWorldgenIdsPresent |= NativeLoaderAshfallWorldStartupService
+                                .LEGACY_UNBOUND_MINECRAFT_WORLDGEN_FEATURE_IDS.stream()
+                                .anyMatch(id -> text.contains("\"" + id + "\""));
+                    }
                 }
             }
         }
@@ -557,6 +588,12 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
                 "packaged Ashfall datapack should include mirrored vanilla normal world preset");
         require(names.contains("data/echoashfallprotocol/worldgen/world_preset/ashfall_wasteland.json"),
                 "packaged Ashfall datapack should include Ashfall product world preset");
+        require(names.contains("data/echoashfallprotocol/missioncore/chapters/ashfall_crash_landing.json"),
+                "packaged Ashfall datapack should include the crash landing MissionCore chapter");
+        require(names.contains("data/echoashfallprotocol/missioncore/chapters/ashfall_major_routes.json"),
+                "packaged Ashfall datapack should include the major routes MissionCore chapter");
+        require(names.contains("data/echoashfallprotocol/missioncore/missions/secure_crash_outpost.json"),
+                "packaged Ashfall datapack should include the first Ashfall MissionCore route");
         require(structureTemplatePresent,
                 "packaged Ashfall datapack should include mirrored plural structure templates");
         require(!structureReadmePresent,
@@ -569,6 +606,15 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
                 "packaged Ashfall datapack should sanitize user-log missing registry refs from JSON output");
         require(!legacyUnboundMinecraftWorldgenIdsPresent,
                 "packaged Ashfall datapack should not reference unbound legacy minecraft worldgen feature ids");
+        require(!sawBiomePlacedFeatureFixture || biomePlacedFeatureIdsPreserved,
+                "packaged Ashfall biome datapack entries should preserve product placed-feature ids and avoid block-id stand-ins");
+    }
+
+    private static boolean isWorldgenOrTagJson(String name) {
+        return name.startsWith("data/echoashfallprotocol/worldgen/")
+                || name.startsWith("data/echoashfallprotocol/tags/block/")
+                || name.startsWith("data/minecraft/worldgen/")
+                || name.startsWith("data/minecraft/tags/block/");
     }
 
     private static void writeValidDatapack(Path zipPath) throws Exception {
@@ -590,6 +636,7 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
         entries.put("data/minecraft/worldgen/world_preset/normal.json", "{}");
         entries.put("data/echoashfallprotocol/worldgen/noise_settings/wasteland_overworld.json", "{}");
         entries.put("data/echoashfallprotocol/worldgen/biome/the_wasteland.json", "{}");
+        putRequiredMissionEntries(entries);
         try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(zipPath))) {
             for (Map.Entry<String, String> entry : entries.entrySet()) {
                 output.putNextEntry(new ZipEntry(entry.getKey()));
@@ -608,6 +655,19 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
         entries.put("data/minecraft/worldgen/world_preset/normal.json", "{}");
         entries.put("data/echoashfallprotocol/worldgen/noise_settings/wasteland_overworld.json", "{}");
         entries.put("data/echoashfallprotocol/worldgen/biome/the_wasteland.json", "{}");
+        putRequiredMissionEntries(entries);
+        entries.put("data/echoashfallprotocol/worldgen/biome/ruined_plains.json", """
+                {
+                  "features": [
+                    [],
+                    [
+                      "echoashfallprotocol:rusty_wheat",
+                      "minecraft:dead_bush_patch"
+                    ]
+                  ],
+                  "spawners": {}
+                }
+                """);
         entries.put("data/echoashfallprotocol/worldgen/structure/bundled_probe.json", """
                 {
                   "type": "minecraft:jigsaw",
@@ -706,6 +766,7 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
         entries.put("data/minecraft/worldgen/world_preset/normal.json", "{}");
         entries.put("data/echoashfallprotocol/worldgen/noise_settings/wasteland_overworld.json", "{}");
         entries.put("data/echoashfallprotocol/worldgen/biome/the_wasteland.json", "{}");
+        putRequiredMissionEntries(entries);
         entries.put("data/echoashfallprotocol/worldgen/processor_list/unsafe_native_registry.json", """
                 {
                   "processors": [
@@ -740,6 +801,38 @@ public final class EchoNativeAgent4WorldStartupSmokeMain {
                 output.closeEntry();
             }
         }
+    }
+
+    private static void putRequiredMissionEntries(Map<String, String> entries) {
+        entries.put("data/echoashfallprotocol/missioncore/chapters/ashfall_crash_landing.json", """
+                {
+                  "id": "echoashfallprotocol:ashfall_crash_landing",
+                  "title": "Crash Landing",
+                  "description": "Recover from the opening Ashfall impact.",
+                  "missions": [
+                    "echoashfallprotocol:secure_crash_outpost"
+                  ]
+                }
+                """);
+        entries.put("data/echoashfallprotocol/missioncore/chapters/ashfall_major_routes.json", """
+                {
+                  "id": "echoashfallprotocol:ashfall_major_routes",
+                  "title": "Major Routes",
+                  "description": "Restore the main Ashfall survival routes.",
+                  "missions": [
+                    "echoashfallprotocol:secure_crash_outpost"
+                  ]
+                }
+                """);
+        entries.put("data/echoashfallprotocol/missioncore/missions/secure_crash_outpost.json", """
+                {
+                  "id": "echoashfallprotocol:secure_crash_outpost",
+                  "title": "Secure Crash Outpost",
+                  "description": "Bring the first survival outpost online.",
+                  "chapter": "echoashfallprotocol:ashfall_crash_landing",
+                  "objectives": []
+                }
+                """);
     }
 
     private static void configure(String folder, String name, String datapack, String gameMode) {

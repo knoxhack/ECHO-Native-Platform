@@ -43,6 +43,7 @@ public final class NativeLoaderClient {
             throw new IllegalStateException("Native bootstrap was requested but disabled by -D"
                     + BOOTSTRAP_ENABLED_PROPERTY + "=false.");
         }
+        EchoNativeDevDirectWorldPromptBypass.startIfEnabled();
         Class<?> bootstrapMain = bootstrapMainClass();
         System.setProperty(BOOTSTRAP_AUTHORIZED_HANDOFF_PROPERTY, BOOTSTRAP_AUTHORIZED_HANDOFF_VALUE);
         System.out.println("[ECHO Native Loader] Starting native bootstrap handoff.");
@@ -53,6 +54,7 @@ public final class NativeLoaderClient {
     }
 
     private static void invokeMinecraftMain(String mainClassName, String[] args) throws Exception {
+        EchoNativeDevDirectWorldPromptBypass.startIfEnabled();
         System.out.println("[ECHO Native Loader] Starting Minecraft client handoff.");
         System.out.println("[ECHO Native Loader] Target main class: " + mainClassName);
         System.out.println("[ECHO Native Loader] Arguments: " + Arrays.toString(redactedArguments(args)));

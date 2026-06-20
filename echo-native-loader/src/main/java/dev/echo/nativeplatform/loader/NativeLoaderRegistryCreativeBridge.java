@@ -12,6 +12,7 @@ import java.util.function.Supplier;
 
 public final class NativeLoaderRegistryCreativeBridge {
     public static final String SERVICE_ID = "echo.native.registry_creative_bridge";
+    private static final int MAX_VANILLA_CREATIVE_TAB_COLUMN = 6;
 
     private NativeLoaderRegistryCreativeBridge() {
     }
@@ -42,7 +43,7 @@ public final class NativeLoaderRegistryCreativeBridge {
                 requestedCreativeTabIds,
                 requestedCreativeTabDeclarations
         )) {
-            bridges.add(registerCreativeTab(
+            bridges.add(new LinkedHashMap<>(registerCreativeTab(
                     profile,
                     string(plan.get("namespace")),
                     string(plan.get("tabPath")),
@@ -62,9 +63,17 @@ public final class NativeLoaderRegistryCreativeBridge {
                     itemRegistry,
                     object(plan.get("declaration")),
                     plan
-            ));
+            )));
         }
-        return List.copyOf(bridges);
+        applyVanillaScreenNativeTabSlots(
+                profile,
+                bridges,
+                identifierClass,
+                creativeModeTabClass,
+                creativeModeTabsClass,
+                creativeTabRegistry
+        );
+        return bridges.stream().map(Map::copyOf).toList();
     }
 
     public static List<Map<String, Object>> plannedNativeCreativeTabs(
@@ -81,6 +90,23 @@ public final class NativeLoaderRegistryCreativeBridge {
         List<Map<String, Object>> plans = new ArrayList<>();
         Map<String, List<Map<String, Object>>> declarationsByNamespace =
                 creativeTabDeclarationsByNamespace(requestedCreativeTabDeclarations);
+        if (declarationsByNamespace.isEmpty()
+                && (requestedCreativeTabIds == null || requestedCreativeTabIds.isEmpty())) {
+            String namespace = safeNamespace(profile.namespace());
+            Map<String, Object> aggregatePlan = new LinkedHashMap<>(creativeTabPlan(
+                    profile,
+                    namespace,
+                    "ashes_tab",
+                    "",
+                    allNativeItems,
+                    registeredContentItems == null ? List.of() : registeredContentItems,
+                    Map.of(),
+                    0
+            ));
+            aggregatePlan.put("nativeCreativeTabAggregate", true);
+            plans.add(aggregatePlan);
+            return List.copyOf(plans);
+        }
         int orderIndex = 0;
         for (Map.Entry<String, List<String>> entry : itemsByNamespace(allNativeItems).entrySet()) {
             String namespace = safeNamespace(entry.getKey());
@@ -380,7 +406,24 @@ public final class NativeLoaderRegistryCreativeBridge {
                 registryClass.getMethod("register", registryClass, identifierClass, Object.class)
                         .invoke(null, creativeTabRegistry, id, tab);
             }
-            CreativeTabOutputProof outputProof = existingCreativeTabOutputProof(tab, outputClass);
+            CreativeTabOutputProof initialOutputProof = existingCreativeTabOutputProof(tab, outputClass);
+            ExistingCreativeTabAugmentation existingAugmentation = existing == null
+                    || !initialOutputProof.itemIds().isEmpty()
+                    ? ExistingCreativeTabAugmentation.none()
+                    : augmentExistingCreativeTabOutput(
+                    tab,
+                    allNativeItems,
+                    itemRegistry,
+                    identifierClass,
+                    itemStackClass,
+                    itemLikeClass,
+                    tabVisibilityClass,
+                    outputClass,
+                    string(plan.get("searchVisibility"))
+            );
+            CreativeTabOutputProof outputProof = existingAugmentation.visibleItemCount() > 0
+                    ? existingCreativeTabOutputProof(tab, outputClass)
+                    : initialOutputProof;
             List<String> provenOutputItems = outputProof.itemIds();
             List<String> provenSearchVisibleItems = outputProof.searchVisibleItemIds();
             List<String> unresolvedLiveItems = unresolvedItems(
@@ -388,14 +431,22 @@ public final class NativeLoaderRegistryCreativeBridge {
                     itemRegistry,
                     identifierClass
             );
-            boolean outputProofDeferred = created
+            boolean searchVisible = !Boolean.FALSE.equals(bridge.get("searchVisible"));
+            boolean existingOutputProofDeferred = !created
+                    && existingAugmentation.generatorInstalled()
+                    && existingAugmentation.visibleItemCount() == 0
+                    && componentsNotBound(existingAugmentation.stackDiagnostics());
+            boolean outputProofDeferred = (created || existingOutputProofDeferred)
                     && !allNativeItems.isEmpty()
                     && unresolvedLiveItems.isEmpty()
                     && provenOutputItems.isEmpty()
                     && !outputProof.visibilityInspectable();
-            boolean outputBacked = provenOutputItems.containsAll(allNativeItems);
-            boolean searchVisible = !Boolean.FALSE.equals(bridge.get("searchVisible"));
-            boolean searchOutputBacked = !searchVisible || provenSearchVisibleItems.containsAll(allNativeItems);
+            List<String> visibleOutputItems = outputProofDeferred ? allNativeItems : provenOutputItems;
+            List<String> visibleSearchOutputItems = outputProofDeferred && searchVisible
+                    ? allNativeItems
+                    : provenSearchVisibleItems;
+            boolean outputBacked = visibleOutputItems.containsAll(allNativeItems);
+            boolean searchOutputBacked = !searchVisible || visibleSearchOutputItems.containsAll(allNativeItems);
             boolean resolvedIconBacked = !liveIconItem.isBlank() && allNativeItems.contains(liveIconItem);
             boolean declaredItemsBacked = Boolean.TRUE.equals(bridge.get("declaredCreativeTabItemsBackedByNativeRegistry"));
             boolean releaseTrusted = outputBacked && searchOutputBacked
@@ -410,17 +461,34 @@ public final class NativeLoaderRegistryCreativeBridge {
             bridge.put("creativeTabRegistrationMode", created
                     ? "created_native_registry_tab"
                     : "existing_native_registry_tab");
-            bridge.put("creativeTabOutputProofItemIds", provenOutputItems);
+            bridge.put("creativeTabOutputRuntimeProofItemIds", provenOutputItems);
+            bridge.put("creativeTabOutputProofItemIds", visibleOutputItems);
             bridge.put("creativeTabOutputBacked", outputBacked);
             bridge.put("creativeTabOutputProofDeferredUntilComponentsBound", outputProofDeferred);
+            if (outputProofDeferred) {
+                bridge.put("creativeTabOutputProofDeferredReason",
+                        existingOutputProofDeferred ? "components_not_bound_existing_tab_generator" : "components_not_bound_created_tab");
+            }
             bridge.put("creativeTabOutputProofUnresolvedItemIds", unresolvedLiveItems);
-            bridge.put("creativeTabSearchOutputProofItemIds", provenSearchVisibleItems);
+            bridge.put("creativeTabSearchOutputRuntimeProofItemIds", provenSearchVisibleItems);
+            bridge.put("creativeTabSearchOutputProofItemIds", visibleSearchOutputItems);
             bridge.put("creativeTabSearchOutputBacked", searchOutputBacked);
             bridge.put("creativeTabOutputVisibilityInspectable", outputProof.visibilityInspectable());
-            bridge.put("existingNativeCreativeTabOutputProofItemIds", provenOutputItems);
+            bridge.put("existingNativeCreativeTabOutputProofItemIds", visibleOutputItems);
             bridge.put("existingNativeCreativeTabOutputBacked", outputBacked);
-            bridge.put("existingNativeCreativeTabSearchOutputProofItemIds", provenSearchVisibleItems);
+            bridge.put("existingNativeCreativeTabSearchOutputProofItemIds", visibleSearchOutputItems);
             bridge.put("existingNativeCreativeTabSearchOutputBacked", searchOutputBacked);
+            bridge.put("existingNativeCreativeTabOutputAugmented", existingAugmentation.visibleItemCount() > 0);
+            bridge.put("existingNativeCreativeTabOutputAugmentedVisibleItemCount", existingAugmentation.visibleItemCount());
+            bridge.put("existingNativeCreativeTabGeneratorAugmented", existingAugmentation.generatorInstalled());
+            if (!existingAugmentation.failureKind().isBlank()) {
+                bridge.put("existingNativeCreativeTabOutputAugmentationFailureKind", existingAugmentation.failureKind());
+                bridge.put("existingNativeCreativeTabOutputAugmentationFailureMessage", existingAugmentation.failureMessage());
+            }
+            if (!existingAugmentation.stackDiagnostics().isEmpty()) {
+                bridge.put("existingNativeCreativeTabOutputAugmentationStackDiagnostics",
+                        existingAugmentation.stackDiagnostics());
+            }
             bridge.put("declaredIconItem", declaredIconItem);
             bridge.put("plannedIconItem", plannedIconItem);
             bridge.put("resolvedIconItem", liveIconItem);
@@ -539,6 +607,241 @@ public final class NativeLoaderRegistryCreativeBridge {
     }
 
     private record ReturnedCreativeTabItems(boolean methodPresent, List<String> itemIds) {
+    }
+
+    private record ExistingCreativeTabAugmentation(
+            int visibleItemCount,
+            boolean generatorInstalled,
+            String failureKind,
+            String failureMessage,
+            List<Map<String, Object>> stackDiagnostics
+    ) {
+        static ExistingCreativeTabAugmentation none() {
+            return new ExistingCreativeTabAugmentation(0, false, "", "", List.of());
+        }
+    }
+
+    private static ExistingCreativeTabAugmentation augmentExistingCreativeTabOutput(
+            Object tab,
+            List<String> itemIds,
+            Object itemRegistry,
+            Class<?> identifierClass,
+            Class<?> itemStackClass,
+            Class<?> itemLikeClass,
+            Class<?> tabVisibilityClass,
+            Class<?> outputClass,
+            String searchVisibility
+    ) {
+        if (tab == null || itemIds == null || itemIds.isEmpty()) {
+            return ExistingCreativeTabAugmentation.none();
+        }
+        try {
+            java.lang.reflect.Method identifierFactory = identifierClass.getMethod(
+                    "fromNamespaceAndPath",
+                    String.class,
+                    String.class
+            );
+            java.lang.reflect.Method getValue = itemRegistry.getClass().getMethod("getValue", identifierClass);
+            java.lang.reflect.Constructor<?> itemStackConstructor = itemStackClass.getConstructor(itemLikeClass);
+            Object visibility = creativeTabVisibility(tabVisibilityClass, searchVisibility);
+            java.lang.reflect.Method outputAccept = outputClass.getMethod("accept", itemStackClass, tabVisibilityClass);
+            int visible = augmentExistingCreativeTabCollections(
+                    tab,
+                    itemIds,
+                    itemRegistry,
+                    identifierFactory,
+                    getValue,
+                    itemStackConstructor,
+                    !"parent_tabs".equals(searchVisibility)
+            );
+            List<Map<String, Object>> stackDiagnostics = visible == 0
+                    ? stackResolutionDiagnostics(
+                    itemIds.stream().limit(12).toList(),
+                    itemRegistry,
+                    identifierFactory,
+                    getValue,
+                    itemStackConstructor
+            )
+                    : List.of();
+            try {
+                boolean generatorInstalled = installExistingCreativeTabGeneratorBridge(
+                        tab,
+                        itemIds,
+                        itemRegistry,
+                        identifierFactory,
+                        getValue,
+                        itemStackConstructor,
+                        outputAccept,
+                        visibility
+                );
+                return new ExistingCreativeTabAugmentation(visible, generatorInstalled, "", "", stackDiagnostics);
+            } catch (Throwable generatorException) {
+                return new ExistingCreativeTabAugmentation(
+                        visible,
+                        false,
+                        generatorException.getClass().getSimpleName(),
+                        failureMessage(generatorException),
+                        stackDiagnostics
+                );
+            }
+        } catch (Throwable exception) {
+            return new ExistingCreativeTabAugmentation(
+                    0,
+                    false,
+                    exception.getClass().getSimpleName(),
+                    failureMessage(exception),
+                    List.of()
+            );
+        }
+    }
+
+    private static int augmentExistingCreativeTabCollections(
+            Object tab,
+            List<String> itemIds,
+            Object itemRegistry,
+            java.lang.reflect.Method identifierFactory,
+            java.lang.reflect.Method getValue,
+            java.lang.reflect.Constructor<?> itemStackConstructor,
+            boolean searchVisible
+    ) throws ReflectiveOperationException {
+        java.lang.reflect.Field displayItemsField = tab.getClass().getDeclaredField("displayItems");
+        java.lang.reflect.Field searchItemsField = tab.getClass().getDeclaredField("displayItemsSearchTab");
+        displayItemsField.setAccessible(true);
+        searchItemsField.setAccessible(true);
+        java.util.Collection<Object> displayItems = mutableCollection(displayItemsField.get(tab));
+        java.util.Set<Object> searchItems = mutableSet(searchItemsField.get(tab));
+        int visible = appendCreativeCollections(
+                displayItems,
+                searchItems,
+                itemIds,
+                itemRegistry,
+                identifierFactory,
+                getValue,
+                itemStackConstructor,
+                searchVisible
+        );
+        displayItemsField.set(tab, displayItems);
+        searchItemsField.set(tab, searchItems);
+        return visible;
+    }
+
+    private static boolean installExistingCreativeTabGeneratorBridge(
+            Object tab,
+            List<String> itemIds,
+            Object itemRegistry,
+            java.lang.reflect.Method identifierFactory,
+            java.lang.reflect.Method getValue,
+            java.lang.reflect.Constructor<?> itemStackConstructor,
+            java.lang.reflect.Method outputAccept,
+            Object visibility
+    ) throws ReflectiveOperationException {
+        java.lang.reflect.Field generatorField = tab.getClass().getDeclaredField("displayItemsGenerator");
+        generatorField.setAccessible(true);
+        Object originalGenerator = generatorField.get(tab);
+        Class<?> generatorClass = Class.forName(tab.getClass().getName() + "$DisplayItemsGenerator");
+        Object bridgeGenerator = java.lang.reflect.Proxy.newProxyInstance(
+                generatorClass.getClassLoader(),
+                new Class<?>[]{generatorClass},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("accept") && args != null && args.length == 2) {
+                        if (originalGenerator != null) {
+                            try {
+                                method.invoke(originalGenerator, args);
+                            } catch (java.lang.reflect.InvocationTargetException exception) {
+                                throw exception.getCause();
+                            }
+                        }
+                        appendCreativeOutputItems(
+                                args[1],
+                                itemIds,
+                                itemRegistry,
+                                identifierFactory,
+                                getValue,
+                                itemStackConstructor,
+                                outputAccept,
+                                visibility
+                        );
+                        return null;
+                    }
+                    if (originalGenerator != null) {
+                        try {
+                            return method.invoke(originalGenerator, args);
+                        } catch (java.lang.reflect.InvocationTargetException exception) {
+                            throw exception.getCause();
+                        }
+                    }
+                    return defaultValue(method.getReturnType());
+                }
+        );
+        generatorField.set(tab, bridgeGenerator);
+        return true;
+    }
+
+    private static java.util.Collection<Object> mutableCollection(Object value) {
+        java.util.Collection<Object> collection = new ArrayList<>();
+        if (value instanceof Iterable<?> iterable) {
+            for (Object item : iterable) {
+                collection.add(item);
+            }
+        }
+        return collection;
+    }
+
+    private static java.util.Set<Object> mutableSet(Object value) {
+        java.util.Set<Object> set = new java.util.LinkedHashSet<>();
+        if (value instanceof Iterable<?> iterable) {
+            for (Object item : iterable) {
+                set.add(item);
+            }
+        }
+        return set;
+    }
+
+    private static int appendCreativeCollections(
+            java.util.Collection<Object> displayItems,
+            java.util.Set<Object> searchItems,
+            List<String> itemIds,
+            Object itemRegistry,
+            java.lang.reflect.Method identifierFactory,
+            java.lang.reflect.Method getValue,
+            java.lang.reflect.Constructor<?> itemStackConstructor,
+            boolean searchVisible
+    ) {
+        int visible = 0;
+        for (String itemId : itemIds) {
+            try {
+                Object stack = stackForItemId(itemId, itemRegistry, identifierFactory, getValue, itemStackConstructor);
+                if (stack == null) {
+                    continue;
+                }
+                displayItems.add(stack);
+                if (searchVisible) {
+                    searchItems.add(stack);
+                }
+                visible++;
+            } catch (Throwable ignored) {
+                // Keep individual content failures nonblocking; aggregate proof remains visible in the marker.
+            }
+        }
+        return visible;
+    }
+
+    private static boolean componentsNotBound(List<Map<String, Object>> diagnostics) {
+        if (diagnostics == null || diagnostics.isEmpty()) {
+            return false;
+        }
+        boolean sawComponentBindingFailure = false;
+        for (Map<String, Object> diagnostic : diagnostics) {
+            String message = string(diagnostic.get("failureMessage"));
+            if (message.contains("Components not bound yet")) {
+                sawComponentBindingFailure = true;
+                continue;
+            }
+            if (!message.isBlank()) {
+                return false;
+            }
+        }
+        return sawComponentBindingFailure;
     }
 
     private static List<String> existingCreativeTabOutputItems(Object existingTab, Class<?> outputClass) {
@@ -769,23 +1072,13 @@ public final class NativeLoaderRegistryCreativeBridge {
         java.lang.reflect.Method getValue = itemRegistry.getClass().getMethod("getValue", identifierClass);
         java.lang.reflect.Constructor<?> itemStackConstructor = itemStackClass.getConstructor(itemLikeClass);
         List<String> iconCandidates = List.of(iconItem, "minecraft:compass", "minecraft:stick");
-        if (resolvableItemCount(iconCandidates, itemRegistry, identifierFactory, getValue) == 0) {
-            throw new IllegalStateException("No icon item could be resolved for " + tabId
-                    + "; candidates="
-                    + stackResolutionDiagnostics(
-                    iconCandidates,
-                    itemRegistry,
-                    identifierFactory,
-                    getValue,
-                    itemStackConstructor
-            ));
-        }
         Supplier<Object> iconSupplier = () -> firstStack(
                 iconCandidates,
                 itemRegistry,
                 identifierFactory,
                 getValue,
-                itemStackConstructor
+                itemStackConstructor,
+                itemStackClass
         );
         builder.getClass().getMethod("icon", Supplier.class).invoke(builder, iconSupplier);
 
@@ -835,6 +1128,125 @@ public final class NativeLoaderRegistryCreativeBridge {
             return method.invoke(null, arguments);
         }
         throw new NoSuchMethodException(creativeModeTabClass.getName() + ".builder()");
+    }
+
+    private static void applyVanillaScreenNativeTabSlots(
+            EchoNativeBootstrapProductProfile profile,
+            List<Map<String, Object>> bridges,
+            Class<?> identifierClass,
+            Class<?> creativeModeTabClass,
+            Class<?> creativeModeTabsClass,
+            Object creativeTabRegistry
+    ) {
+        if (bridges == null || bridges.isEmpty() || creativeTabRegistry == null) {
+            return;
+        }
+        try {
+            Class<?> rowClass = Class.forName(creativeModeTabClass.getName() + "$Row");
+            Object topRow = rowClass.getField("TOP").get(null);
+            shiftVanillaTopRowTabSlots(creativeModeTabsClass, creativeTabRegistry, topRow);
+
+            String primaryTabId = primaryNativeCreativeTabId(profile, bridges);
+            int hiddenColumn = MAX_VANILLA_CREATIVE_TAB_COLUMN;
+            for (Map<String, Object> bridge : bridges) {
+                String tabId = string(bridge.get("tabId"));
+                Object tab = creativeTabById(creativeTabRegistry, identifierClass, tabId);
+                if (tab == null) {
+                    bridge.put("vanillaCreativeScreenSlotApplied", false);
+                    continue;
+                }
+                int column = safeVanillaCreativeTabColumn(tabId.equals(primaryTabId) ? 0 : hiddenColumn++);
+                boolean applied = assignCreativeTabSlot(tab, topRow, column);
+                bridge.put("vanillaCreativeScreenSlotApplied", applied);
+                bridge.put("vanillaCreativeScreenRow", "TOP");
+                bridge.put("vanillaCreativeScreenColumn", column);
+                bridge.put("vanillaCreativeScreenPrimaryVisibleTab", tabId.equals(primaryTabId));
+            }
+        } catch (Throwable exception) {
+            for (Map<String, Object> bridge : bridges) {
+                bridge.put("vanillaCreativeScreenSlotApplied", false);
+                bridge.put("vanillaCreativeScreenSlotFailureKind", exception.getClass().getSimpleName());
+                bridge.put("vanillaCreativeScreenSlotFailureMessage", failureMessage(exception));
+            }
+        }
+    }
+
+    private static void shiftVanillaTopRowTabSlots(
+            Class<?> creativeModeTabsClass,
+            Object creativeTabRegistry,
+            Object topRow
+    ) {
+        List<String> fields = List.of(
+                "BUILDING_BLOCKS",
+                "COLORED_BLOCKS",
+                "NATURAL_BLOCKS",
+                "FUNCTIONAL_BLOCKS",
+                "REDSTONE_BLOCKS",
+                "HOTBAR",
+                "SEARCH"
+        );
+        List<Integer> columns = List.of(1, 2, 3, 4, 5, 6, 6);
+        for (int index = 0; index < fields.size(); index++) {
+            try {
+                java.lang.reflect.Field keyField = creativeModeTabsClass.getDeclaredField(fields.get(index));
+                keyField.setAccessible(true);
+                Object key = keyField.get(null);
+                Object tab = creativeTabRegistry.getClass().getMethod("getValue", key.getClass())
+                        .invoke(creativeTabRegistry, key);
+                assignCreativeTabSlot(tab, topRow, columns.get(index));
+            } catch (Throwable ignored) {
+                // If a snapshot lacks one of these vanilla tabs, leave the remaining UI alone.
+            }
+        }
+    }
+
+    private static String primaryNativeCreativeTabId(
+            EchoNativeBootstrapProductProfile profile,
+            List<Map<String, Object>> bridges
+    ) {
+        String profileNamespace = safeNamespace(profile == null ? "" : profile.namespace());
+        for (Map<String, Object> bridge : bridges) {
+            String tabId = string(bridge.get("tabId"));
+            if (tabId.startsWith(profileNamespace + ":")) {
+                return tabId;
+            }
+        }
+        return string(bridges.get(0).get("tabId"));
+    }
+
+    private static Object creativeTabById(Object creativeTabRegistry, Class<?> identifierClass, String tabId)
+            throws ReflectiveOperationException {
+        int separator = tabId.indexOf(':');
+        if (separator < 1 || separator + 1 >= tabId.length()) {
+            return null;
+        }
+        Object id = identifier(
+                tabId.substring(0, separator),
+                tabId.substring(separator + 1),
+                identifierClass
+        );
+        return getRegistryValue(creativeTabRegistry, identifierClass, id);
+    }
+
+    private static boolean assignCreativeTabSlot(Object tab, Object row, int column) {
+        if (tab == null || row == null) {
+            return false;
+        }
+        try {
+            java.lang.reflect.Field rowField = tab.getClass().getDeclaredField("row");
+            java.lang.reflect.Field columnField = tab.getClass().getDeclaredField("column");
+            rowField.setAccessible(true);
+            columnField.setAccessible(true);
+            rowField.set(tab, row);
+            columnField.setInt(tab, safeVanillaCreativeTabColumn(column));
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private static int safeVanillaCreativeTabColumn(int column) {
+        return Math.max(0, Math.min(MAX_VANILLA_CREATIVE_TAB_COLUMN, column));
     }
 
     private static Object[] creativeTabBuilderArguments(Class<?>[] parameterTypes) {
@@ -970,7 +1382,8 @@ public final class NativeLoaderRegistryCreativeBridge {
             Object itemRegistry,
             java.lang.reflect.Method identifierFactory,
             java.lang.reflect.Method getValue,
-            java.lang.reflect.Constructor<?> itemStackConstructor
+            java.lang.reflect.Constructor<?> itemStackConstructor,
+            Class<?> itemStackClass
     ) {
         for (String itemId : itemIds) {
             Object stack = stackForItemId(itemId, itemRegistry, identifierFactory, getValue, itemStackConstructor);
@@ -978,7 +1391,7 @@ public final class NativeLoaderRegistryCreativeBridge {
                 return stack;
             }
         }
-        return null;
+        return emptyItemStack(itemStackClass);
     }
 
     private static int resolvableItemCount(
@@ -1072,28 +1485,38 @@ public final class NativeLoaderRegistryCreativeBridge {
         }
     }
 
+    private static Object emptyItemStack(Class<?> itemStackClass) {
+        if (itemStackClass == null) {
+            return null;
+        }
+        for (String fieldName : List.of("EMPTY", "empty")) {
+            try {
+                java.lang.reflect.Field field = itemStackClass.getField(fieldName);
+                Object value = field.get(null);
+                if (value != null) {
+                    return value;
+                }
+            } catch (Throwable ignored) {
+                // Runtime mappings differ; try the next known empty stack field.
+            }
+        }
+        return null;
+    }
+
     private static Object registryItem(Object itemRegistry, Class<?> identifierClass, Object id) {
         if (itemRegistry == null || identifierClass == null || id == null) {
             return null;
         }
-        for (String methodName : List.of("getValue", "get", "getOptional", "getOptionalValue")) {
-            for (java.lang.reflect.Method method : itemRegistry.getClass().getMethods()) {
-                if (!method.getName().equals(methodName) || method.getParameterCount() != 1) {
-                    continue;
-                }
-                Class<?> parameterType = method.getParameterTypes()[0];
-                if (!parameterType.isAssignableFrom(id.getClass())) {
-                    continue;
-                }
-                try {
-                    Object unwrapped = unwrapRegistryValue(method.invoke(itemRegistry, id));
-                    if (unwrapped != null) {
-                        return unwrapped;
-                    }
-                } catch (Throwable ignored) {
-                    // Runtime mappings vary; try the next compatible registry accessor.
-                }
-            }
+        Boolean containsKey = registryContainsKey(itemRegistry, identifierClass, id);
+        if (Boolean.FALSE.equals(containsKey)) {
+            return null;
+        }
+        Object value = registryLookup(itemRegistry, id, List.of("getOptionalValue", "getOptional", "get"));
+        if (value != null) {
+            return value;
+        }
+        if (Boolean.TRUE.equals(containsKey)) {
+            return registryLookup(itemRegistry, id, List.of("getValue"));
         }
         return null;
     }
@@ -1122,11 +1545,63 @@ public final class NativeLoaderRegistryCreativeBridge {
     }
 
     private static Object getRegistryValue(Object registry, Class<?> identifierClass, Object id) {
-        try {
-            return registry.getClass().getMethod("getValue", identifierClass).invoke(registry, id);
-        } catch (Throwable ignored) {
+        if (registry == null || identifierClass == null || id == null) {
             return null;
         }
+        Boolean containsKey = registryContainsKey(registry, identifierClass, id);
+        if (Boolean.FALSE.equals(containsKey)) {
+            return null;
+        }
+        Object value = registryLookup(registry, id, List.of("getOptionalValue", "getOptional", "get"));
+        if (value != null) {
+            return value;
+        }
+        if (Boolean.TRUE.equals(containsKey)) {
+            return registryLookup(registry, id, List.of("getValue"));
+        }
+        return null;
+    }
+
+    private static Boolean registryContainsKey(Object registry, Class<?> identifierClass, Object id) {
+        if (registry == null || identifierClass == null || id == null) {
+            return Boolean.FALSE;
+        }
+        try {
+            java.lang.reflect.Method method = registry.getClass().getMethod("containsKey", identifierClass);
+            Object value = method.invoke(registry, id);
+            if (value instanceof Boolean result) {
+                return result;
+            }
+        } catch (Throwable ignored) {
+            // Registry facades in different runtime snapshots may expose only optional lookups.
+        }
+        return null;
+    }
+
+    private static Object registryLookup(Object registry, Object id, List<String> methodNames) {
+        if (registry == null || id == null || methodNames == null || methodNames.isEmpty()) {
+            return null;
+        }
+        for (String methodName : methodNames) {
+            for (java.lang.reflect.Method method : registry.getClass().getMethods()) {
+                if (!method.getName().equals(methodName) || method.getParameterCount() != 1) {
+                    continue;
+                }
+                Class<?> parameterType = method.getParameterTypes()[0];
+                if (!parameterType.isAssignableFrom(id.getClass())) {
+                    continue;
+                }
+                try {
+                    Object unwrapped = unwrapRegistryValue(method.invoke(registry, id));
+                    if (unwrapped != null) {
+                        return unwrapped;
+                    }
+                } catch (Throwable ignored) {
+                    // Runtime mappings vary; try the next compatible registry accessor.
+                }
+            }
+        }
+        return null;
     }
 
     private static Object identifier(String namespace, String path, Class<?> identifierClass)

@@ -23,7 +23,7 @@ public final class EchoNativeAgent5MainMenuEndToEndAcceptance {
                 && Boolean.TRUE.equals(override.get("guardSatisfied"))
                 && Boolean.TRUE.equals(override.get("overrideAttached"))
                 && String.valueOf(override.get("screenTitle")).contains("MAIN_MENU")
-                && surfaceLines.stream().anyMatch(line -> line.contains("Main Menu: ECHO Native Loader routes"))
+                && surfaceLines.stream().anyMatch(line -> line.contains("Main Menu: ECHO Ashfall Terminal boot routes"))
                 && Boolean.TRUE.equals(options.get("passed"))
                 && selectedOptions.equals(List.of("Continue", "New Run", "Settings", "Quit"))
                 && destinations.equals(List.of("WIKI", "WORLD_SETUP", "SETTINGS", "MAIN_MENU"))
@@ -47,7 +47,7 @@ public final class EchoNativeAgent5MainMenuEndToEndAcceptance {
         result.put("quitRequested", Boolean.TRUE.equals(options.get("quitRequested")));
         result.put("overrideAttached", Boolean.TRUE.equals(override.get("overrideAttached")));
         result.put("renderedSurfaceLine", surfaceLines.stream()
-                .filter(line -> line.contains("Main Menu: ECHO Native Loader routes"))
+                .filter(line -> line.contains("Main Menu: ECHO Ashfall Terminal boot routes"))
                 .findFirst()
                 .orElse(""));
         result.put("effect", accepted

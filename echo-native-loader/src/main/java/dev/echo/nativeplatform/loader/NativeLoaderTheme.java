@@ -17,7 +17,7 @@ public record NativeLoaderTheme(
 
     public NativeLoaderTheme {
         id = id == null || id.isBlank() ? BUILT_IN_ID : id.trim();
-        displayName = displayName == null || displayName.isBlank() ? "ECHO Blue Console" : displayName.trim();
+        displayName = displayName == null || displayName.isBlank() ? "Ashfall Terminal Console" : displayName.trim();
         mode = mode == null ? NativeLoaderThemeMode.LOADER_DEFAULT : mode;
         source = source == null || source.isBlank() ? "built_in" : source.trim();
         colors = colors == null ? Map.of() : Map.copyOf(colors);
@@ -42,14 +42,14 @@ public record NativeLoaderTheme(
         colors.put("loadingFill", 0xFF00E5FF);
 
         Map<String, String> tokens = new LinkedHashMap<>();
-        tokens.put("identityLabel", "ECHO Native Loader");
-        tokens.put("consolePrompt", "ECHO>");
-        tokens.put("mainMenuTitle", "ECHO NATIVE LOADER // MAIN MENU");
-        tokens.put("loadingTitle", "ECHO NATIVE LOADER // BOOTING");
-        tokens.put("worldSetupTitle", "ECHO NATIVE LOADER // WORLD SETUP");
-        tokens.put("themeFamily", "blue_console");
+        tokens.put("identityLabel", "ECHO Ashfall Terminal");
+        tokens.put("consolePrompt", "ASHFALL>");
+        tokens.put("mainMenuTitle", "ASHFALL TERMINAL // MAIN MENU");
+        tokens.put("loadingTitle", "ASHFALL TERMINAL // LOADING");
+        tokens.put("worldSetupTitle", "ASHFALL TERMINAL // CREATE SIMULATION");
+        tokens.put("themeFamily", "ashfall_terminal");
         tokens.put("density", "compact");
-        return new NativeLoaderTheme(BUILT_IN_ID, "ECHO Blue Console",
+        return new NativeLoaderTheme(BUILT_IN_ID, "Ashfall Terminal Console",
                 mode == null ? NativeLoaderThemeMode.LOADER_DEFAULT : mode,
                 source == null || source.isBlank() ? "built_in" : source,
                 false,

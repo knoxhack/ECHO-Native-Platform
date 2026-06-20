@@ -125,6 +125,9 @@ public final class NativeLoaderWorldStartupFlow {
     private static boolean ashfallProduct(String packId) {
         String normalized = packId == null ? "" : packId.trim().toLowerCase(Locale.ROOT);
         return "ashfall".equals(normalized)
+                || "ashfall-native-edition".equals(normalized)
+                || "ashfall-native-loader".equals(normalized)
+                || "echo-ashfall-native-loader".equals(normalized)
                 || NativeLoaderAshfallWorldStartupService.PRODUCT_ID.equals(normalized);
     }
 

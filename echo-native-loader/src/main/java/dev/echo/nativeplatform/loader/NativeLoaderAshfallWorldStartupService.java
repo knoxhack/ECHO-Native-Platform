@@ -197,7 +197,10 @@ public final class NativeLoaderAshfallWorldStartupService {
                 "data/echoashfallprotocol/worldgen/world_preset/ashfall_wasteland.json",
                 "data/minecraft/worldgen/world_preset/normal.json",
                 "data/echoashfallprotocol/worldgen/noise_settings/wasteland_overworld.json",
-                "data/echoashfallprotocol/worldgen/biome/the_wasteland.json"
+                "data/echoashfallprotocol/worldgen/biome/the_wasteland.json",
+                "data/echoashfallprotocol/missioncore/chapters/ashfall_crash_landing.json",
+                "data/echoashfallprotocol/missioncore/chapters/ashfall_major_routes.json",
+                "data/echoashfallprotocol/missioncore/missions/secure_crash_outpost.json"
         );
     }
 
@@ -562,6 +565,7 @@ public final class NativeLoaderAshfallWorldStartupService {
                 "data/echoashfallprotocol/dimension/",
                 "data/echoashfallprotocol/dimension_type/",
                 "data/echoashfallprotocol/tags/block/",
+                "data/echoashfallprotocol/missioncore/",
                 "data/minecraft/worldgen/",
                 "data/minecraft/tags/worldgen/",
                 "data/minecraft/tags/block/"

@@ -20,7 +20,7 @@ public final class NativeLoaderProductClientRouteBootstrap {
     public static final List<ClientRouteBootstrapEntrypoint> FIRST_PARTY_CLIENT_ROUTE_ENTRYPOINTS = List.of(
             new ClientRouteBootstrapEntrypoint(
                     "echoashfallprotocol",
-                    "com.knoxhack.echoashfallprotocol.EchoAshfallProtocolClient",
+                    "com.knoxhack.echoashfallprotocol.nativebridge.AshfallNativeClientRouteRegistrar",
                     "ensureNativeClientRoutesRegisteredForNativeLoader"),
             new ClientRouteBootstrapEntrypoint(
                     "echoterminal",
@@ -221,7 +221,7 @@ public final class NativeLoaderProductClientRouteBootstrap {
             result.put("status", registered ? EchoNativeLoadStatus.MUTATED.name() : EchoNativeLoadStatus.REGISTERED.name());
             return Map.copyOf(result);
         } catch (IOException | ReflectiveOperationException | LinkageError | RuntimeException exception) {
-            return installNativeLoaderOwnedRouteFallback(result, entrypoint, exception);
+            return failClosedNativeRouteBootstrap(result, exception);
         }
     }
 
@@ -264,7 +264,7 @@ public final class NativeLoaderProductClientRouteBootstrap {
             result.put("status", registered ? EchoNativeLoadStatus.MUTATED.name() : EchoNativeLoadStatus.REGISTERED.name());
             return Map.copyOf(result);
         } catch (ReflectiveOperationException | LinkageError | RuntimeException exception) {
-            return installNativeLoaderOwnedRouteFallback(result, entrypoint, exception);
+            return failClosedNativeRouteBootstrap(result, exception);
         }
     }
 
@@ -303,6 +303,9 @@ public final class NativeLoaderProductClientRouteBootstrap {
         result.put("disabledRouteKeys", routeKeys);
         result.put("disabledActionKeys", actionKeys);
         result.put("disabledHandlerKeys", handlerKeys);
+        result.put("disabledRouteEvidenceKeys", routeKeys);
+        result.put("fallbackActionKeys", actionKeys);
+        result.put("fallbackHandlerKeys", handlerKeys);
         if (mutated) {
             result.put("methodInvoked", false);
             result.put("registered", true);
@@ -337,6 +340,7 @@ public final class NativeLoaderProductClientRouteBootstrap {
             List<String> handlerKeys
     ) {
         if (entrypoint.className().contains("TerminalRenderCoreClientIntegration")) {
+            routeKeys.add("echoterminal:echoterminal:eui");
             registerActions("echoterminal", "echoterminal:eui", "terminal", actionKeys, List.of(
                     "terminal.screen.frame.render",
                     "terminal.screencore.action"));
@@ -541,9 +545,9 @@ public final class NativeLoaderProductClientRouteBootstrap {
         switch (moduleId + ":" + surfaceId) {
             case "echoterminal:echoterminal:eui" -> {
                 config.put("nativeSurfaceImplementationClass",
-                        "com.knoxhack.echoterminal.client.screen.EchoTerminalScreen");
+                        "com.knoxhack.echoterminal.client.screencore.TerminalScreenCoreScreen");
                 config.put("nativeScreenBridgeClass",
-                        "com.knoxhack.echoterminal.client.screen.EchoTerminalScreens");
+                        "com.knoxhack.echoterminal.client.screencore.TerminalScreenCoreBridge");
             }
             case "echoterminal:echoterminal:hud_overlay" -> {
                 config.put("nativeSurfaceImplementationClass",
@@ -581,11 +585,15 @@ public final class NativeLoaderProductClientRouteBootstrap {
                 config.put("nativeScreenBridgeClass",
                         "com.knoxhack.echoholomap.integration.HoloMapScreenCoreIntegration");
             }
-            case "echohudcore:echohudcore:native_hud" -> {
+            case "echohudcore:echohudcore:native_hud",
+                 "echohudcore:echohudcore:mission_tracker",
+                 "echohudcore:echohudcore:hazard_readout",
+                 "echohudcore:echohudcore:compass_indicator",
+                "echohudcore:echohudcore:screen_safe_area" -> {
                 config.put("nativeSurfaceImplementationClass",
-                        "com.knoxhack.echo.hudcore.EchoHudCoreClient");
+                        "com.knoxhack.echo.hudcore.client.EchoHudCoreOverlay");
                 config.put("nativeScreenBridgeClass",
-                        "com.knoxhack.echo.hudcore.EchoHudCoreClient");
+                        "com.knoxhack.echo.hudcore.client.EchoHudCoreOverlay");
             }
             default -> {
             }

@@ -72,7 +72,7 @@ public final class EchoNativeAgent5ThemeApplicationSmoke {
                 && lines(terminalSurface).stream()
                 .anyMatch(line -> line.contains(EchoNativeAgent5UiExpectedValues.terminalOutput()))
                 && strings(hostModel.get("headerLines")).stream().anyMatch(line -> line.contains("Pack: " + packId))
-                && "ECHO>".equals(tokens.get("terminal.prompt"))
+                && "ASHFALL>".equals(tokens.get("terminal.prompt"))
                 && Boolean.TRUE.equals(resolverScenarios.get("passed")));
         return Map.copyOf(smoke);
     }
@@ -165,7 +165,7 @@ public final class EchoNativeAgent5ThemeApplicationSmoke {
                         && "modpack".equals(resourceTheme.mode().id())
                         && "themecore_resource".equals(resourceTheme.source())
                         && "themecore".equals(resourceTheme.token("themeFamily"))
-                        && "ECHO Native Loader".equals(resourceTheme.token("identityLabel"))
+                        && "ECHO Ashfall Terminal".equals(resourceTheme.token("identityLabel"))
                         && !resourceTheme.fallbackUsed();
                 scenarios.put("modpackUsesThemeCoreResource", resourceThemeUsed);
                 scenarios.put("themeCoreResourceEvidence", resourceTheme.evidence());

@@ -95,8 +95,8 @@ public final class EchoNativeAgent2ProductionClientRouteRegistrationGateMain {
 
     private static final Map<String, List<String>> REQUIRED_ROUTE_CLASSES = Map.ofEntries(
             Map.entry("echoterminal:echoterminal:eui", List.of(
-                    "com.knoxhack.echoterminal.client.screen.EchoTerminalScreen",
-                    "com.knoxhack.echoterminal.client.screen.EchoTerminalScreens")),
+                    "com.knoxhack.echoterminal.client.screencore.TerminalScreenCoreScreen",
+                    "com.knoxhack.echoterminal.client.screencore.TerminalScreenCoreBridge")),
             Map.entry("echoterminal:echoterminal:hud_overlay", List.of(
                     "com.knoxhack.echoterminal.client.mission.TerminalMissionHudController",
                     "com.knoxhack.echoterminal.client.discovery.DiscoveryToastHud")),
@@ -184,11 +184,11 @@ public final class EchoNativeAgent2ProductionClientRouteRegistrationGateMain {
         require(bootstrapReport.status() == EchoNativeLoadStatus.MUTATED,
                 "Production first-party client route bootstrap must mutate Native Loader route table: "
                         + bootstrapReport.toEvidence());
-        require(bootstrapReport.attemptedCount() == 6,
-                "Production first-party client route bootstrap must attempt all six callable seams: "
+        require(bootstrapReport.attemptedCount() == 7,
+                "Production first-party client route bootstrap must attempt all seven callable seams: "
                         + bootstrapReport.attemptedCount());
-        require(bootstrapReport.mutatedCount() == 6,
-                "Every production first-party client route bootstrap method must return true: "
+        require(bootstrapReport.mutatedCount() == bootstrapReport.attemptedCount(),
+                "Every production first-party client route bootstrap method must mutate the route table: "
                         + bootstrapReport.toEvidence());
         require(bootstrapReport.failedCount() == 0,
                 "Production first-party client route bootstrap must not fail: " + bootstrapReport.toEvidence());

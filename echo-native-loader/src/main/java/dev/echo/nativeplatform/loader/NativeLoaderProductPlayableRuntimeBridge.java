@@ -27,6 +27,7 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
             StarterRegionPainter serverStarterRegionPainter,
             StarterRegionPainter clientStarterRegionPainter,
             HostWorldBlockMutation hostWorldBlockMutation,
+            HostStructureMutation hostStructureMutation,
             SaveDataWriter saveDataWriter,
             HudNotificationPublisher hudNotificationPublisher
     ) {
@@ -49,6 +50,12 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
         result.put("actionsEnabled", config.actionsEnabled());
         result.put("starterRegionMaterialized", false);
         result.put("crashZoneMaterialized", false);
+        result.put("canonicalStartingStructureId", config.startingStructureId());
+        result.put("startingStructurePlaced", false);
+        result.put("hostStructureMutationAttempted", false);
+        result.put("hostStructureMutationEvidence", Map.of());
+        result.put("hostStructureMutated", false);
+        result.put("starterRegionSkipped", "");
         result.put("starterRegionBlocks", List.of());
         result.put("starterCrashZoneBlocks", List.of());
         result.put("starterToolItems", List.of());
@@ -75,6 +82,7 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
                     serverStarterRegionPainter,
                     clientStarterRegionPainter,
                     hostWorldBlockMutation,
+                    hostStructureMutation,
                     saveDataWriter,
                     hudNotificationPublisher
             ));
@@ -87,15 +95,26 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
         }
         int serverBlocks = integer(result.get("serverBlocksPlaced"));
         int clientBlocks = integer(result.get("clientBlocksPlaced"));
-        boolean starterRegionMaterialized = serverBlocks > 0 && clientBlocks > 0;
-        result.put("starterRegionMaterialized", starterRegionMaterialized);
-        result.put("crashZoneMaterialized", starterRegionMaterialized);
-        result.put("summary", Boolean.TRUE.equals(result.get("starterRegionMaterialized"))
-                && Boolean.TRUE.equals(result.get("starterItemsGranted"))
-                ? "Native " + config.gameplayDisplayName()
-                + " playable runtime granted starter tools and materialized a starter-region proof in the live integrated world."
-                : "Native " + config.gameplayDisplayName()
-                + " playable runtime attempted live starter tools and starter-region proof but did not complete every effect.");
+        if (config.hasStartingStructure()) {
+            result.put("starterRegionMaterialized", false);
+            result.put("crashZoneMaterialized", false);
+            result.put("summary", Boolean.TRUE.equals(result.get("startingStructurePlaced"))
+                    && Boolean.TRUE.equals(result.get("starterItemsGranted"))
+                    ? "Native " + config.gameplayDisplayName()
+                    + " playable runtime granted starter tools and placed the canonical starting structure in the live integrated world."
+                    : "Native " + config.gameplayDisplayName()
+                    + " playable runtime attempted live starter tools and canonical starting structure placement but did not complete every effect.");
+        } else {
+            boolean starterRegionMaterialized = serverBlocks > 0 && clientBlocks > 0;
+            result.put("starterRegionMaterialized", starterRegionMaterialized);
+            result.put("crashZoneMaterialized", starterRegionMaterialized);
+            result.put("summary", Boolean.TRUE.equals(result.get("starterRegionMaterialized"))
+                    && Boolean.TRUE.equals(result.get("starterItemsGranted"))
+                    ? "Native " + config.gameplayDisplayName()
+                    + " playable runtime granted starter tools and materialized a starter-region proof in the live integrated world."
+                    : "Native " + config.gameplayDisplayName()
+                    + " playable runtime attempted live starter tools and starter-region proof but did not complete every effect.");
+        }
         return result;
     }
 
@@ -111,6 +130,7 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
             StarterRegionPainter serverStarterRegionPainter,
             StarterRegionPainter clientStarterRegionPainter,
             HostWorldBlockMutation hostWorldBlockMutation,
+            HostStructureMutation hostStructureMutation,
             SaveDataWriter saveDataWriter,
             HudNotificationPublisher hudNotificationPublisher
     ) {
@@ -122,21 +142,39 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
                 && (Boolean.TRUE.equals(hostInventoryMutationEvidence.get("mutated"))
                 || starterToolGrant.grant(player));
         int serverCommands = starterCommandSender.send(minecraft, player, result);
-        int serverBlocks = serverStarterRegionPainter.paint(minecraft, player, result);
-        int clientBlocks = clientStarterRegionPainter.paint(minecraft, player, result);
-        Map<String, Object> hostWorldBlockMutationEvidence = config.proofMarkerBlockId().isBlank()
-                ? skippedMutation("host_world_block", "no_product_proof_marker_configured")
-                : hostWorldBlockMutation.apply(
+        int serverBlocks = 0;
+        int clientBlocks = 0;
+        Map<String, Object> hostWorldBlockMutationEvidence = skippedMutation(
+                "host_world_block",
+                config.hasStartingStructure()
+                        ? "canonical_starting_structure_configured"
+                        : "no_product_proof_marker_configured");
+        Map<String, Object> hostStructureMutationEvidence = config.hasStartingStructure()
+                ? hostStructureMutation.apply(
                         null,
                         player,
-                        config.proofMarkerBlockId()
-                );
+                        config.startingStructureId(),
+                        config.startingStructureAnchor())
+                : skippedMutation("host_structure", "no_product_starting_structure_configured");
+        if (config.hasStartingStructure()) {
+            result.put("starterRegionSkipped", "canonical_structure_placement");
+        } else {
+            serverBlocks = serverStarterRegionPainter.paint(minecraft, player, result);
+            clientBlocks = clientStarterRegionPainter.paint(minecraft, player, result);
+            hostWorldBlockMutationEvidence = config.proofMarkerBlockId().isBlank()
+                    ? skippedMutation("host_world_block", "no_product_proof_marker_configured")
+                    : hostWorldBlockMutation.apply(
+                            null,
+                            player,
+                            config.proofMarkerBlockId()
+                    );
+        }
         int commandBlocks = integer(result.get("serverSetBlockCommandsSent"));
-        if (serverBlocks <= 0 && commandBlocks > 0) {
+        if (!config.hasStartingStructure() && serverBlocks <= 0 && commandBlocks > 0) {
             serverBlocks = commandBlocks;
             result.put("serverBlockPlacementSource", "integrated_server_setblock_commands");
         }
-        if (clientBlocks <= 0 && serverBlocks > 0) {
+        if (!config.hasStartingStructure() && clientBlocks <= 0 && serverBlocks > 0) {
             clientBlocks = serverBlocks;
             result.put("clientBlockPlacementSource", "integrated_server_block_update_sync");
         }
@@ -148,6 +186,8 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
         savePayload.put("serverCommandsSent", serverCommands);
         savePayload.put("serverBlocksPlaced", serverBlocks);
         savePayload.put("clientBlocksPlaced", clientBlocks);
+        savePayload.put("canonicalStartingStructureId", config.startingStructureId());
+        savePayload.put("startingStructurePlaced", Boolean.TRUE.equals(hostStructureMutationEvidence.get("mutated")));
         Map<String, Object> saveDataWriteEvidence = saveDataWriter.write(
                 null,
                 player,
@@ -167,6 +207,8 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
         hudPayload.put("saveDataWritten", saveDataWritten);
         hudPayload.put("serverBlocksPlaced", serverBlocks);
         hudPayload.put("clientBlocksPlaced", clientBlocks);
+        hudPayload.put("canonicalStartingStructureId", config.startingStructureId());
+        hudPayload.put("startingStructurePlaced", Boolean.TRUE.equals(hostStructureMutationEvidence.get("mutated")));
         Map<String, Object> hudNotificationEvidence = hudNotificationPublisher.publish(null, player, hudPayload);
 
         result.put("starterItemsGranted", starterItemsGranted);
@@ -176,9 +218,15 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
         result.put("serverCommandsSent", serverCommands);
         result.put("serverBlocksPlaced", serverBlocks);
         result.put("clientBlocksPlaced", clientBlocks);
-        result.put("hostWorldBlockMutationAttempted", !config.proofMarkerBlockId().isBlank());
+        result.put("hostWorldBlockMutationAttempted", !config.hasStartingStructure() && !config.proofMarkerBlockId().isBlank());
         result.put("hostWorldBlockMutationEvidence", hostWorldBlockMutationEvidence);
         result.put("hostWorldBlockMutated", Boolean.TRUE.equals(hostWorldBlockMutationEvidence.get("mutated")));
+        result.put("canonicalStartingStructureId", config.startingStructureId());
+        result.put("startingStructureAnchor", config.startingStructureAnchor());
+        result.put("startingStructurePlaced", Boolean.TRUE.equals(hostStructureMutationEvidence.get("mutated")));
+        result.put("hostStructureMutationAttempted", config.hasStartingStructure());
+        result.put("hostStructureMutationEvidence", hostStructureMutationEvidence);
+        result.put("hostStructureMutated", Boolean.TRUE.equals(hostStructureMutationEvidence.get("mutated")));
         result.put("saveDataWriteAttempted", true);
         result.put("saveDataWritten", saveDataWritten);
         result.put("saveDataWriteEvidence", saveDataWriteEvidence);
@@ -188,10 +236,12 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
         boolean starterRegionMaterialized = serverBlocks > 0 && clientBlocks > 0;
         result.put("starterRegionMaterialized", starterRegionMaterialized);
         result.put("crashZoneMaterialized", starterRegionMaterialized);
-        result.put("starterRegionBlocks", config.starterRegionBlocks());
-        result.put("starterCrashZoneBlocks", config.starterRegionBlocks());
+        result.put("starterRegionBlocks", config.hasStartingStructure() ? List.of() : config.starterRegionBlocks());
+        result.put("starterCrashZoneBlocks", config.hasStartingStructure() ? List.of() : config.starterRegionBlocks());
         result.put("starterToolItems", config.starterToolItems());
-        result.put("surfaceShortcutSummary", "Live native starter runtime uses registered item wrappers, registered block wrappers, Terminal/Lens/Index/HUD routes, and integrated-server command/placement paths.");
+        result.put("surfaceShortcutSummary", config.hasStartingStructure()
+                ? "Live native starter runtime uses registered item wrappers, the canonical starting structure, Terminal/Lens/Index/HUD routes, and integrated-server runtime-host placement paths."
+                : "Live native starter runtime uses registered item wrappers, registered block wrappers, Terminal/Lens/Index/HUD routes, and integrated-server command/placement paths.");
 
         List<Map<String, Object>> mutationLedger = NativeLoaderProductPlayableRuntimeEvidence.mutationLedger(
                 result,
@@ -253,6 +303,8 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
         private final boolean actionsEnabled;
         private final List<String> starterToolItems;
         private final String proofMarkerBlockId;
+        private final String startingStructureId;
+        private final String startingStructureAnchor;
         private final List<String> starterRegionBlocks;
         private final List<String> requiredMutationSurfaces;
         private final NativeLoaderProductPlayableRuntimeEvidence.Config evidenceConfig;
@@ -264,6 +316,8 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
                 boolean actionsEnabled,
                 List<String> starterToolItems,
                 String proofMarkerBlockId,
+                String startingStructureId,
+                String startingStructureAnchor,
                 String starterRegionTerrainBlockId,
                 String starterRegionSurfaceBlockId,
                 String starterRegionCoreBlockId,
@@ -277,6 +331,8 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
             this.actionsEnabled = actionsEnabled;
             this.starterToolItems = List.copyOf(starterToolItems == null ? List.of() : starterToolItems);
             this.proofMarkerBlockId = proofMarkerBlockId == null ? "" : proofMarkerBlockId;
+            this.startingStructureId = startingStructureId == null ? "" : startingStructureId;
+            this.startingStructureAnchor = startingStructureAnchor == null ? "" : startingStructureAnchor;
             this.starterRegionBlocks = starterRegionBlocks(
                     starterRegionTerrainBlockId,
                     starterRegionSurfaceBlockId,
@@ -327,6 +383,18 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
             return proofMarkerBlockId;
         }
 
+        public String startingStructureId() {
+            return startingStructureId;
+        }
+
+        public String startingStructureAnchor() {
+            return startingStructureAnchor;
+        }
+
+        public boolean hasStartingStructure() {
+            return !startingStructureId.isBlank();
+        }
+
         public List<String> starterRegionBlocks() {
             return starterRegionBlocks;
         }
@@ -368,6 +436,11 @@ public final class NativeLoaderProductPlayableRuntimeBridge {
     @FunctionalInterface
     public interface HostWorldBlockMutation {
         Map<String, Object> apply(Object runtimeHost, Object player, String blockId);
+    }
+
+    @FunctionalInterface
+    public interface HostStructureMutation {
+        Map<String, Object> apply(Object runtimeHost, Object player, String structureId, String anchor);
     }
 
     @FunctionalInterface

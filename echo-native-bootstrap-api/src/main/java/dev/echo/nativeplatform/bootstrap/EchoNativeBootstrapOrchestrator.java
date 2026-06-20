@@ -404,6 +404,7 @@ final class EchoNativeBootstrapOrchestrator {
                 MINECRAFT_RUNTIME_FLOW::intMethod,
                 CONTENT_ACTION_FLOW::setBlock,
                 ADAPTER_CORE_FLOW::placeWorldBlock,
+                ADAPTER_CORE_FLOW::placeStructure,
                 ADAPTER_CORE_FLOW::writeSaveDataEvidence,
                 ADAPTER_CORE_FLOW::publishHudNotification
         );

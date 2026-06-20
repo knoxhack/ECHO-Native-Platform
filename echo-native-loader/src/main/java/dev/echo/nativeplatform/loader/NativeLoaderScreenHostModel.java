@@ -7,7 +7,7 @@ import java.util.Map;
 public final class NativeLoaderScreenHostModel {
     public static final String SERVICE_ID = "echo.native.screen_host_model";
     private static final String FOOTER_LINE =
-            "Keys: M Terminal G Index R Recipe U Uses B Bookmark Left Alt Lens J Map K Minimap [/] Zoom \\ Corner N SignalOS X/C/Y/Z Drone  Enter action  Esc close";
+            "ASHFALL ROUTE // Enter action  Esc back  Native route table preserves product world ownership";
     private static volatile Provider provider = Provider.empty();
 
     private NativeLoaderScreenHostModel() {
@@ -37,10 +37,9 @@ public final class NativeLoaderScreenHostModel {
         model.put("screenTitle", screenTitle(normalizedMode, theme));
         model.put("headerLines", List.of(
                 theme.token("identityLabel") + "     Theme: " + theme.id() + " / " + theme.source(),
-                "Pack: " + fallback(packId, current.productNamespace()) + "     Host: native client bridge",
-                "Registered content: " + itemCount + " items/blocks",
-                "Modules discovered: " + moduleCount,
-                "Native route data: " + missionCount + " missions / " + regionCount + " regions",
+                "Pack: " + fallback(packId, current.productNamespace()) + "     Shell: Ashfall terminal",
+                "Registered content: " + itemCount + " items/blocks     Modules: " + moduleCount,
+                "Route data: " + missionCount + " missions / " + regionCount + " regions",
                 "Notifications: " + notificationSummary(stateValue(state, "notifications", dataSources.get("notifications"))),
                 "HUD: Health " + hud.get("health") + " / " + hud.get("hazard")
         ));

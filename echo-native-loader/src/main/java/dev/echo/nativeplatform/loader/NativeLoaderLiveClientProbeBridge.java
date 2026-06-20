@@ -5,11 +5,14 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class NativeLoaderLiveClientProbeBridge {
     private static final int MAX_ATTEMPTS = 28800;
     private static final long POLL_MILLIS = 250L;
     private static final int REPORT_EVERY_ATTEMPTS = 40;
+    private static final Set<Path> ACTIVE_MARKERS = ConcurrentHashMap.newKeySet();
 
     private NativeLoaderLiveClientProbeBridge() {
     }
@@ -29,6 +32,14 @@ public final class NativeLoaderLiveClientProbeBridge {
             ProbeWriter probeWriter,
             MarkerSnapshotWriter snapshotWriter
     ) {
+        Path markerKey = markerPath.toAbsolutePath().normalize();
+        if (!ACTIVE_MARKERS.add(markerKey)) {
+            Map<String, Object> probe = new LinkedHashMap<>(object(runtimeBridge.get("liveClientProbe")));
+            probe.put("liveClientProbeStartSkipped", true);
+            probe.put("liveClientProbeStartSkippedReason", "already_running_for_marker");
+            runtimeBridge.put("liveClientProbe", probe);
+            return;
+        }
         Thread thread = new Thread(() -> {
             for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
                 try {

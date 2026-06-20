@@ -34,6 +34,10 @@ public final class NativeLoaderLiveHudRenderBridge {
     );
     private static final Map<Integer, Boolean> GAMEPLAY_KEY_DOWN = new ConcurrentHashMap<>();
     private static volatile Map<String, Object> lastFrame = Map.of();
+    private static volatile Map<String, Object> lastGameplayCallbackDispatch = Map.of();
+    private static volatile long gameplayKeyCallbackWindow = 0L;
+    private static volatile Object gameplayKeyCallback = null;
+    private static volatile Object previousGameplayKeyCallback = null;
     private static volatile Supplier<List<String>> rendererClassNames = List::of;
     private static volatile Supplier<ClassLoader> moduleClassLoader =
             NativeLoaderLiveHudRenderBridge.class::getClassLoader;
@@ -59,6 +63,7 @@ public final class NativeLoaderLiveHudRenderBridge {
         state.put("frame", frame);
         state.put("rendererCount", classNames.size());
         state.put("rendered", false);
+        state.put("lastGameplayCallbackDispatch", lastGameplayCallbackDispatch);
         state.put("gameplayInputPump", pumpGameplayInput(frame));
         state.put("routeDispatch", dispatchAlwaysOnRoutes(graphics, deltaTracker, frame));
         List<Map<String, Object>> rendererStates = new ArrayList<>();
@@ -201,6 +206,7 @@ public final class NativeLoaderLiveHudRenderBridge {
                     "active", false,
                     "reason", "window_unavailable");
         }
+        ensureGameplayKeyCallback(window);
         List<Map<String, Object>> dispatches = new ArrayList<>();
         for (GameplayInputBinding binding : GAMEPLAY_INPUT_BINDINGS) {
             boolean pressed = glfwGetKey(window, binding.keyCode()) == GLFW_PRESS;
@@ -208,34 +214,11 @@ public final class NativeLoaderLiveHudRenderBridge {
             if (!pressed || wasPressed) {
                 continue;
             }
-            Map<String, Object> metadata = Map.of(
-                    "source", "native_loader_live_hud_gameplay_input",
-                    "service", SERVICE_ID,
-                    "frame", frame,
-                    "eventType", "gameplay_key_press",
-                    "keyMapping", binding.keyMapping(),
-                    "keyCode", binding.keyCode(),
-                    "surfaceType", binding.surfaceType(),
-                    "actionId", binding.actionId(),
-                    "neoForgeEventOwnershipRequired", false);
-            EchoNativeLoadStatus status = NativeLoaderClientRouteTable.dispatchStatus(
-                    binding.surfaceType(),
-                    binding.actionId(),
-                    metadata);
-            if (status != EchoNativeLoadStatus.MUTATED) {
-                status = NativeLoaderClientRouteTable.dispatchInputBindingStatus(
-                        binding.keyMapping(),
-                        binding.keyCode(),
-                        "press",
-                        metadata);
-            }
-            dispatches.add(Map.of(
-                    "keyMapping", binding.keyMapping(),
-                    "keyCode", binding.keyCode(),
-                    "surfaceType", binding.surfaceType(),
-                    "actionId", binding.actionId(),
-                    "status", status.name(),
-                    "mutated", status == EchoNativeLoadStatus.MUTATED));
+            dispatches.add(dispatchGameplayBinding(
+                    binding,
+                    frame,
+                    "native_loader_live_hud_gameplay_input",
+                    "gameplay_key_press"));
         }
         return Map.of(
                 "source", "native_loader_live_hud_gameplay_input",
@@ -276,11 +259,208 @@ public final class NativeLoaderLiveHudRenderBridge {
     private static long minecraftWindowHandle(Object minecraft) {
         try {
             Object window = minecraft.getClass().getMethod("getWindow").invoke(minecraft);
-            Object handle = window == null ? null : window.getClass().getMethod("getWindow").invoke(window);
+            if (window == null) {
+                return 0L;
+            }
+            Object handle;
+            try {
+                handle = window.getClass().getMethod("handle").invoke(window);
+            } catch (NoSuchMethodException exception) {
+                handle = window.getClass().getMethod("getWindow").invoke(window);
+            }
             return handle instanceof Number number ? number.longValue() : 0L;
         } catch (ReflectiveOperationException | RuntimeException exception) {
             return 0L;
         }
+    }
+
+    private static void ensureGameplayKeyCallback(long window) {
+        if (window <= 0L || (gameplayKeyCallbackWindow == window && gameplayKeyCallback != null)) {
+            return;
+        }
+        synchronized (NativeLoaderLiveHudRenderBridge.class) {
+            if (gameplayKeyCallbackWindow == window && gameplayKeyCallback != null) {
+                return;
+            }
+            try {
+                Class<?> callbackInterface = Class.forName("org.lwjgl.glfw.GLFWKeyCallbackI");
+                Object callback = createGameplayKeyCallback(callbackInterface);
+                Object nativeCallback = Class.forName("org.lwjgl.glfw.GLFWKeyCallback")
+                        .getMethod("create", callbackInterface)
+                        .invoke(null, callback);
+                Method setter = Class.forName("org.lwjgl.glfw.GLFW")
+                        .getMethod("glfwSetKeyCallback", long.class, callbackInterface);
+                Object previous = setter.invoke(null, window, nativeCallback);
+                previousGameplayKeyCallback = previous;
+                gameplayKeyCallback = nativeCallback;
+                gameplayKeyCallbackWindow = window;
+            } catch (Throwable exception) {
+                Throwable cause = exception;
+                lastGameplayCallbackDispatch = Map.of(
+                        "source", "native_loader_live_hud_glfw_callback",
+                        "installed", false,
+                        "failureKind", cause.getClass().getSimpleName(),
+                        "failureMessage", cause.getMessage() == null ? "" : cause.getMessage());
+            }
+        }
+    }
+
+    private static Object createGameplayKeyCallback(Class<?> callbackInterface) throws Throwable {
+        java.lang.invoke.MethodHandles.Lookup lookup = java.lang.invoke.MethodHandles.lookup();
+        java.lang.invoke.MethodType callbackType = java.lang.invoke.MethodType.methodType(
+                void.class,
+                long.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class);
+        java.lang.invoke.MethodHandle target = lookup.findStatic(
+                NativeLoaderLiveHudRenderBridge.class,
+                "handleGameplayKeyCallback",
+                callbackType);
+        java.lang.invoke.CallSite callSite = java.lang.invoke.LambdaMetafactory.metafactory(
+                lookup,
+                "invoke",
+                java.lang.invoke.MethodType.methodType(callbackInterface),
+                callbackType,
+                target,
+                callbackType);
+        return callSite.getTarget().invoke();
+    }
+
+    private static void handleGameplayKeyCallback(long window, int key, int scancode, int action, int mods) {
+        Object[] callbackArgs = {window, key, scancode, action, mods};
+        invokePreviousGameplayKeyCallback(callbackArgs);
+        dispatchGameplayKeyCallback(callbackArgs);
+    }
+
+    private static void invokePreviousGameplayKeyCallback(Object[] args) {
+        Object previous = previousGameplayKeyCallback;
+        if (previous == null || previous == gameplayKeyCallback) {
+            return;
+        }
+        try {
+            Class.forName("org.lwjgl.glfw.GLFWKeyCallbackI")
+                    .getMethod("invoke", long.class, int.class, int.class, int.class, int.class)
+                    .invoke(
+                            previous,
+                            longValue(args[0]),
+                            intValue(args[1]),
+                            intValue(args[2]),
+                            intValue(args[3]),
+                            intValue(args[4]));
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // Keep native route dispatch alive if a previous callback cannot be reflected.
+        }
+    }
+
+    private static void dispatchGameplayKeyCallback(Object[] args) {
+        int keyCode = intValue(args[1]);
+        int action = intValue(args[3]);
+        if (action != GLFW_PRESS) {
+            return;
+        }
+        Object minecraft = minecraftInstance();
+        if (minecraft == null || fieldValue(minecraft, "player") == null || fieldValue(minecraft, "screen") != null) {
+            return;
+        }
+        long frame = FRAMES.get();
+        for (GameplayInputBinding binding : GAMEPLAY_INPUT_BINDINGS) {
+            if (binding.keyCode() != keyCode) {
+                continue;
+            }
+            lastGameplayCallbackDispatch = dispatchGameplayBinding(
+                    binding,
+                    frame,
+                    "native_loader_live_hud_glfw_callback",
+                    "glfw_key_press");
+            return;
+        }
+    }
+
+    private static Map<String, Object> dispatchGameplayBinding(
+            GameplayInputBinding binding,
+            long frame,
+            String source,
+            String eventType
+    ) {
+        Map<String, Object> metadata = Map.of(
+                "source", source,
+                "service", SERVICE_ID,
+                "frame", frame,
+                "eventType", eventType,
+                "keyMapping", binding.keyMapping(),
+                "keyCode", binding.keyCode(),
+                "surfaceType", binding.surfaceType(),
+                "actionId", binding.actionId(),
+                "neoForgeEventOwnershipRequired", false);
+        Map<String, Object> dispatch = new LinkedHashMap<>();
+        dispatch.put("source", source);
+        dispatch.put("eventType", eventType);
+        dispatch.put("keyMapping", binding.keyMapping());
+        dispatch.put("keyCode", binding.keyCode());
+        dispatch.put("surfaceType", binding.surfaceType());
+        dispatch.put("actionId", binding.actionId());
+        EchoNativeLoadStatus status = EchoNativeLoadStatus.UNSUPPORTED;
+        if (terminalOpenBinding(binding)) {
+            Map<String, Object> directTerminalBridge = openDirectScreenCoreTerminal();
+            dispatch.put("directTerminalBridge", directTerminalBridge);
+            if (Boolean.TRUE.equals(directTerminalBridge.get("opened"))) {
+                status = EchoNativeLoadStatus.MUTATED;
+            }
+        }
+        if (status != EchoNativeLoadStatus.MUTATED) {
+            status = NativeLoaderClientRouteTable.dispatchStatus(
+                    binding.surfaceType(),
+                    binding.actionId(),
+                    metadata);
+            dispatch.put("routeTableStatus", status.name());
+        }
+        if (status != EchoNativeLoadStatus.MUTATED) {
+            status = NativeLoaderClientRouteTable.dispatchInputBindingStatus(
+                    binding.keyMapping(),
+                    binding.keyCode(),
+                    "press",
+                    metadata);
+            dispatch.put("inputBindingStatus", status.name());
+        }
+        dispatch.put("status", status.name());
+        dispatch.put("mutated", status == EchoNativeLoadStatus.MUTATED);
+        return Map.copyOf(dispatch);
+    }
+
+    private static boolean terminalOpenBinding(GameplayInputBinding binding) {
+        return binding != null
+                && "terminal".equals(binding.surfaceType())
+                && "terminal.open".equals(binding.actionId());
+    }
+
+    private static Map<String, Object> openDirectScreenCoreTerminal() {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("source", "native_loader_live_hud_direct_terminal_bridge");
+        result.put("target", "com.knoxhack.echoterminal.EchoTerminalClient#openNativeTerminalFromLaunchScreen");
+        try {
+            ClassLoader loader = moduleClassLoader.get();
+            Class<?> terminalClient = Class.forName(
+                    "com.knoxhack.echoterminal.EchoTerminalClient",
+                    true,
+                    loader == null ? NativeLoaderLiveHudRenderBridge.class.getClassLoader() : loader);
+            Object opened = terminalClient.getMethod("openNativeTerminalFromLaunchScreen").invoke(null);
+            result.put("opened", Boolean.TRUE.equals(opened));
+            result.put("status", Boolean.TRUE.equals(opened)
+                    ? EchoNativeLoadStatus.MUTATED.name()
+                    : EchoNativeLoadStatus.UNSUPPORTED.name());
+        } catch (Throwable exception) {
+            Throwable failure = exception instanceof InvocationTargetException invocation
+                    && invocation.getCause() != null
+                    ? invocation.getCause()
+                    : exception;
+            result.put("opened", false);
+            result.put("status", EchoNativeLoadStatus.FAILED.name());
+            result.put("failureKind", failure.getClass().getSimpleName());
+            result.put("failureMessage", failure.getMessage() == null ? "" : failure.getMessage());
+        }
+        return Map.copyOf(result);
     }
 
     private static int glfwGetKey(long window, int keyCode) {
@@ -347,6 +527,14 @@ public final class NativeLoaderLiveHudRenderBridge {
 
     private static String string(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    private static long longValue(Object value) {
+        return value instanceof Number number ? number.longValue() : 0L;
+    }
+
+    private static int intValue(Object value) {
+        return value instanceof Number number ? number.intValue() : 0;
     }
 
     private record GameplayInputBinding(int keyCode, String keyMapping, String surfaceType, String actionId) {

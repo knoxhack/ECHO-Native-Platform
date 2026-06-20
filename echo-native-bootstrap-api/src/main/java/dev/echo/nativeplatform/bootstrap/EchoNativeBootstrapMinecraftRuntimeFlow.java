@@ -6,6 +6,7 @@ import dev.echo.nativeplatform.loader.NativeLoaderClientReflectionSupport;
 final class EchoNativeBootstrapMinecraftRuntimeFlow {
     private final String moduleClasspathProperty;
     private final Class<?> bootstrapClass;
+    private volatile ClassLoader nativeModuleClassLoader;
 
     EchoNativeBootstrapMinecraftRuntimeFlow(String moduleClasspathProperty, Class<?> bootstrapClass) {
         this.moduleClasspathProperty = moduleClasspathProperty == null ? "" : moduleClasspathProperty;
@@ -63,10 +64,21 @@ final class EchoNativeBootstrapMinecraftRuntimeFlow {
     }
 
     ClassLoader nativeModuleClassLoader() {
-        return EchoNativeBootstrapActivationEnvironment.moduleClassLoader(
-                NativeLoaderClasspathSupport.nativeModuleClasspath(moduleClasspathProperty),
-                bootstrapClass.getClassLoader()
-        );
+        ClassLoader cached = nativeModuleClassLoader;
+        if (cached != null) {
+            return cached;
+        }
+        synchronized (this) {
+            cached = nativeModuleClassLoader;
+            if (cached == null) {
+                cached = EchoNativeBootstrapActivationEnvironment.moduleClassLoader(
+                        NativeLoaderClasspathSupport.nativeModuleClasspath(moduleClasspathProperty),
+                        bootstrapClass.getClassLoader()
+                );
+                nativeModuleClassLoader = cached;
+            }
+            return cached;
+        }
     }
 
     private Object nativeIdentifier(String contentId) throws ReflectiveOperationException {

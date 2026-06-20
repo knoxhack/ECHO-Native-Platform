@@ -61,6 +61,8 @@ public final class NativeLoaderProductPlayableRuntimeConfig {
                 Boolean.getBoolean(PLAYABLE_RUNTIME_ACTIONS_PROPERTY),
                 productIds.configuredIds(profile.nativePlayableStarterToolItemIds()),
                 productIds.configuredId(profile.nativePlayableProofMarkerBlockId()),
+                productIds.configuredId(profile.nativePlayableStartingStructureId()),
+                profile.nativePlayableStartingStructureAnchor(),
                 productIds.configuredId(profile.nativePlayableStarterRegionTerrainBlockId()),
                 productIds.configuredId(profile.nativePlayableStarterRegionSurfaceBlockId()),
                 productIds.configuredId(profile.nativePlayableStarterRegionCoreBlockId()),

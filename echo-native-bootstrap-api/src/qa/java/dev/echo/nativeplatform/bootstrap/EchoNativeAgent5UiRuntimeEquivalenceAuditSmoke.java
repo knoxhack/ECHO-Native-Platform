@@ -57,10 +57,13 @@ public final class EchoNativeAgent5UiRuntimeEquivalenceAuditSmoke {
         Map<String, Object> expectedHud = EchoNativeAgent5UiExpectedValues.hud();
         boolean hudMatches = number(expectedHud.get("health")).equals(number(hud.get("health")))
                 && expectedHud.get("hazard").equals(hud.get("hazard"))
+                && "echoashfallprotocol:secure_crash_outpost".equals(hud.get("missionId"))
+                && "TRACKED".equals(hud.get("missionStatus"))
                 && expectedHud.get("mission").equals(hud.get("mission"));
         boolean missionMatches = "echoashfallprotocol:secure_crash_outpost".equals(mission.get("missionId"))
                 && EchoNativeAgent5UiExpectedValues.missionObjective().equals(mission.get("objective"))
                 && "TRACKED".equals(mission.get("status"))
+                && number(mission.get("recordCount")) > 0
                 && Boolean.TRUE.equals(missionUpdate.get("passed"))
                 && "UPDATED".equals(missionUpdate.get("missionStatus"))
                 && Double.valueOf(0.5D).equals(missionUpdate.get("missionProgress"));

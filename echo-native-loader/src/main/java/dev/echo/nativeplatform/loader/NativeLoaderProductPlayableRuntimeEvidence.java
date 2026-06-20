@@ -28,22 +28,30 @@ public final class NativeLoaderProductPlayableRuntimeEvidence {
         boolean starterItemsGranted = Boolean.TRUE.equals(playableRuntime.get("starterItemsGranted"));
         boolean starterRegionMaterialized = Boolean.TRUE.equals(playableRuntime.get("starterRegionMaterialized"))
                 || Boolean.TRUE.equals(playableRuntime.get("crashZoneMaterialized"));
+        String canonicalStartingStructureId = text(playableRuntime.get("canonicalStartingStructureId"));
+        boolean startingStructurePlaced = !canonicalStartingStructureId.isBlank()
+                && Boolean.TRUE.equals(playableRuntime.get("startingStructurePlaced"));
         int serverBlocksPlaced = integer(playableRuntime.get("serverBlocksPlaced"));
         int clientBlocksPlaced = integer(playableRuntime.get("clientBlocksPlaced"));
         int serverCommandsSent = integer(playableRuntime.get("serverCommandsSent"));
         boolean uiRoutesReady = Boolean.TRUE.equals(playableRuntime.get("terminalLensIndexHudRoutesReady"));
         boolean saveDataWritten = Boolean.TRUE.equals(playableRuntime.get("saveDataWritten"));
         boolean hudNotificationEmitted = Boolean.TRUE.equals(playableRuntime.get("hudNotificationEmitted"));
+        boolean worldStartReady = canonicalStartingStructureId.isBlank()
+                ? starterRegionMaterialized && serverBlocksPlaced > 0 && clientBlocksPlaced > 0
+                : startingStructurePlaced;
         boolean firstLoopRuntimeReady = attempted
                 && starterItemsGranted
-                && starterRegionMaterialized
-                && serverBlocksPlaced > 0
-                && clientBlocksPlaced > 0
+                && worldStartReady
                 && uiRoutesReady;
         bridge.put("playableBetaRuntimeAttempted", attempted);
         bridge.put("playableBetaStarterItemsGranted", starterItemsGranted);
         bridge.put("playableBetaStarterRegionMaterialized", starterRegionMaterialized);
         bridge.put("playableBetaCrashZoneMaterialized", starterRegionMaterialized);
+        bridge.put("playableBetaCanonicalStartingStructureId", canonicalStartingStructureId);
+        bridge.put("playableBetaStartingStructurePlaced", startingStructurePlaced);
+        bridge.put("playableBetaStarterRegionSkipped", playableRuntime.getOrDefault("starterRegionSkipped", ""));
+        bridge.put("playableBetaHostStructureMutationEvidence", playableRuntime.getOrDefault("hostStructureMutationEvidence", Map.of()));
         bridge.put("playableBetaServerBlocksPlaced", serverBlocksPlaced);
         bridge.put("playableBetaClientBlocksPlaced", clientBlocksPlaced);
         bridge.put("playableBetaServerCommandsSent", serverCommandsSent);
@@ -78,6 +86,8 @@ public final class NativeLoaderProductPlayableRuntimeEvidence {
         Config safeConfig = Config.safe(config);
         Map<String, Object> hudEvidence = hudNotificationEvidence == null ? Map.of() : hudNotificationEvidence;
         List<Map<String, Object>> ledger = new ArrayList<>();
+        String canonicalStartingStructureId = text(result.get("canonicalStartingStructureId"));
+        boolean canonicalStructureStart = !canonicalStartingStructureId.isBlank();
         ledger.add(liveMutationRecord(
                 ledger.size() + 1,
                 "inventory",
@@ -89,17 +99,31 @@ public final class NativeLoaderProductPlayableRuntimeEvidence {
                 "EchoNativeRuntimeHost.Inventory",
                 object(result.get("hostInventoryMutationEvidence")),
                 safeConfig));
-        ledger.add(liveMutationRecord(
-                ledger.size() + 1,
-                "world_blocks",
-                "materialize_starter_region",
-                "integrated_server.player_origin",
-                Boolean.TRUE.equals(result.get("hostWorldBlockMutated")),
-                "before=" + object(result.get("hostWorldBlockMutationEvidence")).getOrDefault("beforeSummary", "live_world_before_probe"),
-                "after=" + object(result.get("hostWorldBlockMutationEvidence")).getOrDefault("resultSnapshot", Map.of()),
-                "EchoNativeRuntimeHost.WorldBlocks",
-                object(result.get("hostWorldBlockMutationEvidence")),
-                safeConfig));
+        if (canonicalStructureStart) {
+            ledger.add(liveMutationRecord(
+                    ledger.size() + 1,
+                    "structures",
+                    "place_starting_structure",
+                    canonicalStartingStructureId,
+                    Boolean.TRUE.equals(result.get("hostStructureMutated")),
+                    "before=" + object(result.get("hostStructureMutationEvidence")).getOrDefault("beforeSummary", "live_structure_before_probe"),
+                    "after=" + object(result.get("hostStructureMutationEvidence")).getOrDefault("resultSnapshot", Map.of()),
+                    "EchoNativeRuntimeHost.Structures",
+                    object(result.get("hostStructureMutationEvidence")),
+                    safeConfig));
+        } else {
+            ledger.add(liveMutationRecord(
+                    ledger.size() + 1,
+                    "world_blocks",
+                    "materialize_starter_region",
+                    "integrated_server.player_origin",
+                    Boolean.TRUE.equals(result.get("hostWorldBlockMutated")),
+                    "before=" + object(result.get("hostWorldBlockMutationEvidence")).getOrDefault("beforeSummary", "live_world_before_probe"),
+                    "after=" + object(result.get("hostWorldBlockMutationEvidence")).getOrDefault("resultSnapshot", Map.of()),
+                    "EchoNativeRuntimeHost.WorldBlocks",
+                    object(result.get("hostWorldBlockMutationEvidence")),
+                    safeConfig));
+        }
         ledger.add(liveMutationRecord(
                 ledger.size() + 1,
                 "save_data",
@@ -217,19 +241,86 @@ public final class NativeLoaderProductPlayableRuntimeEvidence {
         record.put("after", after == null ? "" : after);
         record.put("nativeInterface", nativeInterface);
         record.put("serviceId", config.adapterCoreServiceId());
-        String runtimeHostClass = String.valueOf(evidence.getOrDefault("runtimeHostClass", ""));
-        String runtimeHostId = String.valueOf(evidence.getOrDefault("runtimeHostId", ""));
-        String runtimeLane = String.valueOf(evidence.getOrDefault("runtimeHostLane", ""));
-        String liveMinecraftDelegateId = String.valueOf(evidence.getOrDefault("liveMinecraftDelegateId", ""));
-        String liveMinecraftDelegateClass = String.valueOf(evidence.getOrDefault("liveMinecraftDelegateClass", ""));
-        String compatibilityBackendClass = String.valueOf(evidence.getOrDefault("compatibilityBackendClass", ""));
-        boolean runtimeHostRegistered = Boolean.TRUE.equals(evidence.get("runtimeHostRegistered"));
-        String adapterCoreBackendClass = String.valueOf(evidence.getOrDefault("adapterCoreBackendClass", ""));
+        Map<String, Object> resultSnapshot = object(evidence.get("resultSnapshot"));
+        Map<String, Object> nativeLoaderBackendRecord = object(evidence.get("nativeLoaderBackendRecord"));
+        Map<String, Object> nativeLoaderBackendResult = object(nativeLoaderBackendRecord.get("resultSnapshot"));
+        Map<String, Object> runtimeHostReport = firstObject(
+                resultSnapshot.get("nativeLoaderRuntimeHostReport"),
+                evidence.get("nativeLoaderRuntimeHostReport"));
+        String runtimeHostClass = firstText(
+                textFrom(evidence, "runtimeHostClass"),
+                textFrom(evidence, "nativeLoaderRuntimeHostClass"),
+                textFrom(resultSnapshot, "nativeLoaderRuntimeHostClass"),
+                textFrom(runtimeHostReport, "runtimeHostClass"));
+        String runtimeHostId = firstText(
+                textFrom(evidence, "runtimeHostId"),
+                textFrom(evidence, "nativeLoaderRuntimeHostId"),
+                textFrom(resultSnapshot, "nativeLoaderRuntimeHostId"),
+                textFrom(runtimeHostReport, "runtimeHostId"),
+                textFrom(nativeLoaderBackendRecord, "runtimeHostId"));
+        String runtimeLane = firstText(
+                textFrom(evidence, "runtimeHostLane"),
+                textFrom(evidence, "runtimeLane"),
+                textFrom(resultSnapshot, "runtimeLane"),
+                textFrom(runtimeHostReport, "runtimeLane"),
+                textFrom(nativeLoaderBackendRecord, "runtimeLane"));
+        String liveMinecraftDelegateId = firstText(
+                textFrom(evidence, "liveMinecraftDelegateId"),
+                textFrom(resultSnapshot, "liveMinecraftDelegateId"),
+                textFrom(runtimeHostReport, "liveMinecraftDelegateId"),
+                textFrom(nativeLoaderBackendResult, "liveMinecraftDelegateId"));
+        String liveMinecraftDelegateClass = firstText(
+                textFrom(evidence, "liveMinecraftDelegateClass"),
+                textFrom(resultSnapshot, "liveMinecraftDelegateClass"),
+                textFrom(runtimeHostReport, "liveMinecraftDelegateClass"),
+                textFrom(nativeLoaderBackendResult, "liveMinecraftDelegateClass"));
+        String compatibilityBackendClass = firstText(
+                textFrom(evidence, "compatibilityBackendClass"),
+                textFrom(resultSnapshot, "compatibilityBackendClass"),
+                textFrom(nativeLoaderBackendResult, "compatibilityBackendClass"));
+        String compatibilityDelegate = firstText(
+                textFrom(evidence, "compatibilityDelegate"),
+                textFrom(resultSnapshot, "compatibilityDelegate"),
+                textFrom(runtimeHostReport, "compatibilityDelegate"),
+                textFrom(nativeLoaderBackendResult, "compatibilityDelegate"));
+        String adapterCoreBackendClass = firstText(
+                textFrom(evidence, "adapterCoreBackendClass"),
+                textFrom(resultSnapshot, "adapterCoreBackendClass"),
+                textFrom(nativeLoaderBackendRecord, "adapterCoreBackendClass"),
+                textFrom(nativeLoaderBackendRecord, "nativeLoaderBackendClass"));
         boolean adapterCoreCallEnteredNativeLoaderHost =
-                Boolean.TRUE.equals(evidence.get("adapterCoreCallEnteredNativeLoaderHost"));
+                bool(evidence.get("adapterCoreCallEnteredNativeLoaderHost"))
+                        || bool(resultSnapshot.get("adapterCoreCallEnteredNativeLoaderHost"));
         boolean adapterCoreCallEnteredNativeLoaderBackend =
-                Boolean.TRUE.equals(evidence.get("adapterCoreCallEnteredNativeLoaderBackend"));
-        boolean compatibilityFallbackUsed = Boolean.TRUE.equals(evidence.get("compatibilityFallbackUsed"));
+                bool(evidence.get("adapterCoreCallEnteredNativeLoaderBackend"))
+                        || bool(resultSnapshot.get("adapterCoreCallEnteredNativeLoaderBackend"));
+        boolean compatibilityFallbackUsed = bool(evidence.get("compatibilityFallbackUsed"))
+                || bool(resultSnapshot.get("compatibilityFallbackUsed"))
+                || bool(nativeLoaderBackendResult.get("compatibilityFallbackUsed"));
+        boolean nativeLoaderBackendAttached = bool(evidence.get("nativeLoaderBackendAttached"))
+                || bool(resultSnapshot.get("nativeLoaderBackendAttached"))
+                || bool(runtimeHostReport.get("nativeLoaderBackendAttached"));
+        String nativeLoaderBackendRecordStatus = firstText(
+                textFrom(evidence, "nativeLoaderBackendRecordStatus"),
+                textFrom(nativeLoaderBackendRecord, "status"),
+                textFrom(resultSnapshot, "resultStatus"),
+                textFrom(nativeLoaderBackendResult, "resultStatus"));
+        boolean directNativeLoaderBackendCall = bool(nativeLoaderBackendRecord.get("directNativeLoaderBackendCall"));
+        boolean nativeLoaderBackendRecordMutated = "MUTATED".equals(nativeLoaderBackendRecordStatus)
+                && directNativeLoaderBackendCall
+                && config.nativeLoaderBackendClass().equals(firstText(
+                textFrom(nativeLoaderBackendRecord, "nativeLoaderBackendClass"),
+                textFrom(nativeLoaderBackendRecord, "adapterCoreBackendClass"),
+                adapterCoreBackendClass));
+        boolean nativeLoaderBackendReceiptRegistersHost = mutated
+                && nativeLoaderBackendAttached
+                && nativeLoaderBackendRecordMutated
+                && adapterCoreCallEnteredNativeLoaderHost
+                && adapterCoreCallEnteredNativeLoaderBackend
+                && !compatibilityFallbackUsed;
+        boolean runtimeHostRegistered = bool(evidence.get("runtimeHostRegistered"))
+                || bool(runtimeHostReport.get("runtimeHostRegistered"))
+                || nativeLoaderBackendReceiptRegistersHost;
         boolean nativeLoaderHost = config.nativeLoaderRuntimeLane().equals(runtimeLane)
                 && !runtimeHostClass.isBlank()
                 && runtimeHostClass.contains("NativeLoader")
@@ -248,15 +339,72 @@ public final class NativeLoaderProductPlayableRuntimeEvidence {
         record.put("adapterCoreCallEnteredNativeLoaderHost", adapterCoreCallEnteredNativeLoaderHost);
         record.put("adapterCoreCallEnteredNativeLoaderBackend", adapterCoreCallEnteredNativeLoaderBackend);
         record.put("adapterCoreBackendClass", adapterCoreBackendClass);
-        record.put("nativeLoaderBackendAttached", Boolean.TRUE.equals(evidence.get("nativeLoaderBackendAttached")));
-        record.put("nativeLoaderBackendRecordStatus", String.valueOf(evidence.getOrDefault("nativeLoaderBackendRecordStatus", "")));
-        record.put("nativeLoaderBackendRecord", object(evidence.get("nativeLoaderBackendRecord")));
-        record.put("nativeLoaderRuntimeHostClass", String.valueOf(evidence.getOrDefault("nativeLoaderRuntimeHostClass", "")));
+        record.put("nativeLoaderBackendAttached", nativeLoaderBackendAttached);
+        record.put("nativeLoaderBackendRecordStatus", nativeLoaderBackendRecordStatus);
+        record.put("nativeLoaderBackendRecord", nativeLoaderBackendRecord);
+        record.put("nativeLoaderRuntimeHostClass", firstText(
+                textFrom(evidence, "nativeLoaderRuntimeHostClass"),
+                textFrom(resultSnapshot, "nativeLoaderRuntimeHostClass"),
+                textFrom(runtimeHostReport, "runtimeHostClass")));
         record.put("compatibilityFallbackUsed", compatibilityFallbackUsed);
-        record.put("compatibilityDelegate", String.valueOf(evidence.getOrDefault("compatibilityDelegate", "")));
+        record.put("compatibilityDelegate", compatibilityDelegate);
         record.put("compatibilityBackendClass", compatibilityBackendClass);
         record.put("liveMinecraftDelegateId", liveMinecraftDelegateId);
         record.put("liveMinecraftDelegateClass", liveMinecraftDelegateClass);
+        String dispatchId = firstText(
+                textFrom(resultSnapshot, "operationId"),
+                textFrom(nativeLoaderBackendResult, "operationId"));
+        boolean liveMinecraftDelegateResolved = config.nativeMinecraftRuntimeHostClass().equals(liveMinecraftDelegateClass)
+                && config.nativeMinecraftRuntimeHostId().equals(liveMinecraftDelegateId);
+        boolean liveRuntimeAttached = bool(resultSnapshot.get("liveMinecraftAttached"))
+                || bool(runtimeHostReport.get("liveMinecraftAttached"));
+        boolean liveRuntimeBridgeAttached = bool(resultSnapshot.get("nativeLoaderLiveRuntimeBridgeAttached"))
+                || bool(runtimeHostReport.get("nativeLoaderLiveRuntimeBridgeAttached"));
+        boolean firstClassNativeRuntime = bool(resultSnapshot.get("firstClassNativeRuntime"))
+                || bool(runtimeHostReport.get("firstClassNativeRuntime"));
+        boolean realNativeStateMutated = bool(resultSnapshot.get("realNativeStateMutated"))
+                || bool(resultSnapshot.get("stateMutated"))
+                || bool(nativeLoaderBackendResult.get("realNativeStateMutated"))
+                || bool(nativeLoaderBackendResult.get("stateMutated"));
+        boolean mirrorOnlyReleaseProof = bool(evidence.get("mirrorOnlyReleaseProof"))
+                || bool(resultSnapshot.get("mirrorOnlyReleaseProof"))
+                || bool(nativeLoaderBackendResult.get("mirrorOnlyReleaseProof"))
+                || bool(nativeLoaderBackendResult.get("releaseProof"));
+        boolean liveRuntimeProofSatisfied = nativeLoaderHost
+                && liveMinecraftDelegateResolved
+                && liveRuntimeAttached
+                && liveRuntimeBridgeAttached
+                && firstClassNativeRuntime
+                && realNativeStateMutated
+                && !mirrorOnlyReleaseProof
+                && !dispatchId.isBlank();
+        record.put("mirrorOnlyReleaseProof", mirrorOnlyReleaseProof);
+        if (liveRuntimeProofSatisfied) {
+            Map<String, Object> proof = new LinkedHashMap<>();
+            proof.put("liveRuntimeDispatchId", dispatchId);
+            proof.put("liveRuntimeSurface", surface);
+            proof.put("subsystemLiveRuntimeDispatchProofSatisfied", true);
+            proof.put("liveRuntimeDispatchProofSatisfied", true);
+            proof.put("minecraftRuntimeAccessed", true);
+            proof.put("liveRuntimeDispatchMinecraftAccessed", true);
+            proof.put("liveRuntimeDispatchMutationSupported", true);
+            proof.put("liveMinecraftMutation", true);
+            proof.put("liveRuntimeDispatchLiveMutation", true);
+            proof.put("directNativeLoaderBackendCall", directNativeLoaderBackendCall);
+            proof.put("nativeLoaderBackendRecordStatus", nativeLoaderBackendRecordStatus);
+            proof.put("nativeLoaderBackendMethodName", textFrom(nativeLoaderBackendRecord, "methodName"));
+            proof.put("nativeInterface", firstText(
+                    textFrom(resultSnapshot, "nativeInterface"),
+                    textFrom(nativeLoaderBackendResult, "nativeInterface"),
+                    nativeInterface));
+            record.put("adapterCoreSurfaceDispatchId", dispatchId);
+            record.put("surfaceLiveRuntimeProofEvidence", Map.copyOf(proof));
+            record.put("liveRuntimeAccessed", true);
+            record.put("minecraftRuntimeAccessed", true);
+            record.put("liveRuntimeMutationSupported", true);
+            record.put("liveRuntimeReleaseProofSatisfied", true);
+            record.put("liveRuntimeSurfaceMutationSatisfied", true);
+        }
         return Map.copyOf(record);
     }
 
@@ -286,6 +434,45 @@ public final class NativeLoaderProductPlayableRuntimeEvidence {
             }
         }
         return List.copyOf(list);
+    }
+
+    private static Map<String, Object> firstObject(Object... values) {
+        for (Object value : values) {
+            Map<String, Object> object = object(value);
+            if (!object.isEmpty()) {
+                return object;
+            }
+        }
+        return Map.of();
+    }
+
+    private static String firstText(String... values) {
+        for (String value : values) {
+            String text = text(value);
+            if (!text.isBlank()) {
+                return text;
+            }
+        }
+        return "";
+    }
+
+    private static String textFrom(Map<String, Object> source, String key) {
+        if (source == null || key == null || !source.containsKey(key)) {
+            return "";
+        }
+        return text(source.get(key));
+    }
+
+    private static String text(Object value) {
+        if (value == null) {
+            return "";
+        }
+        String text = String.valueOf(value).trim();
+        return "null".equalsIgnoreCase(text) ? "" : text;
+    }
+
+    private static boolean bool(Object value) {
+        return Boolean.TRUE.equals(value) || "true".equalsIgnoreCase(String.valueOf(value));
     }
 
     public record Config(

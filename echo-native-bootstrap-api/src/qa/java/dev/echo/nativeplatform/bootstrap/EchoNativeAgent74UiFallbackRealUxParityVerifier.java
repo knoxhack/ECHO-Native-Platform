@@ -91,7 +91,9 @@ public final class EchoNativeAgent74UiFallbackRealUxParityVerifier {
                 "lensScanExecuted", true
         ));
         requireSurface(surface, "EchoNativeLensSurfaceRenderer",
-                "scan locked -> " + EchoNativeAgent5UiExpectedValues.lensOutput());
+                EchoNativeAgent5UiExpectedValues.lensOutput());
+        require(lines(surface).stream().anyMatch(line -> line.contains("scan locked ->")),
+                "EchoNativeLensSurfaceRenderer must render an executed Lens scan line.");
         return step("Lens", "echolens:lens", handler, surface);
     }
 

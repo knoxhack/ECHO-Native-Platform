@@ -502,10 +502,10 @@ public final class NativeLoaderModuleSurfaceRenderers {
             Map<String, Object> mainMenu = object(dataSources.get("mainMenu"));
             ArrayList<String> lines = new ArrayList<>();
             NativeLoaderTheme theme = NativeLoaderThemeResolver.activeTheme();
-            lines.add("Main Menu: " + theme.token("identityLabel") + " routes");
-            lines.add("Theme: " + theme.id() + "    Source: " + theme.source());
+            lines.add("Main Menu: " + theme.token("identityLabel") + " boot routes");
+            lines.add("Shell: ASHFALL TERMINAL    Theme: " + theme.id() + " / " + theme.source());
             lines.add("Selected: " + selectedOption(state, strings(mainMenu.get("options"))));
-            lines.add("Options: " + String.join(", ", strings(mainMenu.get("options"))));
+            lines.add("Actions: " + String.join(", ", strings(mainMenu.get("options"))));
             String output = string(state, "mainMenuOutput", "");
             if (!output.isBlank()) {
                 lines.add("Action: " + output);
@@ -522,14 +522,14 @@ public final class NativeLoaderModuleSurfaceRenderers {
         static Map<String, Object> render(Map<String, Object> state, Map<String, Object> dataSources) {
             NativeLoaderTheme theme = NativeLoaderThemeResolver.activeTheme();
             ArrayList<String> lines = new ArrayList<>();
-            lines.add("World Setup: " + theme.token("identityLabel") + " owns creation");
+            lines.add("Create Simulation: " + theme.token("identityLabel") + " owns world setup");
             lines.add("Policy: native_loader_owned_world=true    vanilla_create_world=false");
             lines.add("Preset: " + NativeLoaderAshfallWorldStartupService.WORLD_PRESET_ID);
             lines.add("World: " + NativeLoaderAshfallWorldStartupService.configuredProductWorldName()
                     + "    Folder: " + NativeLoaderAshfallWorldStartupService.configuredProductWorldFolder());
-            lines.add("Theme: " + theme.id() + "    Source: " + theme.source());
+            lines.add("Shell: ASHFALL TERMINAL    Theme: " + theme.id() + " / " + theme.source());
             String output = string(state, "worldSetupOutput", "");
-            lines.add(output.isBlank() ? "Enter: create/open native product world    Back: return to menu" : output);
+            lines.add(output.isBlank() ? "Enter: create/open Ashfall product world    Back: return to archive" : output);
             return moduleModel("echoscreencore", EchoNativeWorldSetupSurfaceRenderer.class.getSimpleName(),
                     "world_setup:surface", lines);
         }

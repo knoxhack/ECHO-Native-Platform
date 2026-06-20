@@ -24,7 +24,7 @@ public final class EchoNativeAgent5LiveVisualFrameAcceptance {
                 && "loader_default".equals(theme.get("nativeLoaderThemeMode"))
                 && "ashfall-accessible".equals(theme.get("settingsProfile"))
                 && "keyboard_mouse".equals(theme.get("inputMode"))
-                && "ECHO>".equals(object(theme.get("tokens")).get("terminal.prompt"));
+                && "ASHFALL>".equals(object(theme.get("tokens")).get("terminal.prompt"));
         boolean layoutAccepted = Boolean.TRUE.equals(layout.get("passed"))
                 && "EchoNativeAgent5RenderCoreLayoutSmoke".equals(layout.get("renderCoreLayoutSmokeClass"))
                 && Integer.valueOf(620).equals(layout.get("desktopPanelW"))

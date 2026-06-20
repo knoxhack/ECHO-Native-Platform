@@ -91,28 +91,36 @@ public final class NativeLoaderModuleResourcePack {
             for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
                 Object minecraft = minecraftInstance();
                 Object repository = minecraft == null ? null : fieldValue(minecraft, "resourcePackRepository");
-                if (repository != null) {
-                    boolean beforeResourceManager = fieldValue(minecraft, "resourceManager") == null;
+                Object resourceManager = minecraft == null ? null : fieldValue(minecraft, "resourceManager");
+                boolean clientReady = clientReadyForLatePackMount(minecraft);
+                if (repository != null && resourceManager != null && clientReady) {
+                    boolean beforeResourceManager = false;
                     Object source = repositorySource(resourceIndex);
                     installRepositorySource(repository, source);
                     repository.getClass().getMethod("reload").invoke(repository);
-                    if (!beforeResourceManager) {
+                    boolean managedReloadRequested = managedReloadRequested();
+                    if (managedReloadRequested) {
                         minecraft.getClass().getMethod("reloadResourcePacks").invoke(minecraft);
                     }
                     evidence.put("attempts", attempt);
                     evidence.put("mounted", true);
                     evidence.put("mountedBeforeResourceManager", beforeResourceManager);
-                    evidence.put("mountedBeforeInitialResourceReload", beforeResourceManager);
+                    evidence.put("mountedBeforeInitialResourceReload", false);
+                    evidence.put("waitedForPostInitialClientState", true);
+                    evidence.put("clientScreenClass", className(fieldValue(minecraft, "screen")));
+                    evidence.put("clientLevelPresent", fieldValue(minecraft, "level") != null);
                     evidence.put("mountPoint", "PackRepository.sources");
                     evidence.put("requiredPack", true);
                     evidence.put("hiddenPack", true);
                     evidence.put("hiddenPackReason", "native_loader_required_pack_repository_source");
                     evidence.put("nativeManagedPack", true);
+                    evidence.put("managedReloadRequested", managedReloadRequested);
+                    evidence.put("managedReloadOptInProperty", "echo.native.moduleResourcePackReload");
                     evidence.put("optionalToggleExposed", false);
                     evidence.put("userFacingOptionalPack", false);
-                    evidence.put("summary", beforeResourceManager
-                            ? "Native module classpath resources were mounted through the ECHO PackResources facade before the initial resource manager was created."
-                            : "Native module classpath resources were mounted through the ECHO PackResources facade after client construction; reload may be required for already baked models.");
+                    evidence.put("summary", managedReloadRequested
+                            ? "Native module classpath resources were mounted through the ECHO PackResources facade after the first client screen or world existed, then an opt-in managed reload was requested."
+                            : "Native module classpath resources were mounted through the ECHO PackResources facade after the first client screen or world existed; startup managed reload was skipped to avoid Minecraft constructor registry-freeze crashes.");
                     writeEvidence(evidencePath, evidence);
                     return;
                 }
@@ -158,6 +166,28 @@ public final class NativeLoaderModuleResourcePack {
                     return null;
                 }
         );
+    }
+
+    private static boolean managedReloadRequested() {
+        return Boolean.getBoolean("echo.native.moduleResourcePackReload");
+    }
+
+    private static boolean clientReadyForLatePackMount(Object minecraft) {
+        if (minecraft == null) {
+            return false;
+        }
+        if (fieldValue(minecraft, "level") != null) {
+            return true;
+        }
+        Object screen = fieldValue(minecraft, "screen");
+        String screenClass = className(screen);
+        return !screenClass.isBlank()
+                && !screenClass.endsWith(".GenericMessageScreen")
+                && !screenClass.equals("net.minecraft.client.gui.screens.GenericMessageScreen");
+    }
+
+    private static String className(Object value) {
+        return value == null ? "" : value.getClass().getName();
     }
 
     private static void installRepositorySource(Object repository, Object source) throws ReflectiveOperationException {

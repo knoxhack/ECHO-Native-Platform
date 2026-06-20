@@ -233,6 +233,16 @@ public final class NativeLoaderAdapterCoreFlow {
         return NativeLoaderAdapterCoreRuntimeMutations.placeWorldBlock(mutationContext, level, player, blockId);
     }
 
+    public Map<String, Object> placeStructure(Object level, Object player, String structureId, String anchor) {
+        return NativeLoaderAdapterCoreRuntimeMutations.placeStructure(
+                mutationContext,
+                level,
+                player,
+                structureId,
+                anchor
+        );
+    }
+
     public boolean writeSaveData(Object level, Object player, String scope, String key, Map<String, Object> payload) {
         return NativeLoaderAdapterCoreRuntimeMutations.writeSaveData(
                 mutationContext,

@@ -76,9 +76,10 @@ public final class NativeLoaderProductResourceDatapackBridge {
             Path resourcePack = resourcePackDir.resolve(
                     "echo-native-" + NativeLoaderLaunchPathSupport.sanitizeResourceIdPart(packId) + "-resources.zip");
             NativeLoaderResourcePackBuilder.BuildResult buildResult = buildResourcePack(resourcePack, modules);
-            boolean optionsUpdated = NativeLoaderResourcePackSelection.removeFilePackSelection(
+            String resourcePackFileName = resourcePack.getFileName().toString();
+            boolean optionsUpdated = NativeLoaderResourcePackSelection.ensureFilePackSelection(
                     gameDir.resolve("options.txt"),
-                    resourcePack.getFileName().toString()
+                    resourcePackFileName
             );
             Map<String, Object> datapackResult = installProductDatapacks(gameDir, resourcePack, buildResult);
             Map<String, Object> resourceHostReport = preWorldCreationResourceHostReport(packId, resourcePack, datapackResult);
@@ -92,8 +93,9 @@ public final class NativeLoaderProductResourceDatapackBridge {
             data.put("internalModuleResourcePack", true);
             data.put("internalModuleResourcePackId", INTERNAL_MODULE_RESOURCE_PACK_ID);
             data.put("internalModuleResourcePackMount", "PackRepository required hidden source");
-            data.put("resourcePackCacheOnly", true);
-            data.put("userFacingResourcePackEnabled", false);
+            data.put("resourcePackCacheOnly", false);
+            data.put("userFacingResourcePackEnabled", true);
+            data.put("userFacingResourcePackId", "file/" + resourcePackFileName);
             data.put("nativeProductWorldgenBiomeCount", buildResult.productWorldgenBiomes());
             data.put("nativeProductWorldgenPresetPresent", buildResult.productWorldgenPresetPresent());
             data.put("nativeProductWorldgenRootMarkerPresent", buildResult.productWorldgenRootMarkerPresent());
@@ -148,10 +150,12 @@ public final class NativeLoaderProductResourceDatapackBridge {
                     || optionsUpdated
                     || Boolean.TRUE.equals(datapackResult.get("filesystemMutated")));
             data.put("optionsUpdated", optionsUpdated);
-            data.put("resourcePackSelectionRemoved", optionsUpdated);
+            data.put("resourcePackSelectionEnsured", true);
+            data.put("resourcePackSelectionUpdated", optionsUpdated);
+            data.put("resourcePackSelectionRemoved", false);
             data.put("resourcePack", resourcePack.toString());
             data.put("summary", buildResult.copiedResources() > 0
-                    ? "Native resource bridge materialized module resources as an internal cache, removed optional pack selection, separated save/launch datapacks, and prepared a hidden required PackRepository source before Minecraft handoff."
+                    ? "Native resource bridge materialized module resources, selected the generated file resource pack before Minecraft handoff, separated save/launch datapacks, and prepared a hidden required PackRepository source."
                     : "Native resource bridge found no ECHO resource entries to apply.");
         } catch (Throwable exception) {
             data.put("applied", false);

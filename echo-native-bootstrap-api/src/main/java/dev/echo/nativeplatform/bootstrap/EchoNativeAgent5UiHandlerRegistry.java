@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.jar.JarFile;
+import java.util.jar.JarInputStream;
 
 public final class EchoNativeAgent5UiHandlerRegistry {
     private static final Map<String, List<SourceRecord>> RESOURCE_RECORDS_CACHE = new LinkedHashMap<>();
@@ -61,13 +62,18 @@ public final class EchoNativeAgent5UiHandlerRegistry {
         dataSources.put("terminal", terminal);
         dataSources.put("index", index);
         dataSources.put("lens", lens);
-        dataSources.put("hud", Map.of(
-                "health", 100,
-                "hazard", "Mission signal: " + missionLog.get("status"),
-                "mission", missionLog.get("objective"),
-                "notifications", notificationQueue(terminal, missionLog),
-                "source", notifications
-        ));
+        Map<String, Object> hud = new LinkedHashMap<>();
+        hud.put("health", 100);
+        hud.put("hazard", "Mission signal: " + missionLog.get("status"));
+        hud.put("missionId", missionLog.get("missionId"));
+        hud.put("missionStatus", missionLog.get("status"));
+        hud.put("missionTitle", missionLog.get("title"));
+        hud.put("missionObjective", missionLog.get("objective"));
+        hud.put("mission", missionLog.get("objective"));
+        hud.put("missionProgress", missionLog.get("progress"));
+        hud.put("notifications", notificationQueue(terminal, missionLog));
+        hud.put("source", notifications);
+        dataSources.put("hud", Map.copyOf(hud));
         dataSources.put("notifications", notificationQueue(terminal, missionLog));
         dataSources.put("missionLog", missionLog);
         dataSources.put("settings", settings());
@@ -554,9 +560,12 @@ public final class EchoNativeAgent5UiHandlerRegistry {
     }
 
     static Map<String, Object> missionLog() {
-        List<SourceRecord> records = resourceRecordsFor(ROOT_MISSION_LOG);
-        SourceRecord record = preferred(records, defaultContentId("missionLog", "native_loader_mission"));
-        String id = "echoashfallprotocol:secure_crash_outpost";
+        List<SourceRecord> records = resourceRecordsFor(
+                ROOT_MISSION_LOG,
+                "data/echoashfallprotocol/missioncore/missions"
+        );
+        SourceRecord record = preferred(records, defaultContentId("missionLog", "secure_crash_outpost"));
+        String id = normalizedMissionId(jsonString(record.json(), "id", "echoashfallprotocol:secure_crash_outpost"));
         String title = jsonString(record.json(), "title", "Anchor Pod Outpost");
         List<Map<String, Object>> objectives = jsonObjectArray(record.json(), "objectives");
         List<Map<String, Object>> rewards = jsonObjectArray(record.json(), "rewards");
@@ -781,12 +790,20 @@ public final class EchoNativeAgent5UiHandlerRegistry {
 
     private static List<String> sourceRootsFor(String profileKey, String... fallbackRoots) {
         List<String> configured = EchoNativeBootstrapMain.nativeUiDataSourceRoots().get(profileKey);
-        List<String> roots = configured == null || configured.isEmpty()
-                ? List.of(fallbackRoots)
-                : configured;
+        List<String> roots = new ArrayList<>();
+        if (configured != null) {
+            roots.addAll(configured);
+        }
+        roots.addAll(List.of(fallbackRoots));
         return roots.stream()
                 .filter(root -> root != null && !root.isBlank())
+                .distinct()
                 .toList();
+    }
+
+    private static String normalizedMissionId(String id) {
+        String safeId = id == null || id.isBlank() ? "secure_crash_outpost" : id.trim();
+        return safeId.contains(":") ? safeId : "echoashfallprotocol:" + safeId;
     }
 
     private static String defaultContentId(String key, String fallback) {
@@ -1088,17 +1105,51 @@ public final class EchoNativeAgent5UiHandlerRegistry {
     }
 
     private static void scanClasspath(String root, Map<String, SourceRecord> records) throws IOException {
-        String classpath = System.getProperty("java.class.path", "");
+        scanClasspathEntries(System.getProperty("java.class.path", ""), root, records);
+        scanClasspathEntries(System.getProperty("echo.native.moduleClasspath", ""), root, records);
+        scanModuleClasspathFile(root, records);
+    }
+
+    private static void scanModuleClasspathFile(String root, Map<String, SourceRecord> records) throws IOException {
+        String configured = System.getProperty("echo.native.moduleClasspathFile", "");
+        if (configured == null || configured.isBlank()) {
+            return;
+        }
+        Path file = Path.of(configured.trim());
+        if (!Files.isRegularFile(file)) {
+            return;
+        }
+        String json = Files.readString(file, StandardCharsets.UTF_8);
+        scanClasspathEntries(jsonString(json, "moduleClasspath", ""), root, records);
+        for (String entry : jsonStringArray(json, "classpathEntries")) {
+            scanClasspathEntry(entry, root, records);
+        }
+    }
+
+    private static void scanClasspathEntries(String classpath, String root, Map<String, SourceRecord> records)
+            throws IOException {
+        if (classpath == null || classpath.isBlank()) {
+            return;
+        }
         for (String entry : classpath.split(Pattern.quote(File.pathSeparator))) {
-            if (entry.isBlank()) {
-                continue;
-            }
-            Path path = Path.of(entry);
-            if (Files.isDirectory(path)) {
-                scanDirectory(root, path.resolve(root), records);
-            } else if (entry.endsWith(".jar")) {
-                scanJar(path, root, records);
-            }
+            scanClasspathEntry(entry, root, records);
+        }
+    }
+
+    private static void scanClasspathEntry(String entry, String root, Map<String, SourceRecord> records)
+            throws IOException {
+        if (entry == null || entry.isBlank()) {
+            return;
+        }
+        String trimmed = entry.trim();
+        if (trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+            trimmed = trimmed.substring(1, trimmed.length() - 1);
+        }
+        Path path = Path.of(trimmed);
+        if (Files.isDirectory(path)) {
+            scanDirectory(root, path.resolve(root), records);
+        } else if (trimmed.endsWith(".jar") || trimmed.endsWith(".echo-addon")) {
+            scanJar(path, root, records);
         }
     }
 
@@ -1111,6 +1162,8 @@ public final class EchoNativeAgent5UiHandlerRegistry {
             scanDirectory(root, cursor.resolve("Echo").resolve("echo-native-platform").resolve("src").resolve("main").resolve("resources").resolve(root), records);
             scanAddonResourceDirectories(root, cursor.resolve("addons"), records);
             scanAddonResourceDirectories(root, cursor.resolve("Echo").resolve("addons"), records);
+            scanAddonResourceDirectories(root, cursor.resolve("ECHO-Modules").resolve("addons"), records);
+            scanAddonResourceDirectories(root, cursor.resolve("Github").resolve("ECHO-Modules").resolve("addons"), records);
             cursor = cursor.getParent();
         }
     }
@@ -1156,12 +1209,32 @@ public final class EchoNativeAgent5UiHandlerRegistry {
                 var entry = entries.nextElement();
                 String name = entry.getName();
                 if (entry.isDirectory() || !name.startsWith(root + "/") || !name.endsWith(".json")) {
+                    if (!entry.isDirectory() && name.startsWith("lib/") && name.endsWith(".jar")) {
+                        try (InputStream input = jar.getInputStream(entry)) {
+                            scanNestedJar(input, root, records);
+                        }
+                    }
                     continue;
                 }
                 try (InputStream input = jar.getInputStream(entry)) {
                     String json = new String(input.readAllBytes(), StandardCharsets.UTF_8);
                     records.putIfAbsent(name, new SourceRecord(name, json));
                 }
+            }
+        }
+    }
+
+    private static void scanNestedJar(InputStream input, String root, Map<String, SourceRecord> records)
+            throws IOException {
+        try (JarInputStream nested = new JarInputStream(input)) {
+            java.util.jar.JarEntry entry;
+            while ((entry = nested.getNextJarEntry()) != null) {
+                String name = entry.getName();
+                if (entry.isDirectory() || !name.startsWith(root + "/") || !name.endsWith(".json")) {
+                    continue;
+                }
+                String json = new String(nested.readAllBytes(), StandardCharsets.UTF_8);
+                records.putIfAbsent(name, new SourceRecord(name, json));
             }
         }
     }

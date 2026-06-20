@@ -133,7 +133,7 @@ public final class NativeLoaderThemeResolver {
                     .builtIn(NativeLoaderThemeMode.MODPACK, "built_in", themeCoreAvailable)
                     .tokens());
             tokens.put("themeFamily", "themecore");
-            tokens.put("mainMenuTitle", "ECHO NATIVE LOADER // " + displayName.toUpperCase(Locale.ROOT));
+            tokens.put("mainMenuTitle", "ASHFALL TERMINAL // " + displayName.toUpperCase(Locale.ROOT));
             return new NativeLoaderTheme(
                     id,
                     displayName,
@@ -224,7 +224,7 @@ public final class NativeLoaderThemeResolver {
         Map<String, String> tokens = new LinkedHashMap<>(fallback.tokens());
         String displayName = string(object.get("display_name"), fallback.displayName());
         tokens.put("themeFamily", "themecore");
-        tokens.put("mainMenuTitle", "ECHO NATIVE LOADER // " + displayName.toUpperCase(Locale.ROOT));
+        tokens.put("mainMenuTitle", "ASHFALL TERMINAL // " + displayName.toUpperCase(Locale.ROOT));
         tokens.put("themeResource", resource);
         return new NativeLoaderTheme(
                 string(object.get("id"), "echothemecore:" + localThemeId(displayName)),

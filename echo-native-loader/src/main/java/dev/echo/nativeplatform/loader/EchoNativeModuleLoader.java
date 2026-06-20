@@ -24,15 +24,11 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public final class EchoNativeModuleLoader {
     private static final String RELEASE_ENTRYPOINT_POLICY = "release_requires_echo_native_module_entrypoint";
     private static final String LEGACY_COMPATIBILITY_SHIM_POLICY = "non_release_legacy_activate_native_map_compatibility_shim";
-    private static final Pattern MODULE_REPLACEMENT_PATTERN = Pattern.compile("\\{[^{}]*\"legacyId\"\\s*:\\s*\"([^\"]+)\"[^{}]*}");
-    private static final Pattern REPLACEMENT_ID_PATTERN = Pattern.compile("\"replacementId\"\\s*:\\s*\"([^\"]+)\"");
-    private static final Pattern REPLACEMENT_SCOPE_PATTERN = Pattern.compile("\"scope\"\\s*:\\s*\"([^\"]+)\"");
+    private static final String LEGACY_ID_FIELD = "\"legacyId\"";
 
     private final ClassLoader parentClassLoader;
     private final Map<EchoNativeModuleLoadResult, LoadedModuleHandle> loadedHandles = new IdentityHashMap<>();
@@ -502,18 +498,26 @@ public final class EchoNativeModuleLoader {
         }
         try {
             String json = Files.readString(addonDescriptor.descriptorPath(), StandardCharsets.UTF_8);
+            if (!json.contains(LEGACY_ID_FIELD)) {
+                return List.of();
+            }
             LinkedHashSet<String> aliases = new LinkedHashSet<>();
-            Matcher matcher = MODULE_REPLACEMENT_PATTERN.matcher(json);
-            while (matcher.find()) {
-                String block = matcher.group();
-                String legacyId = matcher.group(1);
-                String replacementId = capture(block, REPLACEMENT_ID_PATTERN);
-                String scope = capture(block, REPLACEMENT_SCOPE_PATTERN);
+            int searchStart = 0;
+            while (searchStart >= 0 && searchStart < json.length()) {
+                int legacyField = json.indexOf(LEGACY_ID_FIELD, searchStart);
+                if (legacyField < 0) {
+                    break;
+                }
+                String block = boundedObjectBlock(json, legacyField);
+                String legacyId = captureJsonStringField(block, "legacyId");
+                String replacementId = captureJsonStringField(block, "replacementId");
+                String scope = captureJsonStringField(block, "scope");
                 boolean moduleScope = scope.isBlank() || "module_id".equals(scope);
                 boolean canonicalReplacement = replacementId.isBlank() || addonDescriptor.id().equals(replacementId);
-                if (moduleScope && canonicalReplacement && legacyId != null && !legacyId.isBlank()) {
+                if (moduleScope && canonicalReplacement && !legacyId.isBlank()) {
                     aliases.add(legacyId);
                 }
+                searchStart = legacyField + LEGACY_ID_FIELD.length();
             }
             aliases.remove(addonDescriptor.id());
             return List.copyOf(aliases);
@@ -522,9 +526,56 @@ public final class EchoNativeModuleLoader {
         }
     }
 
-    private static String capture(String text, Pattern pattern) {
-        Matcher matcher = pattern.matcher(text);
-        return matcher.find() ? matcher.group(1) : "";
+    private static String boundedObjectBlock(String json, int anchor) {
+        int start = json.lastIndexOf('{', anchor);
+        int end = json.indexOf('}', anchor);
+        if (start < 0) {
+            start = Math.max(0, anchor - 256);
+        }
+        if (end < start) {
+            end = Math.min(json.length() - 1, anchor + 1024);
+        }
+        return json.substring(start, Math.min(json.length(), end + 1));
+    }
+
+    private static String captureJsonStringField(String text, String fieldName) {
+        String needle = "\"" + fieldName + "\"";
+        int field = text.indexOf(needle);
+        if (field < 0) {
+            return "";
+        }
+        int colon = skipWhitespace(text, field + needle.length());
+        if (colon >= text.length() || text.charAt(colon) != ':') {
+            return "";
+        }
+        int valueStart = skipWhitespace(text, colon + 1);
+        if (valueStart >= text.length() || text.charAt(valueStart) != '"') {
+            return "";
+        }
+        StringBuilder value = new StringBuilder();
+        boolean escaped = false;
+        for (int index = valueStart + 1; index < text.length(); index++) {
+            char current = text.charAt(index);
+            if (escaped) {
+                value.append(current);
+                escaped = false;
+            } else if (current == '\\') {
+                escaped = true;
+            } else if (current == '"') {
+                return value.toString();
+            } else {
+                value.append(current);
+            }
+        }
+        return "";
+    }
+
+    private static int skipWhitespace(String text, int start) {
+        int index = start;
+        while (index < text.length() && Character.isWhitespace(text.charAt(index))) {
+            index++;
+        }
+        return index;
     }
 
     private static boolean isNonReleaseLegacyActivateNativeCompatibilityShim(Class<?> type) {
