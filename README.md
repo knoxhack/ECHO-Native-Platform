@@ -16,7 +16,7 @@ Owns native platform runtime releases consumed by Native Edition and developer t
 
 ## Current Release Line
 
-The active release line is `1.0.0-RC1`. Local build/check and external addon proof are green, and the loader/runtime ZIP is checksum-indexed in the Release Index as a warning-gated RC asset. It is not a stable `1.0.0` or launcher-approved full release until GitHub upload/download-back, signing or attestation, launcher install/rollback/diagnostics, and real pack gameplay evidence pass.
+The active release line is `1.0.7`. Local build/check and external addon proof are green, and the loader/runtime ZIP is built locally for the next Native Platform update. The Release Index currently routes the published `v1.0.6` artifacts; `1.0.7` is not approved as a stable or player-facing full release until GitHub upload/download-back, signing or attestation, launcher install/rollback/diagnostics, and real pack gameplay evidence pass.
 
 Use `docs/echo/native/RELEASE_CANDIDATE_CHECKLIST.md` as the promotion contract.
 
@@ -51,10 +51,10 @@ Use `.\gradlew.bat runNativeContentGraphEvidenceGate -PechoModulesRepoRoot=..\EC
 
 Native platform runtime binaries and platform metadata belong here. Native pack releases belong to `ECHO-Ashfall-Native-Edition`.
 
-The Native Platform release owns two runtime-facing artifacts for RC1:
+The Native Platform release owns two runtime-facing artifacts for the current line:
 
-- `echo-native-platform-1.0.0-RC1.zip` is the launcher-facing platform package.
-- `echo-native-loader-1.0.0.jar` is the direct Native Loader library for developers and users who do not use ECHO Launcher.
+- `echo-native-platform-1.0.7.zip` is the launcher-facing platform package.
+- `echo-native-loader-1.0.7.jar` is the direct Native Loader library for developers and users who do not use ECHO Launcher.
 
 `native-loader-direct-install.json` declares the direct jar as `artifactRole: native-loader-library` with `manualInstall: true`. The jar is not a `.echo-addon`, not pack content, and not a module dependency. Pack/module files still ship from pack or module releases.
 
@@ -68,7 +68,7 @@ Runtime update metadata is routed through the canonical Release Index product en
 
 `scripts/generate-ashfall-native-public-beta-evidence.mjs` writes the Phase 7 Ashfall Native public beta reports consumed by the Release Index readiness gate: `native-loader-beta-session-proof-matrix.json`, `native-loader-beta-crash-intake.json`, and `public-beta-tester-package-readiness.json`. It fails closed unless `fixtures/ashfall/native-public-beta/manual-evidence.json` cites three clean internal beta sessions with logs and notes, no-crash crash review evidence, a checksum-verified tester package, support runbook, rollback plan, and published limitations.
 
-`packagePublicAlphaRelease` emits the RC1 Native Platform loader/runtime ZIP under `build/public-alpha/echo-native-platform-1.0.0-RC1.zip`. The archive must not contain `echo.pack.json`, `echo-native-product-package.json`, `modules/`, pack-specific metadata, or embedded module jars. Pack content ships from pack-owned releases such as `ECHO-Ashfall-Native-Edition`.
+`packagePublicAlphaRelease` emits the Native Platform loader/runtime ZIP under `build/public-alpha/echo-native-platform-1.0.7.zip`. The archive must not contain `echo.pack.json`, `echo-native-product-package.json`, `modules/`, pack-specific metadata, or embedded module jars. Pack content ships from pack-owned releases such as `ECHO-Ashfall-Native-Edition`.
 
 Use `fixtures/ashfall/RELEASE_EVIDENCE_RUNBOOK.md` plus the `manual-evidence.template.json` files under `fixtures/ashfall/native-public-beta/` and `fixtures/ashfall/gameplay-qa/` when collecting real Phase 7/8 evidence. The templates are intentionally report-only placeholders and must not be treated as passing evidence.
 
