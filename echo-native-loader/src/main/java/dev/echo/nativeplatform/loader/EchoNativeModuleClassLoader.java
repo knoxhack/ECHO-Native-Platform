@@ -55,10 +55,12 @@ public final class EchoNativeModuleClassLoader extends URLClassLoader {
                 || name.startsWith("jdk.")
                 || name.startsWith("sun.")
                 || name.startsWith("com.sun.")
+                || name.startsWith("com.mojang.logging.")
                 || name.startsWith("dev.echo.nativeplatform.contracts.")
                 || name.startsWith("dev.echo.nativeplatform.diagnostics.")
                 || name.startsWith("dev.echo.nativeplatform.packos.")
                 || name.startsWith("dev.echo.nativeplatform.loader.NativeLoader")
+                || name.startsWith("org.slf4j.")
                 || name.startsWith("com.echoplatform.echocore.api.")
                 || name.startsWith("com.knoxhack.echoscreencore.api.")
                 || name.startsWith("com.knoxhack.echoterminal.api.");

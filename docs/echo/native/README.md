@@ -6,6 +6,7 @@ This folder is the author-facing documentation for writing ECHO Native addons wi
 
 - [Public contract and versioning](PUBLIC_CONTRACT.md)
 - [Runtime lanes](RUNTIME_LANES.md)
+- [Unified player runtime](UNIFIED_PLAYER_RUNTIME.md)
 
 ## Addon Author Guides
 

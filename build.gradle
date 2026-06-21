@@ -7,8 +7,8 @@ def publicNativeSdkProjects = [
         'echo-native-testkit',
 ] as Set
 
-def nativeLoaderReleaseVersion = '1.0.6'
-def nativeLoaderReleaseTag = 'v1.0.6'
+def nativeLoaderReleaseVersion = '1.0.7'
+def nativeLoaderReleaseTag = 'v1.0.7'
 def nativePlatformReleaseArchiveName = "echo-native-platform-${nativeLoaderReleaseVersion}.zip"
 def nativeLoaderClientLibraryName = "echo-native-loader-${nativeLoaderReleaseVersion}.jar"
 
@@ -240,7 +240,10 @@ tasks.register('packageNativeLoaderClientLibrary', Jar) {
     from(project(':echo-native-contracts').sourceSets.main.output)
     from(project(':echo-native-diagnostics').sourceSets.main.output)
     from(project(':echo-native-packos').sourceSets.main.output)
-    from(project(':echo-native-loader').sourceSets.main.output)
+    from(project(':echo-native-loader').sourceSets.main.output) {
+        exclude 'com/mojang/logging/**'
+        exclude 'org/slf4j/**'
+    }
     from(project(':echo-native-bootstrap-api').sourceSets.main.output)
     manifest {
         attributes(
@@ -267,17 +270,30 @@ tasks.register('verifyNativeLoaderClientLibrary') {
                 'dev/echo/nativeplatform/bootstrap/EchoNativeBootstrapActivationRunner.class',
                 'dev/echo/nativeplatform/loader/NativeLoaderCoreServiceRegistrar.class'
         ]
+        def forbiddenEntries = [
+                'com/mojang/logging/LogUtils.class',
+                'org/slf4j/LoggerFactory.class',
+                'org/slf4j/Logger.class',
+                'org/slf4j/Marker.class'
+        ]
         def missingEntries = []
+        def packagedForbiddenEntries = []
         def jar = new java.util.jar.JarFile(library)
         try {
             requiredEntries.each { entryName ->
                 if (jar.getEntry(entryName) == null) missingEntries.add(entryName)
+            }
+            forbiddenEntries.each { entryName ->
+                if (jar.getEntry(entryName) != null) packagedForbiddenEntries.add(entryName)
             }
         } finally {
             jar.close()
         }
         if (!missingEntries.isEmpty()) {
             throw new GradleException("Native Loader client library is missing required bootstrap classes: ${missingEntries.join(', ')}")
+        }
+        if (!packagedForbiddenEntries.isEmpty()) {
+            throw new GradleException("Native Loader client library must not package Minecraft logging compatibility stubs: ${packagedForbiddenEntries.join(', ')}")
         }
     }
 }
@@ -1226,6 +1242,15 @@ tasks.register('runNativeServiceCollisionGate', JavaExec) {
     workingDir = rootProject.projectDir
 }
 
+tasks.register('runNativeSharedApiClassLoaderGate', JavaExec) {
+    group = 'verification'
+    description = 'Verifies Native module class loading delegates shared API and logging packages to the parent runtime.'
+    dependsOn nativeLoaderQaClassesTask
+    classpath = nativeLoaderQaRuntimeClasspath()
+    mainClass = 'dev.echo.nativeplatform.loader.EchoNativeSharedApiClassLoaderGateMain'
+    workingDir = rootProject.projectDir
+}
+
 tasks.register('runNativeMutationTruthGate', JavaExec) {
     group = 'verification'
     description = 'Verifies MUTATED release proof requires typed host mutation receipts instead of map-only claims.'
@@ -1235,6 +1260,222 @@ tasks.register('runNativeMutationTruthGate', JavaExec) {
     workingDir = rootProject.projectDir
     systemProperty 'echo.native.mutationTruthGateReport',
             layout.buildDirectory.file('mutation-truth-gate/native-mutation-truth-gate.json').get().asFile.absolutePath
+}
+
+tasks.register('verifyNativeLoaderRuntimeConformance') {
+    group = 'verification'
+    description = 'Aggregates Native Loader player-facing evidence into echo.runtime.conformance.v1.'
+    dependsOn tasks.named('runNativeAgent2ClientRouteOwnershipSmoke')
+    dependsOn tasks.named('runNativeAgent5UiBridgeContractSmoke')
+    dependsOn tasks.named('runNativeAgent5RuntimeTruthGate')
+    dependsOn tasks.named('runNativeAgent3RuntimeCoreSmoke')
+    dependsOn tasks.named('runNativeLoaderProofSmoke')
+    dependsOn tasks.named('runNativeMutationTruthGate')
+    dependsOn tasks.named('runNativeCoreModuleLoadStateSmoke')
+    dependsOn tasks.named('runNativeContentGraphEvidenceGate')
+    dependsOn tasks.named('runNativeSharedApiClassLoaderGate')
+
+    outputs.file file('reports/echo-native/runtime-conformance.json')
+
+    doLast {
+        def reportDir = file('reports/echo-native')
+        reportDir.mkdirs()
+        def json = new groovy.json.JsonSlurper()
+        def requiredReports = [
+                'build/native-agent2-client-routes/native-client-route-ownership.json',
+                'build/agent5/ui-bridge-contract/agent5-ui-bridge-contract.json',
+                'build/agent5/runtime-truth-gate/agent5-runtime-truth-gate.json',
+                'build/native-loader-proof/native-loader-proof.json',
+                'build/mutation-truth-gate/native-mutation-truth-gate.json',
+                'build/native-core-module-load-state/native-core-module-load-state.json',
+        ]
+        def readRequiredReport = { String relativePath ->
+            def reportFile = file(relativePath)
+            if (!reportFile.isFile()) {
+                throw new GradleException("Missing ECHO Native conformance source report: ${relativePath}")
+            }
+            json.parse(reportFile)
+        }
+        def reports = requiredReports.collectEntries { relativePath ->
+            [(relativePath): readRequiredReport(relativePath)]
+        }
+        def requireStatus = { String relativePath, Collection<String> statuses ->
+            def status = String.valueOf(reports[relativePath]?.status ?: '')
+            if (!statuses.contains(status)) {
+                throw new GradleException("ECHO Native conformance source report is not in ${statuses}: ${relativePath} status=${status}")
+            }
+        }
+        requireStatus('build/agent5/ui-bridge-contract/agent5-ui-bridge-contract.json', ['PASS'])
+        requireStatus('build/agent5/runtime-truth-gate/agent5-runtime-truth-gate.json', ['PASS'])
+        requireStatus('build/native-loader-proof/native-loader-proof.json', ['MUTATED'])
+        requireStatus('build/mutation-truth-gate/native-mutation-truth-gate.json', ['PASS'])
+        requireStatus('build/native-core-module-load-state/native-core-module-load-state.json', ['MUTATED'])
+
+        def routeReport = reports['build/native-agent2-client-routes/native-client-route-ownership.json']
+        def routeDispatchCount = routeReport.actionDispatchEvidence?.dispatchCount ?: 0
+        def ownerHandlers = routeReport.routeTableOwnerHandlerGateResults?.native_route_table_owner_preferred_handlers == true
+        def inputBindings = routeReport.inputBindingsFromRouteRegistry == true
+        if (routeDispatchCount <= 0 || !ownerHandlers || !inputBindings) {
+            throw new GradleException("Native route ownership report does not prove route dispatch, owner-preferred handlers, and input binding adaptation.")
+        }
+
+        def digest = java.security.MessageDigest.getInstance('SHA-256')
+        requiredReports.sort().each { relativePath ->
+            digest.update(relativePath.getBytes('UTF-8'))
+            digest.update((byte) 0)
+            file(relativePath).withInputStream { input ->
+                byte[] buffer = new byte[8192]
+                int read
+                while ((read = input.read(buffer)) > 0) {
+                    digest.update(buffer, 0, read)
+                }
+            }
+        }
+        def moduleGraphFingerprint = digest.digest().collect { String.format('%02x', it & 0xff) }.join()
+
+        def surface = { String id, String owner, String status, String evidence, String reason = '' ->
+            def row = [
+                    id          : id,
+                    ownerModule : owner,
+                    status      : status,
+                    hostEvidence: evidence
+            ]
+            if (reason != null && !reason.isBlank()) {
+                row.reason = reason
+            }
+            row
+        }
+        def action = { String id, String owner, String status, String evidence, String reason = '' ->
+            def row = [
+                    id             : id,
+                    ownerModule    : owner,
+                    status         : status,
+                    receiptEvidence: evidence
+            ]
+            if (reason != null && !reason.isBlank()) {
+                row.reason = reason
+            }
+            row
+        }
+
+        def uiBridge = reports['build/agent5/ui-bridge-contract/agent5-ui-bridge-contract.json']
+        def runtimeTruth = reports['build/agent5/runtime-truth-gate/agent5-runtime-truth-gate.json']
+        def proof = reports['build/native-loader-proof/native-loader-proof.json']
+        def mutationTruth = reports['build/mutation-truth-gate/native-mutation-truth-gate.json']
+        def coreLoad = reports['build/native-core-module-load-state/native-core-module-load-state.json']
+        def liveClientStatus = String.valueOf(proof.liveClientProof?.status ?: 'INCOMPLETE')
+        def missingLiveClientTargets = proof.liveClientProof?.missingTargets ?: []
+        def surfaceParity = runtimeTruth.surfaceContractParityCoverage
+        def surfaceParityCount = surfaceParity?.productRequiredSurfaceCount ?: 0
+        def runtimeHostSurfaceCount = surfaceParity?.runtimeHostSurfaceCount ?: 0
+        def loadedModuleCount = coreLoad.loadedByModuleClassLoaderCount ?: 0
+        def registeredRecordCount = coreLoad.moduleRegisteredRecordCount ?: 0
+
+        def surfaceResults = [
+                surface('echoscreencore:surface/title_menu', 'echoscreencore', 'fallback',
+                        "Native route ownership dispatchCount=${routeDispatchCount} and UI bridge visibleRoutes include echo:main_menu; live client proof status=${liveClientStatus}.",
+                        "Current report still uses the Native Loader built-in main menu bridge as host fallback until ScreenCore owns the full title menu contract end to end."),
+                surface('echoscreencore:surface/pause_menu', 'echoscreencore', 'adapted',
+                        "UI bridge PASS visibleRoutes include echoscreencore:pause_flow and route ownership proves screen lifecycle dispatch."),
+                surface('echoscreencore:surface/world_create', 'echoscreencore', 'fallback',
+                        "Native route ownership proves loading/new-run route dispatch; live client proof missingTargets=${missingLiveClientTargets}.",
+                        "World creation still needs a full ScreenCore create-world surface backed by save/session manifests."),
+                surface('echoscreencore:surface/world_load', 'echoscreencore', 'fallback',
+                        "Native Loader proof writes save data and module load state, but load-world visible flow remains live-client incomplete.",
+                        "Save selection and migration warnings must be promoted from loader proof into ScreenCore surface manifests."),
+                surface('echoscreencore:surface/settings_panel', 'echoscreencore', 'adapted',
+                        "UI bridge PASS visibleRoutes include echoscreencore:settings and route dispatch uses owner-preferred handlers."),
+                surface('echoscreencore:surface/module_diagnostics', 'echoscreencore', 'adapted',
+                        "Native core module load state registered ${loadedModuleCount} module classloaders and ${registeredRecordCount} service/content records for diagnostics."),
+                surface('echoscreencore:surface/inventory_surface', 'echoscreencore', 'fallback',
+                        "Runtime truth gate enforces AdapterCore inventory surface proof and Native Loader proof mutates inventory through the host.",
+                        "The visible inventory replacement is not yet proven as a full Native Loader player screen."),
+                surface('echoscreencore:surface/crafting_surface', 'echoscreencore', 'fallback',
+                        "Content graph and route ownership include index/recipe dispatch, but Native Loader does not yet prove a dedicated crafting surface.",
+                        "Crafting remains routed through Index/AdapterCore evidence until inventory surface manifests drive the visible UI."),
+                surface('echoscreencore:surface/hotbar_surface', 'echoscreencore', 'fallback',
+                        "Input bindings are derived from the route registry and runtime truth covers keybind surfaces.",
+                        "Hotbar presentation still needs a visible HUD/inventory surface proof, not only keybind and mutation coverage."),
+                surface('echohudcore:surface/hud_widget_layer', 'echohudcore', 'adapted',
+                        "Route ownership dispatches HUD render/update actions and UI bridge PASS includes echohudcore:hud."),
+                surface('echohudcore:surface/warning_overlay', 'echohudcore', 'adapted',
+                        "UI bridge PASS includes echonotificationcore:queue and route ownership proves HUD/overlay lifecycle dispatch."),
+                surface('echoinputcore:surface/input_bindings', 'echoinputcore', 'adapted',
+                        "Native route ownership inputBindingsFromRouteRegistry=${inputBindings} with dispatchCount=${routeDispatchCount}."),
+                surface('echoterminal:surface/terminal_page', 'echoterminal', 'adapted',
+                        "UI bridge PASS visibleRoutes include echoterminal:terminal and route dispatch handles terminal.open."),
+                surface('echoindex:surface/index_page', 'echoindex', 'adapted',
+                        "UI bridge PASS visibleRoutes include echoindex:index and route dispatch handles index catalog/recipe/usage actions."),
+                surface('echomissioncore:surface/mission_tracker', 'echomissioncore', 'adapted',
+                        "Runtime truth requires missions surface proof and route ownership dispatches mission HUD actions through terminal/HUD routes."),
+                surface('echoscreencore:surface/death_respawn', 'echoscreencore', 'adapted',
+                        "UI bridge PASS visibleRoutes include echoscreencore:death_recovery."),
+        ]
+        def actionResults = [
+                action('echoadaptercore:action/module_runtime_load', 'echoadaptercore', 'adapted',
+                        "Native core module load state loaded ${loadedModuleCount} modules by EchoNativeModuleClassLoader with ${registeredRecordCount} records."),
+                action('echoadaptercore:action/gameplay_bridge_replay', 'echoadaptercore', 'adapted',
+                        "Runtime truth gate status=${runtimeTruth.status} requires all mutated surfaces to be live-bridged and rejects mirror-only proof."),
+                action('echoadaptercore:action/inventory_mutation', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers inventory and Native Loader proof records inventory host mutation; gameplayReadyClaimAllowed=${proof.gameplayReadyClaimAllowed}."),
+                action('echoadaptercore:action/player_state_update', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers player_state and Native Loader proof records player state host mutation."),
+                action('echoadaptercore:action/world_block_mutation', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers world_blocks and Native Loader proof records world block host mutation."),
+                action('echoadaptercore:action/structure_mutation', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers structures and Native Loader proof records structure host mutation."),
+                action('echoadaptercore:action/block_entity_mutation', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers block_entities and Native Loader proof records block entity host mutation."),
+                action('echoadaptercore:action/capability_update', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers capabilities and Native Loader proof records capability host mutation."),
+                action('echoadaptercore:action/event_emit', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers events and Native Loader proof records event publication."),
+                action('echoadaptercore:action/hud_feedback_event', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers hud and Native Loader proof emits HUD notification."),
+                action('echoadaptercore:action/packet_hud_sync', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers packets_hud and Native Loader proof records packet HUD host mutation."),
+                action('echoadaptercore:action/save_session_write', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers save_data and Native Loader proof writes save data."),
+                action('echoadaptercore:action/screen_event', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers screen_events and route ownership dispatches screen lifecycle events."),
+                action('echoadaptercore:action/keybind_event', 'echoadaptercore', 'adapted',
+                        "Runtime truth covers keybinds and route ownership proves input binding dispatch."),
+                action('echoadaptercore:action/terminal_command', 'echoadaptercore', 'adapted',
+                        "Route ownership dispatches terminal.open and terminal screen events through echoterminal handlers."),
+                action('echoadaptercore:action/index_route', 'echoadaptercore', 'adapted',
+                        "Route ownership dispatches index catalog, recipe, usage, and bookmark actions through echoindex handlers."),
+                action('echoadaptercore:action/mutation_receipt_truth', 'echoadaptercore', 'adapted',
+                        "Mutation truth gate trustedMutations=${mutationTruth.trustedMutations}; MUTATED claims require typed receipts."),
+                action('echoadaptercore:action/runtime_surface_contract', 'echoadaptercore', 'adapted',
+                        "Runtime truth enforces ${surfaceParityCount} product-required surfaces with runtimeHostSurfaceCount=${runtimeHostSurfaceCount}."),
+                action('echoadaptercore:action/live_client_launch', 'echoadaptercore', 'fallback',
+                        "Native Loader proof liveClientProof status=${liveClientStatus}; missingTargets=${missingLiveClientTargets}.",
+                        "Full player-ready parity still requires live Native Loader client launch/attach and UI host evidence."),
+        ]
+        def counts = [supported: 0, adapted: 0, fallback: 0, blocked: 0]
+        (surfaceResults + actionResults).each { row ->
+            counts[String.valueOf(row.status)] = counts[String.valueOf(row.status)] + 1
+        }
+        def status = counts.blocked > 0 ? 'fail' : (counts.fallback > 0 ? 'warning' : 'pass')
+        def conformance = [
+                schemaVersion         : 'echo.runtime.conformance.v1',
+                id                    : "echo-native-loader:runtime/${project.version}",
+                hostId                : 'native_loader',
+                generatedAt           : '1970-01-01T00:00:00Z',
+                moduleGraphFingerprint: moduleGraphFingerprint,
+                surfaceResults        : surfaceResults,
+                actionResults         : actionResults,
+                summary               : [
+                        status   : status,
+                        supported: counts.supported,
+                        adapted  : counts.adapted,
+                        fallback : counts.fallback,
+                        blocked  : counts.blocked
+                ]
+        ]
+        file('reports/echo-native/runtime-conformance.json').text =
+                groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(conformance)) + System.lineSeparator()
+    }
 }
 
 tasks.register('runNativeLoaderClientEntrypointGate', JavaExec) {
@@ -1466,7 +1707,9 @@ tasks.named('check') {
     dependsOn 'runNativeLegacyAdapterBridgeSmoke'
     dependsOn 'runNativeDependencyResolutionGate'
     dependsOn 'runNativeServiceCollisionGate'
+    dependsOn 'runNativeSharedApiClassLoaderGate'
     dependsOn 'runNativeMutationTruthGate'
+    dependsOn 'verifyNativeLoaderRuntimeConformance'
     dependsOn 'runNativeLoaderClientEntrypointGate'
     dependsOn 'runNativeResourcePackSelectionGate'
     dependsOn 'runNativeRegistryFreezeGuardGate'

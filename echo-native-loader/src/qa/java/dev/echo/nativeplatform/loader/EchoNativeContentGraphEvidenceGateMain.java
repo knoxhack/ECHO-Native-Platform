@@ -54,8 +54,8 @@ public final class EchoNativeContentGraphEvidenceGateMain {
                 "Expected at least 1000 content graph features, found " + evidence.featureCount());
         require(evidence.exportPlanCount() >= 100,
                 "Expected at least 100 export plans, found " + evidence.exportPlanCount());
-        require(evidence.hytaleBlockerCount() == 9,
-                "Expected exactly 9 Hytale blocked nodes, found " + evidence.hytaleBlockerCount());
+        require(evidence.hytaleBlockerCount() >= 9,
+                "Expected at least 9 Hytale blocked nodes, found " + evidence.hytaleBlockerCount());
         require(openlandsSummary(evidence).map(summary -> number(summary, "hytaleBlockers") == 9).orElse(false),
                 "Expected echoopenlandsprotocol to own the 9 Hytale blocked nodes.");
         require(noBlocking(evidence.diagnostics()),

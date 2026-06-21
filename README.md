@@ -39,7 +39,9 @@ Run commands from the repository root.
 
 ## Content Graph Planning
 
-`echo-native-loader` includes `EchoNativeContentGraphPlanner` and `EchoNativeGraphPlanner`. During a dry-run plan, the loader reads per-module `content-graph.json`, `features.json`, and `export-plans/hytale.json` files from the directory configured by the `echo.content.graph.root` system property (`<root>/<module>/<version>/.echo/content-graph/content-graph.json`) and produces an `echo.content_graph.evidence.v1` summary of module count, node count, edge count, feature count, export-plan count, Hytale blocker count, and diagnostics. This is optional evidence: a missing graph emits a warning but does not block native loading.
+`echo-native-loader` includes `EchoNativeContentGraphPlanner` and `EchoNativeGraphPlanner`. During a dry-run plan, the loader reads per-module `content-graph.json`, `features.json`, `export-plans/standalone_engine.json`, and `export-plans/hytale.json` files from the directory configured by the `echo.content.graph.root` system property (`<root>/<module>/<version>/.echo/content-graph/content-graph.json`) and produces an `echo.content_graph.evidence.v1` summary of module count, node count, edge count, feature count, export-plan count, Hytale blocker count, and diagnostics. This is optional evidence: a missing graph emits a warning but does not block native loading.
+
+Unified ECHO Native player runtime conformance is pack-neutral. Native Platform owns host services and evidence; modules own menus, HUDs, input, inventory, terminal, index, diagnostics, and gameplay action contracts. Ashfall-named evidence remains fixture coverage, not platform ownership.
 
 `echo-native-cli` writes the content graph evidence to `content-graph.json` alongside module, feature, service, and lifecycle plans when running QA graph reports.
 
@@ -87,6 +89,7 @@ Use `fixtures/ashfall/RELEASE_EVIDENCE_RUNBOOK.md` plus the `manual-evidence.tem
 - [docs/echo/native/MOD_AUTHOR_GUIDE.md](docs/echo/native/MOD_AUTHOR_GUIDE.md)
 - [docs/echo/native/NATIVE_ADDON_QUICKSTART.md](docs/echo/native/NATIVE_ADDON_QUICKSTART.md)
 - [docs/echo/native/RELEASE_CANDIDATE_CHECKLIST.md](docs/echo/native/RELEASE_CANDIDATE_CHECKLIST.md)
+- [docs/echo/native/UNIFIED_PLAYER_RUNTIME.md](docs/echo/native/UNIFIED_PLAYER_RUNTIME.md)
 - [PUBLIC_ALPHA_RELEASE_STATUS.md](PUBLIC_ALPHA_RELEASE_STATUS.md)
 
 ## Related Repos

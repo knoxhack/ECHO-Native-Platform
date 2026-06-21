@@ -22,12 +22,16 @@ public final class EchoNativeSharedApiClassLoaderGateMain {
         compile(parentClasses, List.of(
                 source(root, "parent-core", "com.echoplatform.echocore.api", "SharedProbe", "parent"),
                 source(root, "parent-terminal", "com.knoxhack.echoterminal.api", "SharedProbe", "parent"),
-                source(root, "parent-screencore", "com.knoxhack.echoscreencore.api", "SharedProbe", "parent")
+                source(root, "parent-screencore", "com.knoxhack.echoscreencore.api", "SharedProbe", "parent"),
+                source(root, "parent-slf4j", "org.slf4j", "SharedProbe", "parent"),
+                source(root, "parent-mojang-logging", "com.mojang.logging", "SharedProbe", "parent")
         ));
         compile(moduleClasses, List.of(
                 source(root, "module-core", "com.echoplatform.echocore.api", "SharedProbe", "module"),
                 source(root, "module-terminal", "com.knoxhack.echoterminal.api", "SharedProbe", "module"),
                 source(root, "module-screencore", "com.knoxhack.echoscreencore.api", "SharedProbe", "module"),
+                source(root, "module-slf4j", "org.slf4j", "SharedProbe", "module"),
+                source(root, "module-mojang-logging", "com.mojang.logging", "SharedProbe", "module"),
                 source(root, "module-fallback", "com.knoxhack.echoscreencore.api", "FallbackProbe", "module"),
                 source(root, "module-terminal-impl", "com.knoxhack.echoterminal.client", "ImplProbe", "module")
         ));
@@ -39,6 +43,8 @@ public final class EchoNativeSharedApiClassLoaderGateMain {
             requireParent(module, "com.echoplatform.echocore.api.SharedProbe");
             requireParent(module, "com.knoxhack.echoterminal.api.SharedProbe");
             requireParent(module, "com.knoxhack.echoscreencore.api.SharedProbe");
+            requireParent(module, "org.slf4j.SharedProbe");
+            requireParent(module, "com.mojang.logging.SharedProbe");
             requireModule(module, "com.knoxhack.echoscreencore.api.FallbackProbe");
             requireModule(module, "com.knoxhack.echoterminal.client.ImplProbe");
         }
